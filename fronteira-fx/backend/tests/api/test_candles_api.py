@@ -167,8 +167,9 @@ def test_get_pregao_sessions_lists_sources_in_order_with_reference_flag(app, cli
     assert by_id["bcp"].reference is True
     assert all(not s.reference for sid, s in by_id.items() if sid != "bcp")
     assert all(s.data_mode == "real" for s in by_id.values())
-    # fundação: nenhum horário carregado, toda fonte fica "sem horário" (B6 ajusta para as casas de market_hours.json)
-    assert all(s.status == "unknown" for s in by_id.values())
+    # B6: chaco e ueno têm horário em market_hours.json (ueno é digital 24h, sempre aberta)
+    assert by_id["chaco"].status in {"open", "closed", "pre"} and by_id["chaco"].tz == "America/Asuncion"
+    assert by_id["ueno"].status == "open"
     # `wu` não existe em market_hours.json: sem horário, nome vem de `Source.name`, campos de horário nulos
     wu = by_id["wu"]
     assert wu.status == "unknown" and wu.name == "Wu"
