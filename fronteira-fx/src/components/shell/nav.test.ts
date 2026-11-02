@@ -7,6 +7,13 @@ describe("NAV", () => {
     expect(hrefs).toContain("/conhecimento");
     expect(hrefs).toContain("/memoria");
   });
+
+  it("Pregão vem logo depois de Mercados e fica na barra inferior do celular", () => {
+    const i = NAV.findIndex((n) => n.href === "/pregao");
+    expect(NAV[i - 1]?.href).toBe("/mercados");
+    expect(NAV[i]).toMatchObject({ label: "Pregão", short: "Pregão" });
+    expect(splitNav(NAV).primary.map((n) => n.href)).toContain("/pregao");
+  });
 });
 
 describe("splitNav (barra inferior + menu Mais)", () => {

@@ -24,6 +24,17 @@
   --chart-buy: #2563eb;
   --chart-sell: #545b6d;
   --chart-grid: #e6eaf3;
+  /* Pregão (§0.13): séries do gráfico e mapa de calor de spread (um só matiz, índigo, claro → escuro) */
+  --chart-volume: #c7d2fe;
+  --chart-sma: #2563eb;
+  --chart-ema: #7c3aed;
+  --chart-band: #64748b;
+  --chart-watermark: rgba(11, 16, 32, 0.08);
+  --heat-1: #eef2ff;
+  --heat-2: #dbe4ff;
+  --heat-3: #c3d0fb;
+  --heat-4: #a7b8f5;
+  --heat-5: #879bea;
 }
 
 .dark {
@@ -45,6 +56,16 @@
   --chart-buy: #60a5fa;
   --chart-sell: #a9b0c0;
   --chart-grid: #1b2440;
+  --chart-volume: #334155;
+  --chart-sma: #60a5fa;
+  --chart-ema: #c084fc;
+  --chart-band: #94a3b8;
+  --chart-watermark: rgba(230, 234, 243, 0.08);
+  --heat-1: #182238;
+  --heat-2: #1f2d4d;
+  --heat-3: #263a66;
+  --heat-4: #2f4a82;
+  --heat-5: #3a5ca0;
 }
 
 @theme inline {
@@ -100,6 +121,31 @@
   /* DS11: esqueleto de tabela com atraso escalonado (--i por linha) */
   .stagger > * {
     animation-delay: calc(var(--i, 0) * 90ms);
+  }
+}
+
+/* Pregão: fita rolante (pausa em hover/foco; vira lista estática com motion-reduce) e destaque de linha nova */
+@keyframes pregao-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.pregao-marquee {
+  animation: pregao-marquee var(--tape-duration, 40s) linear infinite;
+}
+.pregao-marquee:hover,
+.pregao-marquee:focus-within {
+  animation-play-state: paused;
+}
+@keyframes pregao-flash {
+  from {
+    background-color: var(--surface-2);
+  }
+  to {
+    background-color: transparent;
   }
 }
 

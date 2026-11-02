@@ -211,6 +211,25 @@ def test_demo_mode_uses_generators_not_the_database():
         assert all(s["data_mode"] == "demo" for s in sessions.json())
 
 
+def test_default_demo_app_serves_the_three_pregao_routes_without_mount():
+    """Integração: sem `_mount`, o app padrão em modo demo já responde às três rotas do pregão."""
+    app = create_app(make_settings(data_mode="demo"))
+    app.state.collector = Collector(app.state.session_factory, app.state.settings, adapters={})
+    calls = (
+        ("/v1/candles", {"key": KEY, "tf": "15m", "limit": 3}),
+        ("/v1/pregao/stats", {"keys": KEY}),
+        ("/v1/pregao/sessions", {}),
+    )
+    with TestClient(app) as c:
+        for path, params in calls:
+            res = c.get(path, params=params)
+            assert res.status_code == 200, f"{path}: {res.status_code} {res.text}"
+            body = res.json()
+            rows = body["candles"] if path == "/v1/candles" else body
+            assert rows, path
+            assert all(row["data_mode"] == "demo" for row in rows), path
+
+
 # ---- registro -----------------------------------------------------------------------------------
 
 

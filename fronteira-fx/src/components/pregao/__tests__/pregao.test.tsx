@@ -1,0 +1,68 @@
+import { readFileSync } from "node:fs";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { Pregao } from "@/components/pregao/pregao";
+import { SettingsProvider } from "@/lib/settings";
+
+const SRC = new URL("../pregao.tsx", import.meta.url).pathname;
+
+/** Render do servidor: `useNow()` vale 0 e o modo resolvido é demo (backend ainda desconhecido). */
+function serverHtml(): string {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return renderToStaticMarkup(
+    <QueryClientProvider client={qc}>
+      <SettingsProvider>
+        <Pregao />
+      </SettingsProvider>
+    </QueryClientProvider>,
+  );
+}
+
+describe("Pregao (container da integração, §24.4)", () => {
+  const html = serverHtml();
+
+  it("raiz com o modo, um só h2 «Pregão» e o botão de atalhos", () => {
+    expect(html).toContain('data-testid="pregao-root"');
+    expect(html).toContain('data-mode="demo"');
+    expect(html.match(/<h2[ >]/g)).toHaveLength(1);
+    expect(html).toMatch(/<h2[^>]*>Pregão<\/h2>/);
+    expect(html).toContain("Cotações publicadas pelas casas de câmbio. Referências do BCP só para comparar.");
+    expect(html).toMatch(/Atalhos[\s\S]*?<kbd[^>]*>\?<\/kbd>/);
+  });
+
+  it("modo demo: nota de demonstração no slot do banner", () => {
+    expect(html).toContain('data-testid="pregao-banner"');
+    expect(html).toContain('data-testid="pregao-demo-note"');
+    expect(html).toContain("Demonstração: velas, livro e atualizações são gerados localmente e não refletem o mercado.");
+  });
+
+  it("monta o layout com todos os blocos, em carregando enquanto o relógio não começou", () => {
+    expect(html).toContain('data-testid="pregao-layout"');
+    for (const id of ["pregao-ticker", "pregao-stats", "pregao-chart", "pregao-book", "pregao-heatmap", "pregao-prints", "pregao-watchlist"]) {
+      expect(html).toMatch(new RegExp(`data-testid="${id}"[^>]*data-state="loading"|data-state="loading"[^>]*data-testid="${id}"`));
+    }
+    for (const id of ["pregao-timeframe", "pregao-pair", "pregao-indicators", "pregao-clock", "pregao-market-status", "pregao-cross", "pregao-tabs"]) {
+      expect(html).toContain(`data-testid="${id}"`);
+    }
+  });
+
+  it("controles começam nas preferências padrão (1 h, par USD/PYG)", () => {
+    expect(html).toMatch(/data-tf="1h"[^>]*aria-checked="true"|aria-checked="true"[^>]*data-tf="1h"/);
+    expect(html).toMatch(/data-pair="USD\/PYG"[^>]*aria-checked="true"|aria-checked="true"[^>]*data-pair="USD\/PYG"/);
+  });
+
+  it("mapa de spread tem seção e título próprios dentro do livro", () => {
+    expect(html).toMatch(/<section aria-labelledby="pregao-h-mapa"[^>]*>\s*<h3 id="pregao-h-mapa"[^>]*>Mapa de spread<\/h3>/);
+  });
+
+  it("regras de fonte: sem Date.now no render, sem efeitos, sem hex, sem NEXT_PUBLIC_", () => {
+    const src = readFileSync(SRC, "utf8");
+    expect(src.startsWith('"use client";')).toBe(true);
+    expect(src).not.toMatch(/Date\.now\(|new Date\(\)/);
+    expect(src).not.toMatch(/useEffect|useLayoutEffect/);
+    expect(src).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(src).not.toContain("NEXT_PUBLIC_");
+    expect(src).toMatch(/dynamic\(\s*\(\) => import\("@\/components\/pregao\/candle-chart"\)/);
+  });
+});
