@@ -31,6 +31,11 @@ describe("formatRate", () => {
   it("PYG integer rates have no decimals", () => {
     expect(formatRate("7350", "PYG")).toBe("7.350");
   });
+  it("PYG rates with decimals are rounded to the unit for display", () => {
+    expect(formatRate("7335.5", "PYG")).toBe("7.336");
+    expect(formatRate("5944.76", "PYG")).toBe("5.945");
+    expect(formatRate("1081.5018", "PYG")).toBe("1.082");
+  });
   it("BRL rates use 4 decimals", () => {
     expect(formatRate("5.4187", "BRL")).toBe("5,4187");
   });

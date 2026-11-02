@@ -91,8 +91,10 @@ export async function fetchStats(mode: Mode, keys: string[], opts: FetchOpts = {
     try {
       out.push(...(await getJson("/v1/pregao/stats", qs({ keys: batch.join(",") }), SessionStatsListSchema, opts.signal)));
     } catch (e) {
-      if (isNotFound(e)) return [];
-      throw e;
+      if (!isNotFound(e)) throw e;
+      // 404 no primeiro lote: a rota não existe neste backend, não adianta insistir.
+      if (out.length === 0) return [];
+      // 404 num lote posterior: mantém os lotes já obtidos.
     }
   }
   return out;

@@ -186,6 +186,17 @@ describe("fetchStats", () => {
     fetchMock.mockResolvedValueOnce(response(404));
     expect(await fetchStats("real", ["a"])).toEqual([]);
   });
+  it("keeps the batches already fetched when a later batch returns 404", async () => {
+    const keys = Array.from({ length: 25 }, (_, i) => `k${i}`);
+    fetchMock.mockImplementationOnce(async (url) => {
+      const ks = new URL(String(url), "http://local").searchParams.get("keys")!.split(",");
+      return response(200, ks.map((k) => ({ ...STATS, key: k })));
+    });
+    fetchMock.mockResolvedValueOnce(response(404));
+    const out = await fetchStats("real", keys);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(out.map((s) => s.key)).toEqual(keys.slice(0, 20));
+  });
   it("splits more than STATS_BATCH keys into sequential batches and concatenates in order", async () => {
     expect(STATS_BATCH).toBe(20);
     const keys = Array.from({ length: 45 }, (_, i) => `k${i}`);

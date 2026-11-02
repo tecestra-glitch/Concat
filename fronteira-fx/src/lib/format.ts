@@ -40,11 +40,11 @@ export function formatMoney(
   return `${sign}${CURRENCY_SYMBOL[currency]} ${body}`;
 }
 
-/** Exchange rate: PYG rates have no decimals beyond the quoted precision; BRL/USD rates show 4. */
+/** Exchange rate: PYG is shown without decimals (rounded only here, for display); BRL/USD rates show 4. */
 export function formatRate(value: string | number | null | undefined, quote: "BRL" | "USD" | "PYG"): string {
   const n = toNumber(value);
   if (n === null) return "—";
-  const digits = quote === "PYG" ? (Number.isInteger(n) ? 0 : 2) : 4;
+  const digits = quote === "PYG" ? 0 : 4;
   return new Intl.NumberFormat(LOCALE, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(n);
 }
 
