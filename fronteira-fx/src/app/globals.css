@@ -133,12 +133,16 @@
     transform: translateX(-50%);
   }
 }
-.pregao-marquee {
-  animation: pregao-marquee var(--tape-duration, 40s) linear infinite;
-}
-.pregao-marquee:hover,
-.pregao-marquee:focus-within {
-  animation-play-state: paused;
+/* Em `@layer components` (A11Y-1): CSS sem camada venceria `motion-reduce:animate-none`, que fica em
+   `@layer utilities`, e a fita seguiria animada (parada num translate qualquer) com movimento reduzido. */
+@layer components {
+  .pregao-marquee {
+    animation: pregao-marquee var(--tape-duration, 40s) linear infinite;
+  }
+  .pregao-marquee:hover,
+  .pregao-marquee:focus-within {
+    animation-play-state: paused;
+  }
 }
 @keyframes pregao-flash {
   from {

@@ -69,6 +69,27 @@ describe("chaves de query", () => {
   });
 });
 
+describe("stats: chave estável quando só a ordem das chaves muda (QA-5)", () => {
+  const A = "alberdi:CDE:USD/PYG:cash";
+  const B = "bonanza:ASU:USD/PYG:cash";
+
+  it("a queryKey não depende da ordem (a lista vem ordenada por captured_at e muda a cada cotação)", () => {
+    expect(statsQueryOptions("real", [B, KEY, A]).queryKey).toEqual(statsQueryOptions("real", [A, B, KEY]).queryKey);
+  });
+
+  it("o pedido sai com as chaves na mesma ordem da queryKey", async () => {
+    const fetchMock = vi.fn<(input: string) => Promise<Response>>().mockResolvedValue(response([]));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await new QueryClient().fetchQuery(statsQueryOptions("real", [B, KEY, A]));
+      const url = new URL(String(fetchMock.mock.calls[0][0]), "http://localhost");
+      expect(url.searchParams.get("keys")).toBe([A, B, KEY].join(","));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
 describe("habilitação", () => {
   it("candles fica desabilitada sem chave ou com chave vazia", () => {
     expect(candlesQueryOptions("demo", null, "1h").enabled).toBe(false);

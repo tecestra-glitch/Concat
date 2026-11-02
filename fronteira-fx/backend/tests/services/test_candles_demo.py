@@ -117,6 +117,14 @@ def test_demo_candles_start_is_inclusive_and_bounds_the_walk():
     ]
 
 
+def test_demo_candles_end_is_exclusive_on_a_bucket_boundary():
+    """QA-6: `to` = 12:00Z exato é exclusivo, então a última vela é 11:00 (como no caminho real)."""
+    candles = demo_candles("ueno:digital:USD/PYG:transfer", "1h", None, datetime(2026, 11, 2, 12, 0, tzinfo=UTC), 3)
+    assert [c.t.hour for c in candles] == [9, 10, 11]
+    inside = demo_candles("ueno:digital:USD/PYG:transfer", "1h", None, datetime(2026, 11, 2, 12, 0, 1, tzinfo=UTC), 3)
+    assert [c.t.hour for c in inside] == [10, 11, 12]
+
+
 def test_demo_candles_accept_naive_start_as_utc():
     aware = demo_candles(KEY, "1h", datetime(2026, 11, 2, 10, 0, tzinfo=UTC), NOW, 300)
     naive = demo_candles(KEY, "1h", datetime(2026, 11, 2, 10, 0), NOW, 300)

@@ -13,7 +13,6 @@ import {
   type ITextWatermarkPluginApi,
   type Time,
 } from "lightweight-charts";
-import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Currency } from "@/lib/api/types";
@@ -28,10 +27,13 @@ import {
   buildLineOptions,
   buildVolumeOptions,
   chartAriaLabel,
+  chartFitKey,
   overlayLineData,
   readChartTokens,
   toCandlestickData,
+  toChartTime,
   toVolumeData,
+  withChartTime,
   type ChartTokens,
 } from "./candle-chart-options";
 
@@ -69,6 +71,9 @@ interface Handles {
   bbLower: ISeriesApi<"Line">;
 }
 
+const WATERMARK_TEXT = "DEMONSTRAÇÃO";
+const WATERMARK_SIZE = 28;
+
 /** Valor derivado (SMA, EMA, Bollinger) em PYG é arredondado antes da exibição (§0.10). */
 function formatDerived(v: number | null | undefined, quote: Currency): string {
   if (v === null || v === undefined) return "—";
@@ -91,7 +96,6 @@ export function CandleChart({
   height,
   className,
 }: CandleChartProps): React.ReactElement {
-  const { resolvedTheme } = useTheme();
   const containerRef = React.useRef<HTMLDivElement>(null);
   const handlesRef = React.useRef<Handles | null>(null);
   const priceLineRef = React.useRef<IPriceLine | null>(null);
@@ -99,6 +103,9 @@ export function CandleChart({
   const tokensRef = React.useRef<ChartTokens>(FALLBACK_TOKENS);
   const lastFitRef = React.useRef<string | null>(null);
   const [hoverTime, setHoverTime] = React.useState<number | null>(null);
+  // Intervalo dos dados na tela: durante a troca de intervalo o placeholder ainda é a série anterior
+  // (keepPreviousData), e eixo, cursor e tempo dos dados seguem a série, não o botão (QA-2/QA-3).
+  const dataTf = series?.tf ?? timeframe;
 
   // 1. Criação única do gráfico e das séries; o cleanup remove tudo.
   React.useEffect(() => {
@@ -122,38 +129,51 @@ export function CandleChart({
     };
   }, []);
 
-  // 2. Tema, casa de cotação e intervalo: aplica opções sem recriar nada.
+  // 2. Tema, casa de cotação e intervalo: aplica opções sem recriar nada. O next-themes troca a classe do
+  //    <html> num efeito do próprio provider, que roda DEPOIS dos efeitos dos filhos; ler os tokens quando
+  //    `resolvedTheme` muda pegaria os do tema anterior (QA-1). O gatilho do tema é a própria classe
+  //    (MutationObserver), como em charts/price-chart.tsx; linha de referência e marca d'água vão junto.
   React.useEffect(() => {
-    const h = handlesRef.current;
-    if (!h) return;
-    const tokens = readChartTokens(document.documentElement);
-    tokensRef.current = tokens;
-    h.chart.applyOptions(buildChartOptions(tokens, { tf: timeframe, quote }));
-    h.candles.applyOptions(buildCandleOptions(tokens, quote));
-    h.volume.applyOptions(buildVolumeOptions(tokens));
-    h.sma.applyOptions({ ...buildLineOptions(tokens, "sma"), visible: h.sma.options().visible });
-    h.ema.applyOptions({ ...buildLineOptions(tokens, "ema"), visible: h.ema.options().visible });
-    h.bbUpper.applyOptions({ ...buildLineOptions(tokens, "band"), visible: h.bbUpper.options().visible });
-    h.bbLower.applyOptions({ ...buildLineOptions(tokens, "band"), visible: h.bbLower.options().visible });
-  }, [resolvedTheme, quote, timeframe]);
+    const apply = () => {
+      const h = handlesRef.current;
+      if (!h) return;
+      const tokens = readChartTokens(document.documentElement);
+      tokensRef.current = tokens;
+      h.chart.applyOptions(buildChartOptions(tokens, { tf: dataTf, quote }));
+      h.candles.applyOptions(buildCandleOptions(tokens, quote));
+      h.volume.applyOptions(buildVolumeOptions(tokens));
+      h.sma.applyOptions({ ...buildLineOptions(tokens, "sma"), visible: h.sma.options().visible });
+      h.ema.applyOptions({ ...buildLineOptions(tokens, "ema"), visible: h.ema.options().visible });
+      h.bbUpper.applyOptions({ ...buildLineOptions(tokens, "band"), visible: h.bbUpper.options().visible });
+      h.bbLower.applyOptions({ ...buildLineOptions(tokens, "band"), visible: h.bbLower.options().visible });
+      priceLineRef.current?.applyOptions({ color: tokens.muted });
+      watermarkRef.current?.applyOptions({ lines: [{ text: WATERMARK_TEXT, color: tokens.watermark, fontSize: WATERMARK_SIZE }] });
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, [quote, dataTf]);
 
-  // 3. Dados: setData nas séries; fitContent só quando muda a série ou o intervalo.
+  // 3. Dados: setData nas séries; fitContent só quando chega outra série (chave e intervalo da própria
+  //    série: o placeholder do intervalo anterior não consome o enquadramento da série nova, QA-3).
   React.useEffect(() => {
     const h = handlesRef.current;
     if (!h) return;
     const candles = series?.candles ?? [];
-    h.candles.setData(toCandlestickData(candles));
-    h.volume.setData(toVolumeData(candles));
-    h.sma.setData(overlayLineData(candles, overlays?.sma));
-    h.ema.setData(overlayLineData(candles, overlays?.ema));
-    h.bbUpper.setData(overlayLineData(candles, overlays?.bbUpper));
-    h.bbLower.setData(overlayLineData(candles, overlays?.bbLower));
-    const fitKey = `${series?.key}|${timeframe}`;
-    if (series && candles.length > 0 && fitKey !== lastFitRef.current) {
+    const tf = series?.tf ?? "1d";
+    h.candles.setData(withChartTime(toCandlestickData(candles), tf));
+    h.volume.setData(withChartTime(toVolumeData(candles), tf));
+    h.sma.setData(withChartTime(overlayLineData(candles, overlays?.sma), tf));
+    h.ema.setData(withChartTime(overlayLineData(candles, overlays?.ema), tf));
+    h.bbUpper.setData(withChartTime(overlayLineData(candles, overlays?.bbUpper), tf));
+    h.bbLower.setData(withChartTime(overlayLineData(candles, overlays?.bbLower), tf));
+    const fitKey = chartFitKey(series);
+    if (fitKey !== null && fitKey !== lastFitRef.current) {
       h.chart.timeScale().fitContent();
       lastFitRef.current = fitKey;
     }
-  }, [series, overlays, timeframe]);
+  }, [series, overlays]);
 
   // 4. Visibilidade dos indicadores e do histograma.
   React.useEffect(() => {
@@ -196,7 +216,7 @@ export function CandleChart({
       watermarkRef.current = createTextWatermark(h.chart.panes()[0], {
         horzAlign: "center",
         vertAlign: "center",
-        lines: [{ text: "DEMONSTRAÇÃO", color: tokensRef.current.watermark, fontSize: 28 }],
+        lines: [{ text: WATERMARK_TEXT, color: tokensRef.current.watermark, fontSize: WATERMARK_SIZE }],
       });
     }
   }, [demo]);
@@ -210,9 +230,11 @@ export function CandleChart({
         ? "empty"
         : "ready";
 
+  // O cursor devolve o tempo do gráfico (`toChartTime`), então o índice usa o mesmo relógio.
   const indexByTime = React.useMemo(() => {
     const m = new Map<number, number>();
-    (series?.candles ?? []).forEach((c, i) => m.set(Math.floor(Date.parse(c.t) / 1000), i));
+    const tf = series?.tf ?? "1d";
+    (series?.candles ?? []).forEach((c, i) => m.set(toChartTime(Math.floor(Date.parse(c.t) / 1000), tf), i));
     return m;
   }, [series]);
 
@@ -225,7 +247,7 @@ export function CandleChart({
   const label = chartAriaLabel({
     pair: pairOf(series?.key ?? ""),
     house: house ?? "",
-    tf: timeframe,
+    tf: dataTf,
     count: candles.length,
     last: lastCandle ? lastCandle.c : null,
     quote,

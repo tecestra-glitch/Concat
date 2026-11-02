@@ -186,8 +186,13 @@ def test_default_window_aligns_start_to_bucket_and_keeps_end():
     start = datetime(2026, 11, 2, 12, 7, tzinfo=UTC)
     assert default_window("15m", start, T1300, 10, NOW) == (T1200, T1300)
     assert default_window("15m", datetime(2026, 11, 2, 12, 7), datetime(2026, 11, 2, 13, 0), 10, NOW) == (T1200, T1300)
-    # só `to`: `from` = bucket_start(to) − (limit − 1)·grid
-    assert default_window("15m", None, T1300, 4, NOW) == (T1215, T1300)
+    # só `to` (exclusivo): o último bucket é o que contém o instante logo antes de `to` (QA-6), então numa
+    # fronteira `from` = (to − grid) − (limit − 1)·grid e a janela comporta `limit` buckets.
+    assert default_window("15m", None, T1300, 4, NOW) == (T1200, T1300)
+    assert default_window("15m", None, datetime(2026, 11, 2, 13, 7, tzinfo=UTC), 4, NOW) == (
+        T1215,
+        datetime(2026, 11, 2, 13, 7, tzinfo=UTC),
+    )
 
 
 # ---- candles_series (SQLite em memória) ---------------------------------------------------------

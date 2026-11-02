@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from fronteira_fx.schemas_candles import TF_SECONDS, Candle, HouseSession, SessionStats, Timeframe
-from fronteira_fx.services.candles import bucket_start, ensure_utc, fmt, pair_of
+from fronteira_fx.services.candles import bucket_start, ensure_utc, fmt, last_bucket_start, pair_of
 from fronteira_fx.services.market_hours import house_sessions, load_market_hours
 from fronteira_fx.services.session_stats import day_start_asuncion
 
@@ -161,14 +161,15 @@ def demo_candle(key: str, tf: Timeframe, i: int) -> Candle:
 
 
 def demo_candles(key: str, tf: Timeframe, start: datetime | None, end: datetime | None, limit: int) -> list[Candle]:
-    """Até `limit` velas ascendentes terminando no bucket de `end` (ou do relógio, se `end` é None).
+    """Até `limit` velas ascendentes terminando no último bucket antes de `end` (ou no do relógio, se `end` é None).
 
-    Com `start`, a caminhada para em `bucket_start(start)`. Em casas presenciais os buckets de domingo UTC
-    não são emitidos nem contados; em `digital` são emitidos normalmente.
+    `end` é exclusivo, como no caminho real: numa fronteira (`end` = 12:00Z em `1h`) a última vela é 11:00
+    (`last_bucket_start`, QA-6). Com `start`, a caminhada para em `bucket_start(start)`. Em casas presenciais os
+    buckets de domingo UTC não são emitidos nem contados; em `digital` são emitidos normalmente.
     """
     grid_s = TF_SECONDS[tf]
-    until = ensure_utc(end) if end is not None else datetime.now(UTC)
-    i = math.floor(until.timestamp()) // grid_s
+    last = bucket_start(datetime.now(UTC), grid_s) if end is None else last_bucket_start(end, grid_s)
+    i = math.floor(last.timestamp()) // grid_s
     floor_i = None if start is None else math.floor(bucket_start(ensure_utc(start), grid_s).timestamp()) // grid_s
     physical = _is_physical(key)
     out: list[Candle] = []

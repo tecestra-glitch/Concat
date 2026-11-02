@@ -56,6 +56,9 @@ test.describe("Pregão", () => {
   test("atalhos de teclado", async ({ page }) => {
     await expect(page.getByTestId("pregao-chart")).toHaveAttribute("data-state", "ready");
     await page.locator("body").click();
+    // 1h é o padrão (DEFAULT_PREFS): sai dele com "1" para que "2" prove o próprio atalho.
+    await page.keyboard.press("1");
+    await expect(page.getByTestId("pregao-timeframe").locator('[data-tf="15m"]')).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("2");
     await expect(page.getByTestId("pregao-timeframe").locator('[data-tf="1h"]')).toHaveAttribute("aria-checked", "true");
     await page.keyboard.press("3");
@@ -82,13 +85,51 @@ test.describe("Pregão", () => {
   test("troca de intervalo não recria o gráfico", async ({ page }) => {
     const chart = page.getByTestId("pregao-chart");
     await expect(chart).toHaveAttribute("data-state", "ready");
-    await expect(chart.locator("canvas").first()).toBeVisible();
-    const before = await chart.locator("canvas").count();
-    expect(before).toBeGreaterThan(0);
+    const canvas = chart.locator("canvas").first();
+    await expect(canvas).toBeVisible();
+    // Marca o canvas atual: um gráfico recriado traz canvas novos (mesma contagem), sem a marca.
+    await canvas.evaluate((el) => {
+      (el as HTMLElement).dataset.qa = "original";
+    });
     await page.getByTestId("pregao-timeframe").locator('[data-tf="1d"]').click();
     await expect(chart).toHaveAttribute("data-tf", "1d");
     await expect(chart).toHaveAttribute("data-state", "ready");
-    expect(await chart.locator("canvas").count()).toBe(before);
+    await expect(chart.locator('canvas[data-qa="original"]')).toHaveCount(1);
+    expect(await chart.locator('canvas[data-qa="original"]').evaluate((el) => el.isConnected)).toBe(true);
+  });
+
+  test("troca de tema repinta o gráfico com os tokens do tema novo", async ({ page }) => {
+    const chart = page.getByTestId("pregao-chart");
+    await expect(chart).toHaveAttribute("data-state", "ready");
+    await expect(chart.locator("canvas").first()).toBeVisible();
+    // Fundo do painel principal (maior canvas, cor majoritária perto do canto) contra `--surface` do <html>.
+    const paintedSurface = () =>
+      page.evaluate(() => {
+        const toRgb = (color: string) => {
+          const ctx = document.createElement("canvas").getContext("2d")!;
+          ctx.fillStyle = color;
+          ctx.fillRect(0, 0, 1, 1);
+          const d = ctx.getImageData(0, 0, 1, 1).data;
+          return `${d[0]},${d[1]},${d[2]}`;
+        };
+        const canvases = [...document.querySelectorAll<HTMLCanvasElement>('[data-testid="pregao-chart"] canvas')];
+        const main = canvases.sort((a, b) => b.width * b.height - a.width * a.height)[0];
+        const ctx = main.getContext("2d")!;
+        const votes = new Map<string, number>();
+        for (const [fx, fy] of [[0.05, 0.05], [0.1, 0.07], [0.07, 0.12], [0.03, 0.2], [0.12, 0.03]]) {
+          const d = ctx.getImageData(Math.floor(main.width * fx), Math.floor(main.height * fy), 1, 1).data;
+          const k = `${d[0]},${d[1]},${d[2]}`;
+          votes.set(k, (votes.get(k) ?? 0) + 1);
+        }
+        const bg = [...votes.entries()].sort((a, b) => b[1] - a[1])[0][0];
+        const surface = toRgb(getComputedStyle(document.documentElement).getPropertyValue("--surface").trim());
+        return bg === surface ? "igual" : `fundo ${bg} ≠ --surface ${surface}`;
+      });
+    await expect.poll(paintedSurface).toBe("igual");
+    const wasDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+    await page.getByRole("button", { name: /Ativar tema (claro|escuro)/ }).first().click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(!wasDark);
+    await expect.poll(paintedSurface).toBe("igual");
   });
 
   test("seleção na lista muda a série do gráfico", async ({ page }) => {
@@ -102,5 +143,35 @@ test.describe("Pregão", () => {
     await row.click();
     if (mobile) await page.getByRole("tab", { name: "Gráfico" }).click();
     await expect(page.getByTestId("pregao-chart")).toHaveAttribute("data-key", key ?? "");
+  });
+});
+
+/** §0.13: com movimento reduzido a fita vira lista estática, sem deslocamento nem item cortado (A11Y-1). */
+test.describe("Pregão com movimento reduzido", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("fita parada, sem translate, com todos os itens dentro da caixa", async ({ page }) => {
+    await page.goto("/pregao");
+    const tape = page.getByTestId("pregao-ticker");
+    await expect(tape).toHaveAttribute("data-state", "ready");
+    const list = tape.locator("ul");
+    const motion = await list.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { name: cs.animationName, transform: cs.transform };
+    });
+    expect(motion.name).toBe("none");
+    expect(motion.transform).toBe("none");
+    const box = await tape.boundingBox();
+    expect(box).not.toBeNull();
+    const items = tape.locator('[data-testid="pregao-ticker-item"]:not([data-dup])');
+    const count = await items.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      const b = await items.nth(i).boundingBox();
+      expect(b, `item ${i}`).not.toBeNull();
+      expect(b!.x, `item ${i} começa dentro da fita`).toBeGreaterThanOrEqual(box!.x - 0.5);
+      expect(b!.x + b!.width, `item ${i} termina dentro da fita`).toBeLessThanOrEqual(box!.x + box!.width + 0.5);
+    }
+    await expect(tape.locator('[data-testid="pregao-ticker-item"][data-dup="true"]').first()).toBeHidden();
   });
 });

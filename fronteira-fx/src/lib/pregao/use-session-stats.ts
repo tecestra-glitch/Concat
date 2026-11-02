@@ -7,11 +7,17 @@ import { fetchStats } from "./api";
 import type { SessionStats } from "./types";
 import { REFETCH_FAST_MS, pregaoKeys } from "./use-candles";
 
+/**
+ * As chaves vêm ordenadas por `captured_at` (`buildPregaoView`) e mudam de ordem a cada cotação; ordená-las
+ * aqui mantém a mesma consulta (e o cache) até o conjunto mudar (QA-5). `statsByKey` indexa por chave, então
+ * a ordem da resposta não importa.
+ */
 export function statsQueryOptions(mode: Mode, keys: readonly string[]) {
+  const sorted = [...keys].sort();
   return queryOptions<SessionStats[], ApiError>({
-    queryKey: pregaoKeys.stats(mode, keys),
-    queryFn: ({ signal }) => fetchStats(mode, [...keys], { signal, now: new Date() }),
-    enabled: keys.length > 0,
+    queryKey: pregaoKeys.stats(mode, sorted),
+    queryFn: ({ signal }) => fetchStats(mode, sorted, { signal, now: new Date() }),
+    enabled: sorted.length > 0,
     staleTime: REFETCH_FAST_MS,
     refetchInterval: REFETCH_FAST_MS,
     refetchOnWindowFocus: false,

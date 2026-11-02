@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { LineStyle } from "lightweight-charts";
+import { LineStyle, TickMarkType, type Time } from "lightweight-charts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CandleChart } from "@/components/pregao/candle-chart";
@@ -12,7 +12,10 @@ import {
   buildLineOptions,
   buildVolumeOptions,
   chartAriaLabel,
+  chartFitKey,
   formatTick,
+  toChartTime,
+  withChartTime,
   overlayLineData,
   toCandlestickData,
   toLineData,
@@ -142,13 +145,62 @@ describe("chartAriaLabel", () => {
 describe("formatTick", () => {
   const ASU_1504 = Date.UTC(2026, 10, 2, 15, 4) / 1000;
 
-  it("formata a hora no fuso de Assunção sem deslocar o instante", () => {
-    expect(formatTick(ASU_1504, "time")).toBe("12:04");
+  it("formata o tempo do gráfico (já no relógio de exibição) em pt-BR", () => {
+    expect(formatTick(toChartTime(ASU_1504, "1h"), "time")).toBe("12:04");
+    expect(formatTick(toChartTime(ASU_1504, "1h"), "day")).toBe("02/11");
+    expect(formatTick(toChartTime(ASU_1504, "1h"), "year")).toBe("2026");
+  });
+});
+
+describe("relógio do gráfico: dia UTC no 1d, Assunção nos intradiários (QA-2)", () => {
+  const sec = (iso: string) => Date.parse(iso) / 1000;
+  type TickFn = (time: Time, type: TickMarkType, locale: string) => string;
+  type CursorFn = (time: Time) => string;
+  const tick = (tf: "1h" | "4h" | "1d", iso: string, type: TickMarkType) =>
+    (buildChartOptions(FALLBACK_TOKENS, { tf, quote: "PYG" }).timeScale!.tickMarkFormatter as TickFn)(toChartTime(sec(iso), tf), type, "pt-BR");
+  const cursor = (tf: "1h" | "4h" | "1d", iso: string) =>
+    (buildChartOptions(FALLBACK_TOKENS, { tf, quote: "PYG" }).localization!.timeFormatter as CursorFn)(toChartTime(sec(iso), tf));
+
+  it("1d: o bucket é o dia UTC, então o tempo não é deslocado", () => {
+    expect(toChartTime(sec("2026-11-02T00:00:00Z"), "1d")).toBe(sec("2026-11-02T00:00:00Z"));
   });
 
-  it("formata dia/mês e ano em pt-BR", () => {
-    expect(formatTick(ASU_1504, "day")).toBe("02/11");
-    expect(formatTick(ASU_1504, "year")).toBe("2026");
+  it("intradiário: desloca pelo fuso de Assunção (UTC−3), para as marcas de dia caírem na meia-noite local", () => {
+    expect(toChartTime(sec("2026-11-02T12:00:00Z"), "4h")).toBe(sec("2026-11-02T09:00:00Z"));
+    expect(toChartTime(sec("2026-11-02T03:00:00Z"), "1h")).toBe(sec("2026-11-02T00:00:00Z"));
+  });
+
+  it("1d: a vela de 02/11 (00:00Z) aparece como 02/11 no eixo e no cursor, não 01/11 nem 21:00", () => {
+    expect(tick("1d", "2026-11-02T00:00:00Z", TickMarkType.DayOfMonth)).toBe("02/11");
+    expect(cursor("1d", "2026-11-02T00:00:00Z")).toBe("02/11/2026");
+  });
+
+  it("intradiário: o cursor traz data e hora locais", () => {
+    expect(cursor("4h", "2026-11-02T12:00:00Z")).toBe("02/11 09:00");
+    expect(cursor("1h", "2026-11-02T02:00:00Z")).toBe("01/11 23:00");
+  });
+
+  it("intradiário: a marca de troca de dia é a meia-noite de Assunção (03:00Z), com a data nova", () => {
+    expect(tick("1h", "2026-11-02T03:00:00Z", TickMarkType.DayOfMonth)).toBe("02/11");
+    expect(tick("1h", "2026-11-02T15:04:00Z", TickMarkType.Time)).toBe("12:04");
+  });
+
+  it("withChartTime aplica o mesmo deslocamento às linhas de dados", () => {
+    const rows = toCandlestickData([C1]);
+    expect(withChartTime(rows, "1d")).toEqual(rows);
+    expect(withChartTime(rows, "15m")[0].time).toBe(T1 - 3 * 3600);
+  });
+});
+
+describe("chartFitKey (enquadra só quando chega a série do intervalo pedido, QA-3)", () => {
+  it("usa a chave e o intervalo da própria série, não o intervalo pedido", () => {
+    expect(chartFitKey(SERIES)).toBe("chaco:CDE:USD/PYG:cash|15m");
+    expect(chartFitKey({ ...SERIES, tf: "1d" })).toBe("chaco:CDE:USD/PYG:cash|1d");
+  });
+
+  it("sem série ou sem velas não há o que enquadrar", () => {
+    expect(chartFitKey(null)).toBeNull();
+    expect(chartFitKey({ ...SERIES, candles: [] })).toBeNull();
   });
 });
 

@@ -24,6 +24,7 @@ from fronteira_fx.schemas_candles import TF_SECONDS, Candle, CandleSeries, Timef
 
 __all__ = [
     "LIKE_ESCAPE",
+    "TAIL_BATCH",
     "aggregate_quotes",
     "bucket_start",
     "candles_series",
@@ -31,6 +32,7 @@ __all__ = [
     "ensure_utc",
     "fmt",
     "key_filter",
+    "last_bucket_start",
     "like_prefix",
     "mid_of",
     "pair_of",
@@ -48,6 +50,13 @@ def bucket_start(ts: datetime, grid_s: int) -> datetime:
     """Início do bucket de `grid_s` segundos que contém `ts`, alinhado ao epoch Unix (dia = 00:00Z)."""
     epoch = math.floor(ensure_utc(ts).timestamp())
     return datetime.fromtimestamp(epoch - epoch % grid_s, tz=UTC)
+
+
+def last_bucket_start(until: datetime, grid_s: int) -> datetime:
+    """Último bucket de uma janela com `to` exclusivo: o que contém o instante logo antes de `until`.
+
+    Numa fronteira (`until` = 12:00Z em `1h`) é o bucket 11:00, que é o último com cotações possíveis."""
+    return bucket_start(ensure_utc(until) - timedelta(microseconds=1), grid_s)
 
 
 def mid_of(buy: Decimal | None, sell: Decimal | None) -> Decimal | None:
@@ -153,15 +162,44 @@ def aggregate_quotes(quotes: Iterable[Quote], tf: Timeframe, mode: DataMode) -> 
 def default_window(
     tf: Timeframe, start: datetime | None, end: datetime | None, limit: int, now: datetime
 ) -> tuple[datetime, datetime]:
-    """Janela efetiva `(from_eff, to)` em UTC: `to = end or now`; `from = start or bucket_start(to) − (limit − 1)·grid`;
-    `from_eff = bucket_start(from)`. `from` é inclusivo e `to` exclusivo sobre `captured_at`."""
+    """Janela efetiva `(from_eff, to)` em UTC: `to = end or now`; `from = start or último − (limit − 1)·grid`;
+    `from_eff = bucket_start(from)`. `from` é inclusivo e `to` exclusivo sobre `captured_at`.
+
+    O último bucket é `bucket_start(now)` sem `end` (o bucket corrente) e `last_bucket_start(end)` com `end`
+    explícito: numa fronteira, `to` exclusivo não conta o bucket que começa nele, e a janela ainda comporta
+    `limit` buckets (QA-6)."""
     grid_s = TF_SECONDS[tf]
     until = ensure_utc(end) if end is not None else ensure_utc(now)
     if start is None:
-        since = bucket_start(until, grid_s) - timedelta(seconds=(limit - 1) * grid_s)
+        last = last_bucket_start(until, grid_s) if end is not None else bucket_start(until, grid_s)
+        since = last - timedelta(seconds=(limit - 1) * grid_s)
     else:
         since = ensure_utc(start)
     return bucket_start(since, grid_s), until
+
+
+TAIL_BATCH = 100
+"""Cotações materializadas por vez ao ler a série de trás para frente (`yield_per`)."""
+
+
+def _tail_quotes(quotes_desc: Iterable[Quote], grid_s: int, limit: int) -> list[Quote]:
+    """Consome cotações em ordem decrescente e para ao abrir o bucket `limit + 1` (SEC-2).
+
+    Devolve, em ordem ascendente, só as cotações dos últimos `limit` buckets com `mid`: o trabalho fica
+    limitado pelo que a resposta pode conter, não pelo tamanho da janela pedida."""
+    picked: list[Quote] = []
+    seen: set[datetime] = set()
+    for quote in quotes_desc:
+        if mid_of(quote.buy, quote.sell) is None:
+            continue
+        t = bucket_start(quote.captured_at, grid_s)
+        if t not in seen:
+            if len(seen) == limit:
+                break
+            seen.add(t)
+        picked.append(quote)
+    picked.reverse()
+    return picked
 
 
 def candles_series(
@@ -175,14 +213,23 @@ def candles_series(
 ) -> CandleSeries:
     """Consulta as cotações da chave (casamento por prefixo) no modo e agrega; corta pela cauda (`candles[-limit:]`).
 
+    Lê de trás para frente, em lotes de `TAIL_BATCH`, e para ao completar `limit` buckets: um `from` antigo
+    não faz o servidor varrer o histórico inteiro para devolver poucas velas.
     Não valida `start >= end`: o handler faz isso.
     """
+    if limit <= 0:
+        return CandleSeries(key=key, tf=tf, candles=[], data_mode=mode)
     from_eff, until = default_window(tf, start, end, limit, datetime.now(UTC))
     stmt = (
         select(Quote)
         .where(key_filter(key), Quote.data_mode == mode, Quote.captured_at >= from_eff, Quote.captured_at < until)
-        .order_by(Quote.captured_at.asc(), Quote.id.asc())
+        .order_by(Quote.captured_at.desc(), Quote.id.desc())
+        .execution_options(yield_per=TAIL_BATCH)
     )
-    candles = aggregate_quotes(session.scalars(stmt), tf, mode)
-    tail = candles[-limit:] if limit > 0 else []
-    return CandleSeries(key=key, tf=tf, candles=tail, data_mode=mode)
+    result = session.scalars(stmt)
+    try:
+        picked = _tail_quotes(result, TF_SECONDS[tf], limit)
+    finally:
+        result.close()
+    candles = aggregate_quotes(picked, tf, mode)
+    return CandleSeries(key=key, tf=tf, candles=candles[-limit:], data_mode=mode)

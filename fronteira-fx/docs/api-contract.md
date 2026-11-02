@@ -207,12 +207,13 @@ Exemplo de `HouseSession` para `GET /v1/pregao/sessions` (segunda-feira, 12:00Z,
 ### Velas — `GET /v1/candles`
 
 - Parâmetros: `key` (obrigatório, chave de série), `tf` (`15m`, `1h`, `4h` ou `1d`), `from` e `to` (ISO-8601; sem fuso, são UTC) e `limit` (padrão 300, mínimo 1, máximo 1000). No Python os parâmetros se chamam `start` e `end`, por `alias`.
-- `from` é inclusivo e `to` é exclusivo, sobre `captured_at`. Padrões: `to` = agora (UTC); `from` = `bucket_start(to) − (limit − 1) · grid_s`. Com `from` informado, a janela começa em `from_eff = bucket_start(from)`.
-- Corte pela cauda: se a janela tiver mais buckets que `limit`, a resposta traz as últimas `limit` velas, em sequência crescente.
+- `from` é inclusivo e `to` é exclusivo, sobre `captured_at`. Padrões: `to` = agora (UTC); `from` = `último − (limit − 1) · grid_s`, em que `último` é o bucket corrente (`bucket_start(agora)`) sem `to` e, com `to` informado, o bucket do instante logo antes de `to` (`bucket_start(to − 1 µs)`): com `to` numa fronteira (ex.: `12:00Z` em `1h`), o bucket que começa em `to` não entra e a janela ainda comporta `limit` buckets. Com `from` informado, a janela começa em `from_eff = bucket_start(from)`.
+- Corte pela cauda: se a janela tiver mais buckets que `limit`, a resposta traz as últimas `limit` velas, em sequência crescente. O servidor lê as cotações de trás para frente e para ao completar `limit` buckets, então um `from` antigo não custa mais que a resposta.
+- `from` e `to` precisam ficar entre `1970-01-01T00:00:00Z` (inclusivo) e `2100-01-01T00:00:00Z` (exclusivo), já convertidos para UTC; fora disso, `422` com `detail` `"from: data fora do intervalo aceito (de 1970-01-01 a 2099-12-31 UTC)"` (ou `"to: …"`).
 - `from` igual ou posterior a `to` → `422` com `{"detail": "from deve ser anterior a to"}`.
 - Sem cotações na janela → `200` com `"candles": []`, nunca 404.
 - Valores fora de `tf` ou `limit`, e datas malformadas, são validados pelo FastAPI (422 padrão, com `detail` em lista).
-- Chave de série: `{source_id}:{city|digital}:{base}/{quote}:{modality}[:@{branch_id}][:{amount}][:{ctx8}]`. O casamento é por prefixo: `chaco:CDE:USD/PYG:cash` casa com ela mesma e com `chaco:CDE:USD/PYG:cash:@chaco-cde-centro`, mas não com `chaco:CDE:USD/PYG:cash_promo`. Toda consulta filtra `Quote.data_mode == mode`.
+- Chave de série: `{source_id}:{city|digital}:{base}/{quote}:{modality}[:@{branch_id}][:{amount}][:{ctx8}]`, com 3 a 255 caracteres e os quatro primeiros segmentos obrigatórios (`^[^:,]+:[^:,]+:[A-Z]{3}/[A-Z]{3}:[^:,]+(:[^,]+)?$`); fora disso, `422` padrão do FastAPI. Sem o par, um prefixo como `chaco` juntaria USD/PYG e BRL/PYG na mesma vela. O casamento é por prefixo: `chaco:CDE:USD/PYG:cash` casa com ela mesma e com `chaco:CDE:USD/PYG:cash:@chaco-cde-centro`, mas não com `chaco:CDE:USD/PYG:cash_promo`. Toda consulta filtra `Quote.data_mode == mode`.
 - `mid = (buy + sell) / 2` quando os dois lados existem; o lado presente quando só um existe; cotação sem nenhum lado é ignorada.
 - Buckets alinhados ao epoch Unix em UTC (o dia começa às 00:00Z): `bucket_start(ts) = epoch(ts) − epoch(ts) mod grid_s`, com `grid_s` = 900 (`15m`), 3600 (`1h`), 14400 (`4h`) e 86400 (`1d`). Uma cotação pertence ao bucket `B` quando `B ≤ captured_at < B + grid_s`.
 - Buckets vazios não são emitidos: sem preenchimento e sem repetir o último `c`. A sequência sai crescente por `t`, sem `t` repetido.
@@ -221,7 +222,7 @@ Exemplo de `HouseSession` para `GET /v1/pregao/sessions` (segunda-feira, 12:00Z,
 
 ### Resumo da sessão — `GET /v1/pregao/stats`
 
-- `keys`: chaves separadas por vírgula, num único parâmetro. Espaços em volta são removidos e entradas vazias descartadas. São aceitas de 1 a 20 chaves; fora disso, `422` com `{"detail": "keys: informe de 1 a 20 chaves"}`. A resposta traz uma `SessionStats` por chave, na mesma sequência pedida.
+- `keys`: chaves separadas por vírgula, num único parâmetro. Espaços em volta são removidos e entradas vazias descartadas. São aceitas de 1 a 20 chaves; fora disso, `422` com `{"detail": "keys: informe de 1 a 20 chaves"}`. Cada chave segue o mesmo formato de `/v1/candles` (quatro segmentos, até 255 caracteres); uma chave fora dele dá `422` com `detail` começando por `"keys: chave inválida"` e a chave (truncada em 60 caracteres). O parâmetro inteiro tem no máximo 5120 caracteres. A resposta traz uma `SessionStats` por chave, na mesma sequência pedida.
 - `now` é o instante da requisição, em UTC.
 - `day_start`: 00:00 local em `America/Asuncion` do dia que contém `now`, com offset (ex.: `2026-11-02T00:00:00-03:00`). Exemplo: 02:30Z de 2 de novembro ainda é 1 de novembro em Assunção, então `day_start` é `2026-11-01T00:00:00-03:00`. A consulta usa esse instante convertido para UTC.
 - Janela: `day_start ≤ captured_at ≤ now`, considerando só cotações com mid não nulo.
@@ -246,7 +247,7 @@ Exemplo de `HouseSession` para `GET /v1/pregao/sessions` (segunda-feira, 12:00Z,
   6. Nos demais casos → `closed`. Procura-se o próximo dia de funcionamento, começando por hoje se a pré-abertura de hoje ainda não começou, senão por amanhã, até 8 dias à frente. Encontrado, `opens_at` e `closes_at` são desse dia e `next_change_at = opens_at − 30 min`. Não encontrado (ex.: `days` vazio) → `closed` com os três campos `null`.
   7. Horário local vira UTC pelo fuso da casa; `24:00` é 00:00 do dia seguinte.
 - `name` vem de `HouseHours.name`; sem ele, usa `Source.name` e, na falta deste, o `source_id`.
-- `reference: true` para fontes `central_bank` (BCP). Referências aparecem na resposta, mas o resumo da tela as deixa fora do total e das casas abertas.
+- `reference: true` para fontes `central_bank` (BCP) e para as que declaram a capacidade `reference_only` ou `market_reference` (dolarPy, `kind: fintech`). Referências aparecem na resposta, mas o resumo da tela as deixa fora do total e das casas abertas.
 
 ### Modos de dados
 

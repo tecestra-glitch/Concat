@@ -20,7 +20,7 @@ import {
 } from "lightweight-charts";
 import type { Currency } from "@/lib/api/types";
 import { formatRate } from "@/lib/format";
-import { TIMEFRAME_LABEL, type Candle, type Series, type Timeframe } from "@/lib/pregao/types";
+import { TIMEFRAME_LABEL, type Candle, type CandleSeries, type Series, type Timeframe } from "@/lib/pregao/types";
 
 export interface ChartTokens {
   surface: string;
@@ -102,22 +102,75 @@ function tickKind(type: TickMarkType): TickKind {
 }
 
 const TZ = "America/Asuncion";
-const TICK_FORMAT: Record<TickKind, Intl.DateTimeFormatOptions> = {
+
+/*
+ * Relógio do gráfico (QA-2). O lightweight-charts decide o tipo de cada marca (hora, dia, mês, ano) pela
+ * data em UTC do tempo que recebe. Por isso o tempo entregue a ele já é o relógio de exibição, e toda
+ * formatação é em UTC desse tempo:
+ * - `1d`: o bucket é o dia UTC (§0.4), então o tempo não é deslocado e a vela de 02/11 00:00Z é "02/11";
+ * - intradiários: o tempo é deslocado pelo fuso de Assunção (guia de fusos do lightweight-charts), então as
+ *   horas saem no relógio local e a marca de troca de dia cai na meia-noite de Assunção, com a data nova.
+ */
+const asuncionParts = new Intl.DateTimeFormat("en-US", {
+  timeZone: TZ,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+/** Diferença (s) entre o relógio de Assunção e o UTC no instante `timeSec` (−10800 com UTC−3). */
+function asuncionOffsetSec(timeSec: number): number {
+  const p: Record<string, number> = {};
+  for (const part of asuncionParts.formatToParts(new Date(timeSec * 1000))) {
+    if (part.type !== "literal") p[part.type] = Number(part.value);
+  }
+  const local = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) / 1000;
+  return local - Math.floor(timeSec);
+}
+
+/** Tempo entregue ao gráfico para o instante `timeSec` (UTC) num intervalo `tf`. */
+export function toChartTime(timeSec: number, tf: Timeframe): UTCTimestamp {
+  return (tf === "1d" ? timeSec : timeSec + asuncionOffsetSec(timeSec)) as UTCTimestamp;
+}
+
+/** Aplica `toChartTime` a linhas de dados (velas, histograma, indicadores). */
+export function withChartTime<T extends { time: UTCTimestamp }>(rows: T[], tf: Timeframe): T[] {
+  if (tf === "1d") return rows;
+  return rows.map((r) => ({ ...r, time: toChartTime(r.time, tf) }));
+}
+
+type LabelKind = TickKind | "cursorDay" | "cursorTime";
+const LABEL_FORMAT: Record<LabelKind, Intl.DateTimeFormatOptions> = {
   time: { hour: "2-digit", minute: "2-digit" },
   day: { day: "2-digit", month: "2-digit" },
   month: { month: "short" },
   year: { year: "numeric" },
+  cursorDay: { day: "2-digit", month: "2-digit", year: "numeric" },
+  cursorTime: { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" },
 };
-const tickFormatters = new Map<TickKind, Intl.DateTimeFormat>();
+const labelFormatters = new Map<LabelKind, Intl.DateTimeFormat>();
 
-/** Rótulo do eixo e do cursor em `America/Asuncion`. O instante não é deslocado, só a formatação. */
-export function formatTick(timeSec: number, kind: "time" | "day" | "month" | "year"): string {
-  let fmt = tickFormatters.get(kind);
+function formatLabel(chartSec: number, kind: LabelKind): string {
+  let fmt = labelFormatters.get(kind);
   if (!fmt) {
-    fmt = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, ...TICK_FORMAT[kind] });
-    tickFormatters.set(kind, fmt);
+    fmt = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", hourCycle: "h23", ...LABEL_FORMAT[kind] });
+    labelFormatters.set(kind, fmt);
   }
-  return fmt.format(new Date(timeSec * 1000));
+  return fmt.format(new Date(chartSec * 1000)).replace(",", "");
+}
+
+/** Rótulo do eixo para um tempo do gráfico (`toChartTime`), em pt-BR. */
+export function formatTick(chartSec: number, kind: TickKind): string {
+  return formatLabel(chartSec, kind);
+}
+
+/** Rótulo do cursor: data no `1d` (dia UTC do bucket); data e hora locais nos intradiários. */
+export function formatCursor(chartSec: number, tf: Timeframe): string {
+  return formatLabel(chartSec, tf === "1d" ? "cursorDay" : "cursorTime");
 }
 
 export function buildChartOptions(t: ChartTokens, opts: { tf: Timeframe; quote: Currency }): DeepPartial<ChartOptions> {
@@ -147,7 +200,7 @@ export function buildChartOptions(t: ChartTokens, opts: { tf: Timeframe; quote: 
     localization: {
       locale: "pt-BR",
       priceFormatter: (p: number) => formatRate(String(p), quote),
-      timeFormatter: (time: Time) => formatTick(Number(time), "time"),
+      timeFormatter: (time: Time) => formatCursor(Number(time), tf),
     },
   };
 }
@@ -193,6 +246,11 @@ export function buildLineOptions(t: ChartTokens, which: "sma" | "ema" | "band"):
     lastValueVisible: false,
     visible: false,
   };
+}
+
+/** Chave de enquadramento (`fitContent`): a da própria série, para valer só quando chega o intervalo pedido. */
+export function chartFitKey(series: CandleSeries | null): string | null {
+  return series && series.candles.length > 0 ? `${series.key}|${series.tf}` : null;
 }
 
 export function toCandlestickData(candles: Candle[]): CandlestickData<UTCTimestamp>[] {
