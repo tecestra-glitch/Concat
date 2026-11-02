@@ -184,3 +184,40 @@ def test_quote_move_matches_structured_pair_and_city():
     )
     assert _match_quote_move(rule(pair="USD/PYG", city="CDE"), AlertContext(now=NOW, changes=[digital])) is None
     assert _match_quote_move(rule(pair="USD/PYG"), AlertContext(now=NOW, changes=[digital])) is not None
+
+
+def test_quote_move_digital_means_no_city_and_reference_quotes_never_fire():
+    """Q-04 / merge: «Digital (sem cidade)» is `city: "digital"` (only city-less quotes); a missing city means
+    any city. Third-party reference quotes (dolarPy: modality=reference, channel=aggregator) never fire."""
+    from fronteira_fx.services.alerts import AlertContext, _match_quote_move
+
+    def change(city, **extra):
+        side = {"pair": "USD/PYG", "city": city, "source_id": "x", **extra}
+        return _quote_change("USD/PYG", before={"sell": "7350", **side}, after={"sell": "7400", **side})
+
+    def rule(**params):
+        return AlertRule(name="r", kind="quote_move", threshold=D("0.001"), params=params, channel="ui", data_mode="real")
+
+    cde, digital = change("CDE"), change(None)
+    assert _match_quote_move(rule(pair="USD/PYG", city="digital"), AlertContext(now=NOW, changes=[cde])) is None
+    assert _match_quote_move(rule(pair="USD/PYG", city="digital"), AlertContext(now=NOW, changes=[digital])) is not None
+    assert _match_quote_move(rule(pair="USD/PYG"), AlertContext(now=NOW, changes=[cde])) is not None
+    for ref in (change(None, modality="reference", channel="aggregator"), change(None, channel="aggregator")):
+        assert _match_quote_move(rule(pair="USD/PYG"), AlertContext(now=NOW, changes=[ref])) is None
+        assert _match_quote_move(rule(pair="USD/PYG", city="digital"), AlertContext(now=NOW, changes=[ref])) is None
+
+
+def test_change_snapshots_carry_modality_and_channel(db):
+    from fronteira_fx.services.quotes import store_quote_draft
+    from tests.conftest import add_source, draft
+
+    add_source(db, "chaco", cities=["CDE"], branches=[("chaco-cde", "CDE")])
+
+    def store(sell, minutes):
+        d = draft("chaco", "USD", "PYG", "7290", sell, city="CDE", branch_id="chaco-cde")
+        return store_quote_draft(db, d, evidence_id=None, data_mode="real", captured_at=NOW + timedelta(minutes=minutes))
+
+    a, b = store("7360", 0), store("7380", 5)
+    ((_, before, after),) = watch_svc.detect_quote_changes([a], [b])
+    for payload in (before, after):
+        assert payload["modality"] == a.modality and payload["channel"] == a.channel

@@ -6,7 +6,10 @@ o frontend converte só na exibição. Datas em ISO-8601 UTC. Nomes de campos se
 `docs/openapi.json` é gerado a partir do backend (`uv run python scripts/export_openapi.py`) e deve bater com este arquivo.
 
 Cada instância serve um único `data_mode` (`real`, `simulation` ou `demo`); todo registro devolvido carrega
-`data_mode` e os modos nunca se misturam numa resposta. Rotas marcadas com **[chave]** exigem `X-API-Key: <chave>`
+`data_mode` e os modos nunca se misturam numa resposta. Toda rota `/v1` (menos `/v1/health`) aceita
+`?data_mode=real|simulation|demo` opcional: é o modo que o cliente espera. Se ele diferir do modo da instância a
+resposta é `409` e nada é lido nem gravado; ausente, vale o modo da instância. O frontend sempre o envia fora do
+modo demonstração e descobre o modo da instância por `GET /v1/health` (que nunca o recusa). Rotas marcadas com **[chave]** exigem `X-API-Key: <chave>`
 (ou `Authorization: Bearer <chave>`) quando `API_KEY` está definido no backend; sem `API_KEY`, ficam abertas.
 
 ## Enumerações
@@ -87,7 +90,15 @@ StepSpec {                                  // entrada de POST /v1/simulations/c
 }
 Evidence { "id": "uuid", "source_id": "chaco", "kind": "html|screenshot|json|manual", "url": "...", "captured_at": "...", "sha256": "...", "excerpt": "string", "rules": ["parser chaco v1"] }
 JournalEntry { "id": "uuid", "ts": "...", "kind": "note|operation|reconciliation", "text": "...", "amounts": [Fee], "account_ids": [] }
-StreamEvent { "id": "123", "type": "quote.updated|source.health|opportunity.updated|heartbeat", "ts": "...", "payload": {} }
+StreamEvent { "id": "123", "type": "quote.updated|source.health|opportunity.updated|source.change|alert.fired|heartbeat", "ts": "...", "payload": {} }
+// payload por tipo (o stream já vem filtrado pelo data_mode da instância):
+//   quote.updated       → Quote
+//   source.health       → SourceHealth (atualização parcial por source_id; NÃO é um Source completo)
+//   opportunity.updated → { "count": 3, "main_ranking": 1, "capitals": ["5000"] } (resumo; o cliente recarrega a lista)
+//   source.change       → Change
+//   alert.fired         → AlertEvent
+//   heartbeat           → {}
+SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|null", "consecutive_failures": 2, "next_poll_at": "...|null (opcional)" }
 ```
 
 ## Endpoints
@@ -175,7 +186,8 @@ Change { "id": "uuid", "source_id": "chaco", "ts": "...", "kind": "quote_change|
   "before": QuoteSnapshot | {}, "after": QuoteSnapshot | {}, "evidence_id": "uuid|null" }
 QuoteSnapshot {                                  // `before`/`after` de um `quote_change` (before = {} quando a cotação é nova)
   "buy": "7290|null", "sell": "7360|null", "captured_at": "...", "series_key": "chaco:CDE:USD/PYG:cash",
-  "quote_id": "uuid", "pair": "USD/PYG", "city": "CDE|null", "source_id": "chaco" }
+  "quote_id": "uuid", "pair": "USD/PYG", "city": "CDE|null", "source_id": "chaco",
+  "modality": "cash", "channel": "physical" }       // modality/channel: ausentes em linhas gravadas antes desta versão
 ```
 Eventos no stream: `source.change` (payload `Change`) e `alert.fired` (payload `AlertEvent`).
 MCP: `watch_status`, `list_changes`, `trigger_poll`.
@@ -191,7 +203,9 @@ MCP: `watch_status`, `list_changes`, `trigger_poll`.
 
 ```jsonc
 AlertRule { "id": "uuid", "name": "ciclo > 0,2 %", "kind": "cycle_roi|quote_move|source_down|opportunity_new",
-  "threshold": "0.002", "params": { "pair": "USD/PYG", "city": "CDE" } | null,   // quote_move compara com Change.after.pair/city
+  "threshold": "0.002", "params": { "pair": "USD/PYG", "city": "CDE|digital|null" } | null,   // quote_move compara com Change.after.pair/city;
+  //   city "digital" = só cotações sem cidade; ausente/null = qualquer cidade; referências (modality=reference ou
+  //   channel=aggregator, ex. dolarPy) nunca disparam quote_move
   "channel": "ui|telegram|webhook|email", "target": "chat_id|url|email|null", "cooldown_s": 600, "enabled": true,
   "last_fired_at": "...|null" }
 AlertEvent { "id": "uuid", "rule_id": "uuid", "ts": "...", "message": "...", "payload": {}, "channel": "telegram",

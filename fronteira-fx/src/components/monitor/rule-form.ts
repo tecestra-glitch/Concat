@@ -50,7 +50,8 @@ export function formToInput(f: RuleForm): AlertRuleInput | null {
     name: f.name.trim(),
     kind: f.kind,
     threshold: untouched ? f.originalThreshold! : th.value,
-    params: f.kind === "quote_move" ? { pair: f.pair, city: f.city === "digital" ? null : f.city } : null,
+    // Q-04: «Digital (sem cidade)» is the explicit value "digital" (only city-less quotes); null would mean any city.
+    params: f.kind === "quote_move" ? { pair: f.pair, city: f.city } : null,
     channel: f.channel,
     target: tg.value,
     cooldown_s: Number(f.cooldown),

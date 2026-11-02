@@ -12,10 +12,8 @@ import {
   demoAlertRules,
   demoChanges,
   demoCreateRule,
-  demoDeleteRule,
   demoTestRule,
   demoTriggerPoll,
-  demoUpdateRule,
   demoUpdateWatch,
   demoWatchStatuses,
 } from "./demo-watch";
@@ -310,7 +308,7 @@ export function matchesChange(c: Change, f: ChangeFilters): boolean {
 // Client
 // ---------------------------------------------------------------------------------------------
 
-/** `real` and `simulation` go to the backend (simulation adds `data_mode=simulation`, D3); only `demo` is local. */
+/** `real` and `simulation` go to the backend declaring `?data_mode=` (the instance answers 409 when it serves another mode, SEC-01); only `demo` is local. */
 export const watchApi = {
   async statuses(mode: Mode): Promise<WatchStatus[]> {
     if (mode !== "demo") return http<WatchStatus[]>(`/v1/watch/sources${qs(modeQuery(mode))}`);
@@ -323,7 +321,11 @@ export const watchApi = {
   /** Sondagem imediata (MCP: trigger_poll). Returns the detected Change, or null when nothing changed. */
   async triggerPoll(mode: Mode, id: string): Promise<Change | null> {
     if (mode !== "demo") return http<Change | null>(`/v1/watch/run/${encodeURIComponent(id)}${qs(modeQuery(mode))}`, { method: "POST" });
-    return demoTriggerPoll(id);
+    try {
+      return demoTriggerPoll(id);
+    } catch (err) {
+      throw new ApiError(404, err instanceof Error ? err.message : `fonte ${id} não monitorada (demonstração)`);
+    }
   },
   async changes(mode: Mode, f: ChangeFilters = {}): Promise<Change[]> {
     if (mode !== "demo") return http<Change[]>(`/v1/watch/changes${qs({ ...f, ...modeQuery(mode) })}`);
@@ -337,22 +339,7 @@ export const watchApi = {
     if (mode !== "demo") return http<AlertRule>(`/v1/alerts/rules${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify(input) });
     return demoCreateRule(input);
   },
-  /**
-   * Takes the rule object (signature kept for the UI). In demo an unknown id fails with 404 exactly like
-   * the backend would; it never answers with a row that was not persisted.
-   */
-  async updateRule(mode: Mode, rule: AlertRule, patch: Partial<AlertRuleInput>): Promise<AlertRule> {
-    if (mode !== "demo") return http<AlertRule>(`/v1/alerts/rules/${encodeURIComponent(rule.id)}${qs(modeQuery(mode))}`, { method: "PATCH", body: JSON.stringify(patch) });
-    try {
-      return demoUpdateRule(rule.id, patch);
-    } catch (err) {
-      throw new ApiError(404, err instanceof Error ? err.message : `regra ${rule.id} não encontrada (demo)`);
-    }
-  },
-  async deleteRule(mode: Mode, id: string): Promise<void> {
-    if (mode !== "demo") await http<void>(`/v1/alerts/rules/${encodeURIComponent(id)}${qs(modeQuery(mode))}`, { method: "DELETE" });
-    else demoDeleteRule(id);
-  },
+  // PATCH/DELETE of a rule live in client.ts (`api.updateRule` / `api.deleteRule`): one client per operation.
   async events(mode: Mode, f: EventFilters = {}): Promise<AlertEvent[]> {
     if (mode !== "demo") return http<AlertEvent[]>(`/v1/alerts/events${qs({ ...f, ...modeQuery(mode) })}`);
     return demoAlertEvents().filter((e) => (!f.rule || f.rule === "all" || e.rule_id === f.rule) && (!f.from || new Date(e.ts).getTime() >= new Date(f.from).getTime()));

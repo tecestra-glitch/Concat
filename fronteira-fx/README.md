@@ -53,9 +53,11 @@ entra em modo demonstração.
 |---|---|---|
 | Demonstração | sem API configurada ou escolhido em Configurações | faixa permanente "Demonstração — dados ilustrativos"; todo registro tem `data_mode: "demo"` |
 | Real | proxy apontando para o backend | snapshot inicial + SSE com replay por cursor + fallback de snapshot quando o stream cai |
-| Simulação | simulador (`compare_routes`, `simulate_cycle`) sobre cotações reais | resultados do motor determinístico gravados com `data_mode: "simulation"`; a faixa de modo mostra "Simulação"; nunca entram no ranking real |
+| Simulação | backend à parte com `DATA_MODE=simulation` (preferência «Simulação» ou «Automático») | faixa "Simulação"; contas, diário, regras e resultados dessa instância nunca tocam os dados reais. Numa instância real, `compare_routes` com `persist: true` grava a simulação com `data_mode: "simulation"`, fora do ranking real |
 
-Os três modos nunca se misturam: o backend filtra por `data_mode` em todas as listagens.
+Os três modos nunca se misturam: cada instância serve um único `data_mode`, o backend filtra por ele em todas as
+listagens e o frontend declara o modo esperado em toda chamada (`?data_mode=`); uma instância em outro modo responde
+`409` e a faixa «Modo em conflito» aparece até a preferência ser alinhada.
 
 ## Backend, adaptadores e MCP
 

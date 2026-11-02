@@ -17,11 +17,16 @@ describe("rule-form (edição completa de regra)", () => {
     expect(f.threshold).toBe("15");
     expect(formToInput(f)?.threshold).toBe("900");
   });
-  it("quote_move preserva par e cidade (digital = null)", () => {
-    const f = ruleToForm({ ...rule, kind: "quote_move", params: { pair: "BRL/PYG", city: null } });
-    expect(f.pair).toBe("BRL/PYG");
-    expect(f.city).toBe("digital");
-    expect(formToInput(f)?.params).toEqual({ pair: "BRL/PYG", city: null });
+  it("quote_move preserva par e cidade; «Digital (sem cidade)» viaja como city=digital (Q-04)", () => {
+    // null no backend significa «qualquer cidade»; regras antigas com null são lidas como digital
+    for (const city of [null, "digital"]) {
+      const f = ruleToForm({ ...rule, kind: "quote_move", params: { pair: "BRL/PYG", city } });
+      expect(f.pair).toBe("BRL/PYG");
+      expect(f.city).toBe("digital");
+      expect(formToInput(f)?.params).toEqual({ pair: "BRL/PYG", city: "digital" });
+    }
+    const cde = ruleToForm({ ...rule, kind: "quote_move", params: { pair: "USD/PYG", city: "CDE" } });
+    expect(formToInput(cde)?.params).toEqual({ pair: "USD/PYG", city: "CDE" });
   });
   it("limite original não múltiplo de 60 s é preservado quando o campo não foi tocado", () => {
     const f = ruleToForm({ ...rule, kind: "source_down", threshold: "90", channel: "ui", target: null });

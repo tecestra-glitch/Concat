@@ -162,7 +162,7 @@ function paramsText(r: AlertRule): string {
   if (!r.params) return "—";
   const parts: string[] = [];
   if (r.params.pair) parts.push(r.params.pair);
-  if (r.params.city !== undefined) parts.push(r.params.city ? (CITY_LABEL as Record<string, string>)[r.params.city] ?? r.params.city : "Digital");
+  if (r.params.city !== undefined) parts.push(r.params.city && r.params.city !== "digital" ? (CITY_LABEL as Record<string, string>)[r.params.city] ?? r.params.city : "Digital");
   return parts.join(" · ") || "—";
 }
 

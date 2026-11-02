@@ -9,7 +9,7 @@
  * - modes never mix: a payload stamped with another `data_mode` is ignored.
  */
 import type { QueryClient } from "@tanstack/react-query";
-import { type ParsedStreamEvent, StreamEventSchema } from "./api/schemas";
+import { type ParsedStreamEvent, SourceHealthEventSchema, StreamEventSchema } from "./api/schemas";
 import type { Mode, Opportunity, OpportunityFilters, Quote, QuoteFilters, Snapshot, Source } from "./api/types";
 import { toNumber } from "./format";
 
@@ -27,7 +27,8 @@ export function quoteMatchesFilters(q: Quote, f?: QuoteFilters): boolean {
   if (active(f.quote) && q.quote !== f.quote) return false;
   if (active(f.source) && q.source_id !== f.source) return false;
   if (active(f.modality) && q.modality !== f.modality) return false;
-  if (active(f.amount)) {
+  if (active(f.amount) && q.amount_base !== null) {
+    // mirror of the backend: a quote without amount is generic and matches any amount (Q-06)
     const want = toNumber(f.amount);
     const have = toNumber(q.amount_base);
     if (want === null || have === null || want !== have) return false;
@@ -113,11 +114,18 @@ export function applySnapshot(qc: QueryClient, mode: Mode, snap: Snapshot): void
   }
 }
 
-/** Update one source inside the active `["sources", mode]` list (no-op when the list is not loaded). */
-export function applySourceHealth(qc: QueryClient, mode: Mode, s: Source): void {
-  if (s.data_mode && s.data_mode !== mode) return;
-  if (!qc.getQueryCache().find({ queryKey: ["sources", mode], exact: true })) return;
-  qc.setQueryData<Source[]>(["sources", mode], (old) => (old ? old.map((x) => (x.id === s.id ? s : x)) : old));
+/**
+ * Apply a `source.health` payload (`{source_id, health, last_error, …}`, Q-02) to the active
+ * `["sources", mode]` list: the matching Source keeps every other field. The stream is already filtered
+ * by mode on the server. Returns `false` for a malformed payload (ignored), `true` otherwise.
+ */
+export function applySourceHealthEvent(qc: QueryClient, mode: Mode, payload: unknown): boolean {
+  const parsed = SourceHealthEventSchema.safeParse(payload);
+  if (!parsed.success) return false;
+  const { source_id, health, last_error } = parsed.data;
+  if (!qc.getQueryCache().find({ queryKey: ["sources", mode], exact: true })) return true;
+  qc.setQueryData<Source[]>(["sources", mode], (old) => (old ? old.map((x) => (x.id === source_id ? { ...x, health, last_error } : x)) : old));
+  return true;
 }
 
 /**

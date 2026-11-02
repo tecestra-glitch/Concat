@@ -69,7 +69,7 @@ export function useBackendHealth() {
     queryKey: ["health", mode],
     queryFn: async () => {
       const h = await api.health(mode);
-      if (mode !== "demo") setBackendStatus(h ? "available" : "unavailable");
+      if (mode !== "demo") setBackendStatus(h ? "available" : "unavailable", h?.data_mode);
       return h;
     },
     refetchInterval: 60_000,

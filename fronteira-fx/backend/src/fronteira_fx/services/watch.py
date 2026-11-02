@@ -94,6 +94,8 @@ def _snapshot(q: Quote) -> dict[str, Any]:
         "pair": f"{q.base}/{q.quote}",
         "city": q.city,
         "source_id": q.source_id,
+        "modality": q.modality,
+        "channel": q.channel,
     }
 
 

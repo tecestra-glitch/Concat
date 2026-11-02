@@ -59,6 +59,19 @@ export function formatPercent(ratio: string | number | null | undefined, opts: {
   return `${sign}${body} %`;
 }
 
+/** Boundary of the adaptive search: «R$ 10.000–R$ 25.000: motivo» (capital range in BRL). */
+export function formatBoundary(b: { low: string; high: string; reason: string }): string {
+  return `${formatMoney(b.low, "BRL")}–${formatMoney(b.high, "BRL")}: ${b.reason}`;
+}
+
+/** «label: R$ 9,90», «label: 1,50 %», «label: R$ 9,90 + 1,50 %» or «label: —» when nothing is known. */
+export function formatFee(f: { label: string; amount: string | null; currency: "BRL" | "USD" | "PYG"; pct?: string | null }): string {
+  const parts: string[] = [];
+  if (toNumber(f.amount) !== null) parts.push(formatMoney(f.amount, f.currency));
+  if (toNumber(f.pct) !== null) parts.push(formatPercent(f.pct));
+  return `${f.label}: ${parts.length ? parts.join(" + ") : "—"}`;
+}
+
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);

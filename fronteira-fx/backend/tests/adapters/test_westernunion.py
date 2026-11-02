@@ -113,6 +113,15 @@ async def test_fetch_rejects_bad_params() -> None:
     assert (await wu.adapter.fetch(receive="pigeon")).status == AdapterStatus.ERROR  # type: ignore[arg-type]
 
 
+def test_evidence_dir_follows_evidence_dir_then_the_legacy_alias(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """Q-08/LOW-14: EVIDENCE_DIR (B9, the canonical name) wins; FX_EVIDENCE_DIR is only the legacy alias."""
+    monkeypatch.setenv("FX_EVIDENCE_DIR", str(tmp_path / "legacy"))
+    monkeypatch.setenv("EVIDENCE_DIR", str(tmp_path / "canonical"))
+    assert wu.evidence_dir() == tmp_path / "canonical"
+    monkeypatch.delenv("EVIDENCE_DIR")
+    assert wu.evidence_dir() == tmp_path / "legacy"
+
+
 def test_evidence_dir_is_gitignored(monkeypatch: pytest.MonkeyPatch) -> None:
     # backend/.gitignore ignores the whole var/ tree, so screenshots never reach Git. (A nested var/.gitignore is
     # itself untracked and only exists where the adapter has already run, so it cannot be what this test relies on.)
@@ -120,6 +129,7 @@ def test_evidence_dir_is_gitignored(monkeypatch: pytest.MonkeyPatch) -> None:
     rules = [line.strip() for line in (backend_root / ".gitignore").read_text().splitlines()]
     assert any(rule.strip("/") == "var" for rule in rules), rules
     monkeypatch.delenv("FX_EVIDENCE_DIR", raising=False)
+    monkeypatch.delenv("EVIDENCE_DIR", raising=False)
     assert wu.evidence_dir() == backend_root / "var" / "evidence"
 
 

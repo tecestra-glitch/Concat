@@ -61,3 +61,17 @@ describe("series_key (D2) in the demo dataset", () => {
     expect(h.points).toHaveLength(0);
   });
 });
+
+describe("demo simulation mirrors SimulationResponse (MED-02)", () => {
+  it("boundaries are Boundary objects and simulation_id is present (null: nothing persisted)", async () => {
+    const { simulateDemo } = await import("@/lib/api/demo-simulate");
+    const res = await simulateDemo({ capital_brl: "5000", objective: "cycle", valuation_currency: "BRL", channels: ["digital", "physical"] });
+    expect(res.simulation_id).toBeNull();
+    expect(res.search.boundaries.length).toBeGreaterThan(0);
+    for (const b of res.search.boundaries) {
+      expect(typeof b.low).toBe("string");
+      expect(typeof b.high).toBe("string");
+      expect(typeof b.reason).toBe("string");
+    }
+  });
+});

@@ -7,7 +7,7 @@ import { useSettings } from "@/lib/settings";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime, formatMoney } from "@/lib/format";
+import { formatDateTime, formatFee } from "@/lib/format";
 import type { JournalEntry } from "@/lib/api/types";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ export function Journal() {
               {mode === "demo" && <Badge variant="warn">demonstração</Badge>}
             </div>
             <p className="mt-1">{e.text}</p>
-            {e.amounts.length > 0 && <p className="tnum mt-1 text-xs text-muted">{e.amounts.map((a) => `${a.label}: ${formatMoney(a.amount, a.currency)}`).join(" · ")}</p>}
+            {e.amounts.length > 0 && <p className="tnum mt-1 text-xs text-muted">{e.amounts.map(formatFee).join(" · ")}</p>}
           </li>
         ))}
       </ol>

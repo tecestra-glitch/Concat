@@ -55,6 +55,8 @@ docker compose --profile web up -d --build     # http://127.0.0.1:3000
 
 O serviço `web` usa `FX_API_URL=http://api:8000` (rede interna do compose) e `FX_API_KEY` do `.env`
 (vazia = reutiliza `API_KEY`). Requer `output: "standalone"` em `next.config.ts` — ver `Dockerfile.web`.
+Ele publica só em `WEB_BIND=127.0.0.1` e por isso sobe com `FX_FRONTEND_PROTECTED=1`; ao publicar em outra
+interface, defina `FX_BASIC_AUTH=usuario:senha` e `FX_FRONTEND_PROTECTED=0` (ver "Frontend na Vercel").
 
 Parar e limpar:
 
@@ -78,6 +80,8 @@ A lista completa, com comentários e padrões, está em `.env.example` (espelha
 | `FX_API_URL` | frontend (servidor) | sim na Vercel | URL da API usada pelo proxy; no compose é fixa `http://api:8000` |
 | `FX_API_KEY` | frontend (servidor) | sim na Vercel | chave que o proxy injeta; no compose cai em `API_KEY` |
 | `NEXT_PUBLIC_API_URL` | frontend (navegador) | não | só dev local sem chave (chamada direta); deixe vazia com o proxy |
+| `FX_BASIC_AUTH` | frontend (servidor) | não | `usuario:senha`: todo o app pede Basic Auth; habilita a chave no proxy |
+| `FX_FRONTEND_PROTECTED` | frontend (servidor) | não (`1` no compose) | `1` = o frontend já é privado (loopback/VPN/Deployment Protection); habilita a chave no proxy |
 | `API_BIND`, `API_PORT`, `WEB_BIND`, `WEB_PORT`, `POSTGRES_PORT` | compose | não | portas publicadas no host (padrão loopback) |
 | `FORWARDED_ALLOW_IPS` | api | não | IPs de proxy reverso cujos `X-Forwarded-*` o uvicorn aceita; um proxy no host chega pelo gateway da bridge, não por `127.0.0.1` |
 
@@ -90,11 +94,15 @@ Regras:
 
 ## Frontend: proxy server-side para a API
 
-- Rota `src/app/api/fx/[...path]/route.ts` (Next.js, servidor): recebe `/api/fx/<caminho>`, repassa para
-  `${FX_API_URL}/<caminho>` com `X-API-Key: ${FX_API_KEY}` e devolve a resposta (inclusive o stream SSE
-  de `/v1/stream`).
-- Em desenvolvimento: `FX_API_URL=http://localhost:8000` e `FX_API_KEY` igual à `API_KEY` do backend,
-  no `.env` de `fronteira-fx/`.
+- Rota `src/app/api/fx/[...path]/route.ts` (Next.js, servidor): recebe `/api/fx/v1/<caminho>`, repassa para
+  `${FX_API_URL}/v1/<caminho>` e devolve a resposta (inclusive o stream SSE de `/v1/stream`). Só `/v1` passa:
+  `/mcp`, `/docs` e `/openapi.json` dão 404, e segmentos `.`/`..` (mesmo codificados) ou com barra dão 400.
+- `X-API-Key: ${FX_API_KEY}` só é injetada com o frontend protegido: `FX_BASIC_AUTH=usuario:senha` (o app
+  inteiro pede Basic Auth via `src/proxy.ts` e o proxy confere as credenciais) ou `FX_FRONTEND_PROTECTED=1`
+  (o operador garante que o frontend já é privado). Sem proteção, leituras seguem sem chave e mutações
+  recebem 403. Mutações de outra origem (`Sec-Fetch-Site`/`Origin`) recebem 403 sempre (CSRF).
+- Em desenvolvimento: `FX_API_URL=http://localhost:8000`, `FX_API_KEY` igual à `API_KEY` do backend e
+  `FX_FRONTEND_PROTECTED=1` (só se `pnpm dev` não estiver exposto na rede), no `.env` de `fronteira-fx/`.
 - Como a origem vista pelo backend é sempre o servidor do Next, `CORS_ORIGINS` não precisa listar
   domínios de preview da Vercel.
 - `NEXT_PUBLIC_API_URL` continua existindo apenas para dev local sem chave (chamada direta do
@@ -148,6 +156,15 @@ Preview e Production e **sem** o prefixo `NEXT_PUBLIC_`:
 | `FX_API_URL` | URL pública HTTPS da API (ex.: `https://api.seu-dominio.tld`) |
 | `FX_API_KEY` | a mesma `API_KEY` do backend; marque como *Sensitive* |
 | `ENABLE_EXPERIMENTAL_COREPACK` | `1`, para a Vercel usar o pnpm fixado em `packageManager` (10.28.0) |
+| `FX_BASIC_AUTH` | `usuario:senha` forte: todo o app pede Basic Auth (`src/proxy.ts`); marque como *Sensitive* |
+| `FX_FRONTEND_PROTECTED` | `1` **só** se o projeto tiver Vercel Deployment Protection (ou outra barreira) cobrindo Preview e Production |
+
+**O frontend público precisa de proteção.** O proxy `/api/fx` injeta `FX_API_KEY`, então quem alcança o
+frontend faz as escritas com a chave. Por isso o proxy só injeta a chave quando `FX_BASIC_AUTH` está definido
+(e a requisição traz as credenciais) ou quando `FX_FRONTEND_PROTECTED=1`; sem nenhum dos dois, leituras seguem
+sem chave e mutações recebem `403`. Além disso o proxy só repassa `/v1/...` (nunca `/mcp`, `/docs` ou
+`/openapi.json`), recusa segmentos `.`/`..` (mesmo codificados) e recusa mutações de outra origem
+(`Sec-Fetch-Site`/`Origin`).
 
 Deixe `NEXT_PUBLIC_API_URL` **vazia** na Vercel: com o proxy, o navegador não precisa (e não deve)
 conhecer a API.

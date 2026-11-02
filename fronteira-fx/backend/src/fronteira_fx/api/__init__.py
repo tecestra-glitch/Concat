@@ -1,6 +1,6 @@
 """All /v1 routers."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from . import (
     accounts,
@@ -19,6 +19,7 @@ from . import (
     stream,
     watch,
 )
+from .deps import require_instance_mode
 
 v1_router = APIRouter(prefix="/v1")
 for module in (
@@ -38,6 +39,9 @@ for module in (
     rag,
     memory,
 ):
-    v1_router.include_router(module.router)
+    # SEC-01: `?data_mode=` that differs from the instance mode → 409. Health stays open: it is how a
+    # client discovers which mode this instance serves.
+    guard = [] if module is health else [Depends(require_instance_mode)]
+    v1_router.include_router(module.router, dependencies=guard)
 
 __all__ = ["v1_router"]

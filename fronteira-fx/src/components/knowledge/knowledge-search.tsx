@@ -16,7 +16,8 @@ import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useSettings } from "@/lib/settings";
-import { searchKnowledge, type KnowledgeQuery } from "./knowledge-api";
+import { api } from "@/lib/api/client";
+import type { KnowledgeQuery } from "@/lib/api/types";
 
 const K_OPTIONS = [5, 10, 20];
 
@@ -24,7 +25,7 @@ export function KnowledgeSearch() {
   const { mode } = useSettings();
   const [draft, setDraft] = React.useState<KnowledgeQuery>({ q: "", k: 5, tag: "" });
   const [query, setQuery] = React.useState<KnowledgeQuery | null>(null);
-  const res = useQuery({ queryKey: ["rag-search", mode, query], queryFn: () => searchKnowledge(mode, query!), enabled: !!query && query.q.trim().length > 0, staleTime: 60_000 });
+  const res = useQuery({ queryKey: ["rag-search", mode, query], queryFn: () => api.searchKnowledge(mode, query!), enabled: !!query && query.q.trim().length > 0, staleTime: 60_000 });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

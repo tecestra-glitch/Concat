@@ -15,6 +15,9 @@ const lastCall = () => fetchMock.mock.calls[0] as [string, RequestInit];
 beforeEach(() => {
   vi.stubEnv("FX_API_URL", `${UPSTREAM}/`); // trailing slash must not produce a double slash
   vi.stubEnv("FX_API_KEY", KEY);
+  // The operator states the frontend is private (loopback, VPN, Vercel Deployment Protection): key injected.
+  vi.stubEnv("FX_FRONTEND_PROTECTED", "1");
+  vi.stubEnv("FX_BASIC_AUTH", "");
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -133,9 +136,72 @@ describe("proxy /api/fx/[...path]", () => {
     expect(new Headers(lastCall()[1].headers).has("x-api-key")).toBe(false);
   });
 
-  it("encodes path segments so a client cannot escape the API prefix", async () => {
+  it("only forwards /v1: /mcp, /docs and /openapi.json never receive the key (SEC-02)", async () => {
+    fetchMock.mockResolvedValue(json({}));
+    for (const path of [["mcp"], ["docs"], ["openapi.json"], ["redoc"], [], ["v1"], ["v2", "sources"]]) {
+      const res = await POST(new Request(`http://localhost:3000/api/fx/${path.join("/")}`, { method: "POST", body: "{}" }), ctx(...path));
+      expect(res.status, path.join("/")).toBe(404);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects dot segments, encoded or not, and segments carrying a slash (no escape from /v1)", async () => {
+    fetchMock.mockResolvedValue(json({}));
+    const cases = [["v1", "..", "mcp"], ["v1", ".", "sources"], ["v1", "%2e%2e", "mcp"], ["v1", ".%2E", "admin"], ["v1", "evidence", "ev/../admin"], ["v1", "evidence", "a\\b"], ["v1", "", "mcp"]];
+    for (const path of cases) {
+      const res = await GET(new Request("http://localhost:3000/api/fx/v1/x"), ctx(...path));
+      expect(res.status, path.join("|")).toBe(400);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the upstream path under the configured base path", async () => {
+    vi.stubEnv("FX_API_URL", "https://edge.example/fx/");
     fetchMock.mockResolvedValue(json([]));
-    await GET(new Request("http://localhost:3000/api/fx/v1/evidence/ev%2F..%2Fadmin"), ctx("v1", "evidence", "ev/../admin"));
-    expect(String(lastCall()[0])).toBe(`${UPSTREAM}/v1/evidence/ev%2F..%2Fadmin`);
+    await GET(new Request("http://localhost:3000/api/fx/v1/evidence/ev-1"), ctx("v1", "evidence", "ev-1"));
+    expect(String(lastCall()[0])).toBe("https://edge.example/fx/v1/evidence/ev-1");
+  });
+
+  it("never injects the key when the frontend is not declared protected; mutations are refused (SEC-02)", async () => {
+    vi.stubEnv("FX_FRONTEND_PROTECTED", "");
+    fetchMock.mockResolvedValue(json([]));
+    await GET(new Request("http://localhost:3000/api/fx/v1/sources"), ctx("v1", "sources"));
+    expect(new Headers(lastCall()[1].headers).has("x-api-key")).toBe(false);
+    fetchMock.mockClear();
+    const res = await POST(new Request("http://localhost:3000/api/fx/v1/journal", { method: "POST", body: "{}" }), ctx("v1", "journal"));
+    expect(res.status).toBe(403);
+    expect((await res.json()).detail).toMatch(/FX_BASIC_AUTH|FX_FRONTEND_PROTECTED/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("with FX_BASIC_AUTH the key only goes with valid credentials", async () => {
+    vi.stubEnv("FX_FRONTEND_PROTECTED", "");
+    vi.stubEnv("FX_BASIC_AUTH", "eu:senha-forte");
+    fetchMock.mockResolvedValue(json([]));
+    const anon = await GET(new Request("http://localhost:3000/api/fx/v1/sources"), ctx("v1", "sources"));
+    expect(anon.status).toBe(401);
+    expect(anon.headers.get("www-authenticate")).toMatch(/^Basic /);
+    const wrong = await GET(new Request("http://localhost:3000/api/fx/v1/sources", { headers: { authorization: `Basic ${btoa("eu:errada")}` } }), ctx("v1", "sources"));
+    expect(wrong.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+    const ok = await GET(new Request("http://localhost:3000/api/fx/v1/sources", { headers: { authorization: `Basic ${btoa("eu:senha-forte")}` } }), ctx("v1", "sources"));
+    expect(ok.status).toBe(200);
+    const sent = new Headers(lastCall()[1].headers);
+    expect(sent.get("x-api-key")).toBe(KEY);
+    expect(sent.has("authorization")).toBe(false);
+  });
+
+  it("refuses cross-site mutations (CSRF, SEC-04) and accepts same-origin ones", async () => {
+    fetchMock.mockResolvedValue(json({ ok: true }));
+    const cross = await POST(new Request("http://localhost:3000/api/fx/v1/watch/run/chaco", { method: "POST", headers: { "sec-fetch-site": "cross-site" } }), ctx("v1", "watch", "run", "chaco"));
+    expect(cross.status).toBe(403);
+    const foreign = await DELETE(new Request("http://localhost:3000/api/fx/v1/alerts/rules/r1", { method: "DELETE", headers: { origin: "https://evil.example" } }), ctx("v1", "alerts", "rules", "r1"));
+    expect(foreign.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+    const same = await POST(new Request("http://localhost:3000/api/fx/v1/watch/run/chaco", { method: "POST", headers: { "sec-fetch-site": "same-origin", origin: "http://localhost:3000" } }), ctx("v1", "watch", "run", "chaco"));
+    expect(same.status).toBe(200);
+    // GET stays readable cross-site only as far as the browser allows (no key-bearing side effects)
+    const read = await GET(new Request("http://localhost:3000/api/fx/v1/sources", { headers: { "sec-fetch-site": "cross-site" } }), ctx("v1", "sources"));
+    expect(read.status).toBe(200);
   });
 });

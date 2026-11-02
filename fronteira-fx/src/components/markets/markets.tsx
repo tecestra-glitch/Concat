@@ -17,7 +17,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatMoney } from "@/lib/format";
+import { formatFee, formatMoney } from "@/lib/format";
 import { formatRateFixed } from "@/components/ui/rate";
 
 const CITIES = ["CDE", "ASU", "PJC"] as const;
@@ -124,7 +124,7 @@ export function Markets() {
                           {formatRateFixed(s.sell, s.quote)} <span className="text-muted">{s.quote}/{s.base}</span>
                         </TableCell>
                         <TableCell>{s.context?.promo ? <Badge variant="accent">{PROMO_LABEL[s.context.promo] ?? s.context.promo}</Badge> : <span className="text-muted">—</span>}</TableCell>
-                        <TableCell className="text-xs text-muted">{s.fees.length ? s.fees.map((f) => `${f.label}: ${formatMoney(f.amount, f.currency)}`).join("; ") : "—"}</TableCell>
+                        <TableCell className="text-xs text-muted">{s.fees.length ? s.fees.map(formatFee).join("; ") : "—"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

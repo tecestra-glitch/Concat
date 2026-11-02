@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from ..models import Evidence
 from ..schemas import EvidenceOut
-from .deps import DataModeDep, DbDep
+from .deps import LIKE_ESCAPE, DataModeDep, DbDep, like_literal
 
 router = APIRouter(prefix="/evidence", tags=["evidence"])
 
@@ -19,7 +19,9 @@ def search_evidence(
     data_mode: DataModeDep,
     source: Annotated[str | None, Query(max_length=64)] = None,
     from_: Annotated[datetime | None, Query(alias="from")] = None,
-    q: Annotated[str | None, Query(max_length=200, description="substring match on excerpt")] = None,
+    q: Annotated[
+        str | None, Query(max_length=200, description="literal substring of the excerpt (case-insensitive)")
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
 ) -> list[EvidenceOut]:
     stmt = select(Evidence).where(Evidence.data_mode == data_mode)
@@ -28,7 +30,7 @@ def search_evidence(
     if from_:
         stmt = stmt.where(Evidence.captured_at >= from_)
     if q:
-        stmt = stmt.where(Evidence.excerpt.ilike(f"%{q}%"))
+        stmt = stmt.where(Evidence.excerpt.ilike(f"%{like_literal(q)}%", escape=LIKE_ESCAPE))
     stmt = stmt.order_by(Evidence.captured_at.desc()).limit(limit)
     return [EvidenceOut.model_validate(r) for r in db.scalars(stmt)]
 

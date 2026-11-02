@@ -100,6 +100,16 @@ test.describe("Fronteira FX terminal", () => {
     for (const t of await cells.allTextContents()) expect(t).not.toMatch(/\b0,00\b/);
   });
 
+  test("live cycles of incomplete estimate never carry a «+» in ROI/dia either (Q-07)", async ({ page }) => {
+    await page.goto("/oportunidades");
+    await page.getByRole("tab", { name: "Cruzamento ao vivo" }).click();
+    // incomplete estimates are included by default
+    await expect(page.getByTestId("live-cycles").getByRole("switch", { name: /Incluir ciclos com custo pendente/ })).toBeChecked();
+    const rows = page.getByTestId("live-cycles").getByTestId("cycle-row").filter({ has: page.getByTestId("roi-day-cell").filter({ hasText: "≈" }) });
+    await expect(rows.first()).toBeVisible();
+    for (const cell of await rows.getByTestId("roi-day-cell").all()) await expect(cell).not.toContainText("+");
+  });
+
   test("incomplete estimates are never shown as confirmed profit", async ({ page }) => {
     await page.goto("/oportunidades");
     await page.getByRole("tab", { name: /Secundário/ }).click();

@@ -14,7 +14,7 @@ from sqlalchemy.sql import Select
 
 from ..models import Memory, utcnow
 from ..schemas import MemoryCreate, MemoryKind, MemoryOut, MemorySummary
-from .deps import ApiKey, DataModeDep, DbDep
+from .deps import LIKE_ESCAPE, ApiKey, DataModeDep, DbDep, like_literal
 
 router = APIRouter(prefix="/memory", tags=["memory"])
 
@@ -28,13 +28,6 @@ SUMMARY_SECTIONS: tuple[tuple[MemoryKind, str], ...] = (
     ("fact", "Fatos"),
     ("outcome", "Resultados"),
 )
-_LIKE_ESCAPE = "\\"
-
-
-def _like_escape(value: str) -> str:
-    """Make `value` a literal LIKE fragment: `%`, `_` and the escape char itself lose their meaning."""
-    escaped = value.replace(_LIKE_ESCAPE, _LIKE_ESCAPE * 2)
-    return escaped.replace("%", f"{_LIKE_ESCAPE}%").replace("_", f"{_LIKE_ESCAPE}_")
 
 
 def _tag_filter(tag: str):
@@ -45,7 +38,7 @@ def _tag_filter(tag: str):
     are accepted when they differ."""
     column = cast(Memory.tags, String)
     variants = {json.dumps(tag), json.dumps(tag, ensure_ascii=False)}
-    return or_(*(column.like(f"%{_like_escape(v)}%", escape=_LIKE_ESCAPE) for v in sorted(variants)))
+    return or_(*(column.like(f"%{like_literal(v)}%", escape=LIKE_ESCAPE) for v in sorted(variants)))
 
 
 def _active(data_mode: str) -> Select[tuple[Memory]]:
@@ -89,7 +82,7 @@ def recall(
     if kind:
         stmt = stmt.where(Memory.kind == kind)
     if q:
-        stmt = stmt.where(Memory.text.ilike(f"%{_like_escape(q)}%", escape=_LIKE_ESCAPE))
+        stmt = stmt.where(Memory.text.ilike(f"%{like_literal(q)}%", escape=LIKE_ESCAPE))
     if tag:
         stmt = stmt.where(_tag_filter(tag))
     rows = db.scalars(stmt.order_by(Memory.created_at.desc()).limit(limit))

@@ -204,11 +204,6 @@ export function demoHistory(key: string, points = 288, stepMs = 5 * 60 * 1000): 
   return { key, points: out };
 }
 
-/** @deprecated Use `q.series_key` (D2). Kept so older call sites keep compiling. */
-export function historyKey(q: Quote): string {
-  return q.series_key;
-}
-
 export const demoAccounts: Account[] = [
   { id: "acc-ueno-pyg", institution: "ueno", label: "ueno conta PYG", currency: "PYG", kind: "bank", location: "digital", balance_free: "1250000", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-600) },
   { id: "acc-ueno-usd", institution: "ueno", label: "ueno conta USD", currency: "USD", kind: "bank", location: "digital", balance_free: "320", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-600) },
