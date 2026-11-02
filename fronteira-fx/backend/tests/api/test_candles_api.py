@@ -404,3 +404,23 @@ def test_router_declares_operation_ids_and_tag():
         "get_pregao_sessions": "/pregao/sessions",
     }
     assert all("pregao" in getattr(r, "tags", []) for r in router.routes)
+
+
+# ---- modo de dados (SEC-01 da principal) --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("path", "params"),
+    [
+        ("/v1/candles", {"key": KEY, "tf": "1h"}),
+        ("/v1/pregao/stats", {"keys": KEY}),
+        ("/v1/pregao/sessions", {}),
+    ],
+)
+def test_pregao_routes_refuse_another_declared_mode_and_serve_the_instance_mode(client, path, params):
+    """As rotas do pregão entram no `v1_router` com `require_instance_mode`, como as demais: 409 em outro modo."""
+    refused = client.get(path, params={**params, "data_mode": "simulation"})
+    assert refused.status_code == 409, refused.text
+    assert "data_mode=real" in refused.json()["detail"]
+    assert client.get(path, params={**params, "data_mode": "real"}).status_code == 200
+    assert client.get(path, params=params).status_code == 200
