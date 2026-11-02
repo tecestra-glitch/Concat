@@ -18,7 +18,15 @@ Política comum de status (`_common.finalize`):
 Helpers: `_http.py` (UA, timeout, `sha256_hex`, `excerpt`/`build_evidence`, `parse_decimal(text, locale_hint)` para
 `"7.350,00"` / `"7,350"` / `"7350"` / `"5.4043"` / `"Gs. 5.680"`, `http_get`/`http_post` com classificação de erros) e
 `_common.py` (`BranchInfo`, `city_from_text` → `CDE|ASU|PJC|None`, `finalize`, `quotes_excerpt`).
-Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]`, `get_adapter(id)`.
+Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]` (12 adaptadores, **ordenados por id**: a API e o collector
+enumeram as fontes nessa ordem), `get_adapter(id)`.
+
+Vocabulário de `QuoteDraft` (`base.py`): `modality` inclui `reference` e `channel` inclui `aggregator` — os dois marcam
+cotações de agregador de terceiro (dolarPy), que **nunca** são preço executável nem de balcão e ficam fora do ranking e
+do grafo (filtro no backend-core). `_http.looks_blocked` reconhece desafio de WAF pelo que a página **diz**
+("Just a moment", "Attention Required", "verify you are human", "complete the captcha", `cf-chl`…) e por 401/403/429;
+a palavra "captcha" sozinha não bloqueia, porque páginas legítimas (MaxiCambios, formulários de contato) embutem o badge
+do reCAPTCHA v3, o `recaptcha/api.js` e o widget `g-recaptcha` sem serem um desafio.
 
 ## Validação ao vivo (2026-11-02 ~06:07 UTC, domingo→segunda de madrugada em Assunção)
 
@@ -65,6 +73,59 @@ cash_pickup → 5.328.209 PYG "minutos"; promo "100% desconto na tarifa") tem `n
 `STALE` ("historical fixture data; never current") — nunca é servida como atual. Os testes verificam
 taxa efetiva 1080,3742 PYG/BRL = recebido/enviado e que os dois métodos geram cotações e contextos diferentes.
 
+## MaxiCambios, M&D Cambios e dolarPy (adicionados 2026-11-02)
+
+Os três foram construídos sobre **capturas offline** de 2026-10-30/31 (`backend/tests/adapters/fixtures/`), não sobre
+`fetch()` ao vivo: a primeira sondagem real pode voltar `DEGRADED` se a página tiver mudado desde a captura, e isso é o
+comportamento esperado (nunca números inventados). Nenhum deles martela: um `GET` por coleta, piso de 60 s no collector.
+
+### `maxicambios` — MaxiCambios (ASU)
+
+- URL: `https://www.maxicambios.com.py/` (`method="html"`; `AdapterInfo.method` não tem valor `http`, `html` é o equivalente).
+  Página Angular cujo HTML já vem renderizado pelo servidor — HTTP simples basta, sem Playwright.
+- Seletores: quadro principal `#cotizacion-carousel` (Assunção, casa central) com um card `.cotizDivSmall` por moeda:
+  `img src=".../flags/<ISO>.png"` identifica a moeda, `<p>Compra</p><p>5700</p>` e `<p>Venta</p><p>5950</p>` trazem os
+  valores (es_PY). Cruzado opcional em `#cotizacion-arbi`, coluna cujo `#header-title-board` diz "ASUNCIÓN": o card com
+  bandeiras BRL+USD é "Real x Dólar" = **BRL por 1 USD** (`4.85`/`5.40`, ponto decimal — nunca 485). Rodapé
+  `* Ultima actualización: 31/10/2026 - 12:10.` (America/Asuncion) → `declared_updated_at`; `stale_after` 72 h (fim de semana).
+- Saída: USD/PYG e BRL/PYG com `context={"board":"principal"}`, `branch_id="maxicambios-asu"`; cruzado USD/BRL com
+  `context={"board":"arbitraje","pair":"Real x Dólar"}`. Fixture: USD 5700/5950, BRL 1100/1180, cruzado 4.85/5.40.
+- Status: cards ausentes (`.cotizDivSmall` sumiu) → `DEGRADED` com evidência; card USD faltando → `DEGRADED` "missing USD";
+  timestamp ilegível → `DEGRADED`; 403 ou página de captcha → `BLOCKED`; timeout/5xx → `ERROR`; JSON/vazio → `ERROR`.
+- Limitações: só o quadro principal (CDE `#cotizacion-cd`, cheques `#cotizacion-cheq-tra` e a cópia mobile `-xs` não são
+  lidos); cotação de balcão indicativa; cruzado ausente vira nota, não degradação.
+
+### `myd` — M&D Cambios (ASU, CDE)
+
+- URL: `https://www.mydcambios.com.py/` (`method="html"`), página renderizada no servidor.
+- Seletores: blocos `.cambios-banner-wrap` com `<h2>Asuncion</h2>` → `ASU` e `<h2>CDE</h2>` → `CDE` (há três cópias de
+  cada quadro para desktop/mobile, uma delas com `<h2 class="black">`; o adapter lê a primeira por cidade). Linhas
+  `.cambios-banner-text ul > li`: `li[0] img` é a bandeira, `li[1]` compra, `li[2]` venda (ícone `<i>` de tendência ignorado).
+- Moeda só pelo **nome do arquivo** da bandeira (não há ISO): `us-1.png` = USD, `br.png` = BRL (quadro CDE),
+  `descarga.png` = BRL (quadro ASU). Por isso cada valor passa por faixa de plausibilidade (USD 3000–15000, BRL 500–3000
+  PYG por unidade): fora da faixa → `DEGRADED` "implausible" e a linha é descartada. Linhas `0` = moeda não negociada.
+- Saída: 4 cotações `cash/indicative/physical`, `branch_id="myd-asu"|"myd-cde"`, `context={"section":"<h2>"}`,
+  `declared_updated_at=None` (a página não publica horário; a idade vem do hash de conteúdo no collector).
+  Fixture: CDE USD 5820/5890, CDE BRL 1080/1115, ASU USD 5780/5930, ASU BRL 1070/1170.
+- Status: blocos ausentes → `DEGRADED` com evidência; cidade ou moeda faltando → `DEGRADED`; 403/captcha → `BLOCKED`;
+  timeout → `ERROR`.
+
+### `dolarpy` — dolarPy (agregador; **referência, nunca executável**)
+
+- URL: `https://dolar.melizeche.com/api/1.0/` (`method="official_api"`, JSON sem chave):
+  `{"dolarpy": {"bcp": {compra, venta, referencial_diario}, "maxicambios": {compra, venta}, "mydcambios": …}, "updated": "2026-10-30 20:50:24"}`.
+- Saída: **uma `QuoteDraft` por casa** (14 na captura), USD/PYG, `modality="reference"`, `channel="aggregator"`,
+  `kind="market_reference"`, `city=None`, `branch_id="dolarpy-<casa>"`, `context={"aggregator":"dolarpy","house":"<casa>"}`,
+  `unit_note` dizendo "referência de terceiro, não executável". `referencial_diario` do BCP é ignorado (o adapter `bcp`
+  é o dono desse número). Fixture: maxicambios 5700/5950, bcp 5908.35/5922.67.
+- `updated` é hora local do agregador (America/Asuncion); mais de **24 h** → `STALE` (cotações mantidas); `updated`
+  ausente/ilegível → `DEGRADED`; casa com entrada quebrada → `DEGRADED` sem derrubar as demais; JSON inválido, HTML,
+  lista, `dolarpy` vazio ou só zeros → `ERROR`; 403 → `BLOCKED`. O relógio é injetável (`DolarPyAdapter(clock=...)`) para
+  os testes de staleness.
+- **dolarPy é referência de terceiro.** Nunca vira preço executável nem cotação de balcão da casa, nunca entra no ranking
+  nem no grafo de posições (filtro de `modality="reference"` no backend-core): serve para cruzar com os nossos adapters
+  e para cobrir casas que não raspamos. `AdapterInfo.kind="fintech"` porque `SourceKind` não tem valor para agregador.
+
 ## Variáveis de ambiente
 
 | variável | efeito |
@@ -74,14 +135,15 @@ taxa efetiva 1080,3742 PYG/BRL = recebido/enviado e que os dois métodos geram c
 | `FX_PW_CHROMIUM=/caminho/chromium` | binário do Chromium para o Playwright quando o download padrão não existe (fallback automático: `/opt/pw-browsers/chromium`) |
 | `FX_EVIDENCE_DIR` | diretório das screenshots (default `backend/var/evidence`) |
 
-`backend/var/.gitignore` contém `*` (+ `!.gitignore` para o próprio arquivo ser versionável).
+`backend/var/` inteiro é ignorado por `backend/.gitignore` (`var/`); um `backend/var/.gitignore` local não é versionado.
 
 ## Testes
 
 `cd backend && uv run pytest tests/adapters -q` — offline, baseados em fixtures em `tests/fixtures/` (HTML/JSON reais
-capturados 2026-10-30..11-02). Cobrem: números concretos por filial/moeda, direção base/quote e `unit_note`, mapa de cidades,
-payload vazio / layout alterado → `ERROR`, parcial → `DEGRADED`, timestamp velho → `STALE`, e para `bonanza`/`revolut`
-o `fetch()` com respx (200 → OK, 403 → BLOCKED, timeout → ERROR, 500 → ERROR); para `bcp`, Frankfurter preferido, fallback HTML quando o feed falha, e os dois fora → BLOCKED/ERROR. Fixtures: `chaco.json`/`chaco.html`/`chaco_branches.json`, `alberdi.json`/`alberdi.html`, `bonanza.json`/`bonanza_shell.html`, `norte.html`, `bcp.html`/`bcp_frankfurter.json`, `ueno.html`/`ueno_ajax.json`, `nomad.json`, `revolut.json`, `westernunion_5000_brl_pyg.json`. `uv run ruff check src/fronteira_fx/adapters tests/adapters` limpo.
+capturados 2026-10-30..11-02) e, para os três adaptadores de 2026-11-02, em `tests/adapters/fixtures/`
+(`maxicambios.html`, `myd.html`, `dolarpy.json`). Cobrem: números concretos por filial/moeda, direção base/quote e `unit_note`, mapa de cidades,
+payload vazio / layout alterado → `ERROR`, parcial → `DEGRADED`, timestamp velho → `STALE`, e para `bonanza`/`revolut`/`maxicambios`/`myd`/`dolarpy`
+o `fetch()` com respx (200 → OK, 403/captcha → BLOCKED, HTML sem cards → DEGRADED, timeout → ERROR, 500 → ERROR, `updated` velho → STALE); para `bcp`, Frankfurter preferido, fallback HTML quando o feed falha, e os dois fora → BLOCKED/ERROR. Fixtures: `chaco.json`/`chaco.html`/`chaco_branches.json`, `alberdi.json`/`alberdi.html`, `bonanza.json`/`bonanza_shell.html`, `norte.html`, `bcp.html`/`bcp_frankfurter.json`, `ueno.html`/`ueno_ajax.json`, `nomad.json`, `revolut.json`, `westernunion_5000_brl_pyg.json`. `uv run ruff check src/fronteira_fx/adapters tests/adapters` limpo.
 
 ## Dependências pendentes
 

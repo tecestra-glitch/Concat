@@ -107,6 +107,23 @@ def test_looks_blocked() -> None:
     assert not looks_blocked(500, "")
 
 
+def test_looks_blocked_tolerates_recaptcha_embeds() -> None:
+    # Legit pages (MaxiCambios, contact forms) embed reCAPTCHA: v3 badge CSS/script, gstatic stylesheet,
+    # the v2 checkbox widget and its hidden token. None of that is a challenge page...
+    embeds = (
+        "<html><head><style>.grecaptcha-badge{visibility:hidden}</style>"
+        '<script src="https://www.google.com/recaptcha/api.js?render=key"></script>'
+        '<link href="https://www.gstatic.com/recaptcha/releases/x/styles.css" rel="stylesheet"></head>'
+        '<body><form><div class="g-recaptcha" data-sitekey="x"></div>'
+        '<input type="hidden" name="g-recaptcha-response"></form>ok</body></html>'
+    )
+    assert not looks_blocked(200, embeds)
+    # ...but a real challenge page still is, by what it says, not by the word "captcha" alone.
+    assert looks_blocked(200, "<html><body><p>Please complete the captcha to continue</p></body></html>")
+    assert looks_blocked(200, "<html><body><h1>Verify you are human</h1></body></html>")
+    assert looks_blocked(503, "<html><head><title>Just a moment...</title></head></html>")
+
+
 def test_city_from_text() -> None:
     assert city_from_text("Ciudad del Este - Km7") == "CDE"
     assert city_from_text("Casa Central - Asuncion") == "ASU"

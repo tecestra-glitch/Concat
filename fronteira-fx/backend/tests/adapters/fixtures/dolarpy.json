@@ -1,0 +1,62 @@
+{
+    "dolarpy": {
+        "bcp": {
+            "compra": 5908.35,
+            "referencial_diario": 5944.76,
+            "venta": 5922.67
+        },
+        "bonanza": {
+            "compra": 5820.0,
+            "venta": 5920.0
+        },
+        "cambiosalberdi": {
+            "compra": 5800.0,
+            "venta": 5920.0
+        },
+        "cambioschaco": {
+            "compra": 5750.0,
+            "venta": 5900.0
+        },
+        "continental": {
+            "compra": 5820.0,
+            "venta": 6020.0
+        },
+        "eurocambios": {
+            "compra": 5780.0,
+            "venta": 5950.0
+        },
+        "familiar": {
+            "compra": 5760.0,
+            "venta": 5990.0
+        },
+        "gnbfusion": {
+            "compra": 5800.0,
+            "venta": 6060.0
+        },
+        "lamoneda": {
+            "compra": 5780.0,
+            "venta": 5930.0
+        },
+        "maxicambios": {
+            "compra": 5700.0,
+            "venta": 5950.0
+        },
+        "mundialcambios": {
+            "compra": 5800.0,
+            "venta": 5930.0
+        },
+        "mydcambios": {
+            "compra": 5770.0,
+            "venta": 5930.0
+        },
+        "set": {
+            "compra": 5910.01,
+            "venta": 5929.37
+        },
+        "ueno": {
+            "compra": 5720.0,
+            "venta": 6050.0
+        }
+    },
+    "updated": "2026-10-30 20:50:24"
+}

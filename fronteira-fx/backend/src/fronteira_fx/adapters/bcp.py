@@ -204,10 +204,10 @@ class BcpAdapter:
         declared = next((q.declared_updated_at for q in quotes if q.declared_updated_at), None)
         if declared is None and quotes:
             issues.append("declared date not found")
+        header = f"frankfurter bcp {declared.date().isoformat() if declared else '?'}"
         evidence = build_evidence(
             source_id=self.info.id, kind="json", url=url, captured_at=captured_at, raw=text, rules=[RULE_JSON],
-            excerpt_text=quotes_excerpt(quotes, header=f"frankfurter bcp {declared.date().isoformat() if declared else '?'}"
-                                        ),
+            excerpt_text=quotes_excerpt(quotes, header=header),
         )
         return finalize(quotes=quotes, evidence=evidence, issues=issues, captured_at=captured_at,
                         stale_after=self.stale_after)

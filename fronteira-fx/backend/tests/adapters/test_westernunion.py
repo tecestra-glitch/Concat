@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -112,10 +113,14 @@ async def test_fetch_rejects_bad_params() -> None:
     assert (await wu.adapter.fetch(receive="pigeon")).status == AdapterStatus.ERROR  # type: ignore[arg-type]
 
 
-def test_evidence_dir_is_gitignored() -> None:
-    gitignore = wu.evidence_dir().parent / ".gitignore"
-    assert gitignore.read_text().splitlines()[0].strip() == "*"  # everything under var/ is ignored
-    assert wu.evidence_dir().parts[-2:] == ("var", "evidence")
+def test_evidence_dir_is_gitignored(monkeypatch: pytest.MonkeyPatch) -> None:
+    # backend/.gitignore ignores the whole var/ tree, so screenshots never reach Git. (A nested var/.gitignore is
+    # itself untracked and only exists where the adapter has already run, so it cannot be what this test relies on.)
+    backend_root = Path(__file__).resolve().parents[2]
+    rules = [line.strip() for line in (backend_root / ".gitignore").read_text().splitlines()]
+    assert any(rule.strip("/") == "var" for rule in rules), rules
+    monkeypatch.delenv("FX_EVIDENCE_DIR", raising=False)
+    assert wu.evidence_dir() == backend_root / "var" / "evidence"
 
 
 # visible page text captured live on 2026-11-02 after choosing Conta Bancaria + PIX for 5000 BRL
