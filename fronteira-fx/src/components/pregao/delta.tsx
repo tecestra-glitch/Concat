@@ -45,17 +45,24 @@ export function deltaText(value: number | string | null, kind: "pct" | "abs", qu
 }
 
 const ICON: Record<DeltaDirection, typeof ArrowUp> = { up: ArrowUp, down: ArrowDown, flat: Minus, none: Minus };
-const SR_TEXT: Record<DeltaDirection, string> = { up: " subiu", down: " caiu", flat: " estável", none: "sem variação disponível" };
+/** Sufixo de cada direção: vai no `sr-only` e, colado ao texto visível, no `title` (§10.1 item 1). */
+const SR_TEXT: Record<DeltaDirection, string> = { up: " subiu", down: " caiu", flat: " estável", none: " sem variação disponível" };
 const COLOR: Record<DeltaDirection, string> = { up: "text-gain", down: "text-loss", flat: "text-muted", none: "text-muted" };
 
 /** Variação com seta, sinal e texto para leitor de tela: alta e baixa distinguíveis sem cor (§0.1 item 7). */
 export function Delta({ value, kind = "pct", quote, className }: DeltaProps): ReactElement {
   const dir = directionOf(effectiveValue(value, kind, quote));
   const Icon = ICON[dir];
+  const text = deltaText(value, kind, quote);
   return (
-    <span className={cn("tnum inline-flex items-center gap-0.5", COLOR[dir], className)} data-testid="pregao-delta" data-direction={dir}>
+    <span
+      className={cn("tnum inline-flex items-center gap-0.5", COLOR[dir], className)}
+      data-testid="pregao-delta"
+      data-direction={dir}
+      title={`${text}${SR_TEXT[dir]}`}
+    >
       <Icon size={12} aria-hidden />
-      {deltaText(value, kind, quote)}
+      {text}
       <span className="sr-only">{SR_TEXT[dir]}</span>
     </span>
   );
