@@ -44,18 +44,26 @@ interface WatchSpec {
   errors: number;
 }
 
-/** One row per demo source (demo-data.ts). Intervals reflect the adaptive scheduler: short for lively sources, backed off after errors. */
-const WATCH_SPECS: WatchSpec[] = [
-  { id: "chaco", status: "ok", enabled: true, interval: 120, min: 60, max: 900, lastRunAgo: 95, lastChangeAgo: 480, changes24h: 7, errors: 0 },
-  { id: "alberdi", status: "ok", enabled: true, interval: 180, min: 60, max: 900, lastRunAgo: 140, lastChangeAgo: 1500, changes24h: 5, errors: 0 },
-  { id: "norte", status: "degraded", enabled: true, interval: 600, min: 60, max: 900, lastRunAgo: 420, lastChangeAgo: 3600, changes24h: 1, errors: 2 },
-  { id: "bonanza", status: "ok", enabled: true, interval: 300, min: 120, max: 1800, lastRunAgo: 200, lastChangeAgo: 2700, changes24h: 3, errors: 0 },
-  { id: "bcp", status: "stale", enabled: true, interval: 3600, min: 900, max: 7200, lastRunAgo: 900, lastChangeAgo: 79200, changes24h: 1, errors: 0 },
-  { id: "ueno", status: "ok", enabled: true, interval: 240, min: 60, max: 900, lastRunAgo: 60, lastChangeAgo: 900, changes24h: 4, errors: 0 },
-  { id: "westernunion", status: "needs_session", enabled: true, interval: 900, min: 300, max: 3600, lastRunAgo: 500, lastChangeAgo: 5400, changes24h: 1, errors: 3 },
-  { id: "nomad", status: "ok", enabled: true, interval: 300, min: 60, max: 900, lastRunAgo: 230, lastChangeAgo: 4200, changes24h: 2, errors: 0 },
-  { id: "revolut", status: "blocked", enabled: false, interval: 900, min: 300, max: 3600, lastRunAgo: 7200, lastChangeAgo: null, changes24h: 0, errors: 6 },
-];
+type WatchOverride = Omit<WatchSpec, "id">;
+
+/** A source without its own row: healthy, polled at the floor of 60 s × 5, one change in the last day. */
+const DEFAULT_WATCH: WatchOverride = { status: "ok", enabled: true, interval: 300, min: 60, max: 900, lastRunAgo: 150, lastChangeAgo: 3000, changes24h: 1, errors: 0 };
+
+/** Per-source scheduler state. Intervals reflect the adaptive scheduler: short for lively sources, backed off after errors. */
+const WATCH_OVERRIDES: Record<string, WatchOverride> = {
+  chaco: { status: "ok", enabled: true, interval: 120, min: 60, max: 900, lastRunAgo: 95, lastChangeAgo: 480, changes24h: 7, errors: 0 },
+  alberdi: { status: "ok", enabled: true, interval: 180, min: 60, max: 900, lastRunAgo: 140, lastChangeAgo: 1500, changes24h: 5, errors: 0 },
+  norte: { status: "degraded", enabled: true, interval: 600, min: 60, max: 900, lastRunAgo: 420, lastChangeAgo: 3600, changes24h: 1, errors: 2 },
+  bonanza: { status: "ok", enabled: true, interval: 300, min: 120, max: 1800, lastRunAgo: 200, lastChangeAgo: 2700, changes24h: 3, errors: 0 },
+  bcp: { status: "stale", enabled: true, interval: 3600, min: 900, max: 7200, lastRunAgo: 900, lastChangeAgo: 79200, changes24h: 1, errors: 0 },
+  ueno: { status: "ok", enabled: true, interval: 240, min: 60, max: 900, lastRunAgo: 60, lastChangeAgo: 900, changes24h: 4, errors: 0 },
+  westernunion: { status: "needs_session", enabled: true, interval: 900, min: 300, max: 3600, lastRunAgo: 500, lastChangeAgo: 5400, changes24h: 1, errors: 3 },
+  nomad: { status: "ok", enabled: true, interval: 300, min: 60, max: 900, lastRunAgo: 230, lastChangeAgo: 4200, changes24h: 2, errors: 0 },
+  revolut: { status: "blocked", enabled: false, interval: 900, min: 300, max: 3600, lastRunAgo: 7200, lastChangeAgo: null, changes24h: 0, errors: 6 },
+};
+
+/** One row per demo source — derived from `demoSources`, so adding a source there adds a monitored row here. */
+const WATCH_SPECS: WatchSpec[] = demoSources.map((s) => ({ id: s.id, ...(WATCH_OVERRIDES[s.id] ?? DEFAULT_WATCH) }));
 
 interface PriceSpec {
   pair: string;
@@ -79,12 +87,19 @@ const PRICE_SPECS: Record<string, PriceSpec> = {
   revolut: { pair: "USD/BRL", city: null, side: "venda", value: 5.41, step: 0.01, decimals: 2 },
 };
 
+/** Sources without a price row (none today) fall back to a generic USD/PYG reading so the generator never crashes. */
+const DEFAULT_PRICE: PriceSpec = { pair: "USD/PYG", city: null, side: "venda", value: 7350, step: 5, decimals: 0 };
+
+function priceSpec(sourceId: string): PriceSpec {
+  return PRICE_SPECS[sourceId] ?? DEFAULT_PRICE;
+}
+
 function fmt(n: number, decimals: number): string {
   return n.toFixed(decimals).replace(".", ",");
 }
 
 function quoteSummary(sourceId: string, before: number, after: number): string {
-  const p = PRICE_SPECS[sourceId];
+  const p = priceSpec(sourceId);
   const where = p.city ? ` ${p.city}` : "";
   return `${p.pair}${where} ${p.side} ${fmt(before, p.decimals)} → ${fmt(after, p.decimals)}`;
 }
@@ -131,7 +146,7 @@ export function buildDemoWatch(anchor: number = DEMO_WATCH_NOW): DemoWatchData {
   const changes: Change[] = [];
   for (const w of WATCH_SPECS) {
     if (w.changes24h === 0 || w.lastChangeAgo === null) continue;
-    const price = PRICE_SPECS[w.id];
+    const price = priceSpec(w.id);
     // Timestamps: the most recent one is exactly last_change_at; the rest spread over the remaining 24 h.
     const offsets = [w.lastChangeAgo];
     for (let i = 1; i < w.changes24h; i++) offsets.push(Math.round(w.lastChangeAgo + rnd() * (86_000 - w.lastChangeAgo)));
@@ -192,13 +207,13 @@ const livePrice: Record<string, number> = {};
 function getStore(): DemoWatchData {
   if (!store) {
     store = buildDemoWatch();
-    for (const [id, p] of Object.entries(PRICE_SPECS)) livePrice[id] = p.value;
+    for (const w of WATCH_SPECS) livePrice[w.id] = priceSpec(w.id).value;
   }
   return store;
 }
 
 function recordChange(s: WatchStatus, atMs: number, manual: boolean): Change {
-  const p = PRICE_SPECS[s.source_id];
+  const p = priceSpec(s.source_id);
   const prev = livePrice[s.source_id] ?? p.value;
   const dir = liveRnd() < 0.5 ? -1 : 1;
   const next = Number((prev + dir * p.step).toFixed(p.decimals));
@@ -279,10 +294,13 @@ export function demoUpdateWatch(id: string, patch: WatchPatch, now: number = Dat
   return { ...s };
 }
 
-/** Test hook: rebuilds the store from the seeded generator. */
+/** Test hook: rebuilds the watch store and the alert-rule store from the seeded generators. */
 export function resetDemoWatch() {
   store = null;
   pollCounter = 0;
+  rules = null;
+  ruleCounter = 0;
+  eventCounter = 0;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -319,8 +337,37 @@ const EVENT_SPECS: EventSpec[] = [
 let ruleCounter = 0;
 let eventCounter = 0;
 
+/** Mutable in-memory copy of RULES so create/update/delete behave like a live backend in the demo. */
+let rules: AlertRule[] | null = null;
+
+function cloneRule(r: AlertRule): AlertRule {
+  return { ...r, params: r.params ? { ...r.params } : null };
+}
+
+function getRules(): AlertRule[] {
+  if (!rules) rules = RULES.map(cloneRule);
+  return rules;
+}
+
 export function demoAlertRules(): AlertRule[] {
-  return RULES.map((r) => ({ ...r, params: r.params ? { ...r.params } : null }));
+  return getRules().map(cloneRule);
+}
+
+/** PATCH /v1/alerts/rules/{id} (demo). Throws for an unknown id so the caller can surface a 404-like error. */
+export function demoUpdateRule(id: string, patch: Partial<AlertRuleInput>): AlertRule {
+  const list = getRules();
+  const idx = list.findIndex((r) => r.id === id);
+  if (idx < 0) throw new Error(`regra ${id} não encontrada (demo)`);
+  const next: AlertRule = { ...list[idx], ...patch, id, data_mode: "demo" };
+  list[idx] = next;
+  return cloneRule(next);
+}
+
+/** DELETE /v1/alerts/rules/{id} (demo). Unknown ids are ignored, like a 204 on an already-deleted rule. */
+export function demoDeleteRule(id: string): void {
+  const list = getRules();
+  const idx = list.findIndex((r) => r.id === id);
+  if (idx >= 0) list.splice(idx, 1);
 }
 
 export function demoAlertEvents(anchor: number = DEMO_WATCH_NOW): AlertEvent[] {
@@ -337,10 +384,12 @@ export function demoAlertEvents(anchor: number = DEMO_WATCH_NOW): AlertEvent[] {
   }));
 }
 
-/** Demo rules live only in the caller's component state; this just mints a flagged record. */
+/** POST /v1/alerts/rules (demo): mints a flagged record and keeps it in the in-memory store. */
 export function demoCreateRule(input: AlertRuleInput): AlertRule {
   ruleCounter++;
-  return { ...input, id: `local-rule-${ruleCounter}`, data_mode: "demo" };
+  const rule: AlertRule = { ...input, id: `local-rule-${ruleCounter}`, data_mode: "demo" };
+  getRules().push(rule);
+  return cloneRule(rule);
 }
 
 /** Nothing is sent in demo mode; the event states that explicitly instead of faking a delivery. */

@@ -1,7 +1,8 @@
 "use client";
 /** User settings persisted in localStorage via a tiny external store (hydration-safe). */
 import * as React from "react";
-import { type Mode, resolveMode } from "./api/client";
+import { type BackendStatus, type Mode, resolveMode } from "./api/client";
+import { getBackendStatus, getServerBackendStatus, subscribeBackendStatus } from "./api/backend-status";
 
 export interface Settings {
   modePreference: Mode | "auto";
@@ -44,7 +45,9 @@ export function updateSettings(patch: Partial<Settings>) {
 
 interface Ctx {
   settings: Settings;
+  /** Resolved data mode: `auto` becomes `real` only once the backend probe (via `/api/fx`) succeeds. */
   mode: Mode;
+  backend: BackendStatus;
   update: (patch: Partial<Settings>) => void;
 }
 
@@ -52,8 +55,9 @@ const SettingsContext = React.createContext<Ctx | null>(null);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const settings = React.useSyncExternalStore(subscribe, load, () => DEFAULT_SETTINGS);
-  const mode = resolveMode(settings.modePreference);
-  const value = React.useMemo(() => ({ settings, mode, update: updateSettings }), [settings, mode]);
+  const backend = React.useSyncExternalStore(subscribeBackendStatus, getBackendStatus, getServerBackendStatus);
+  const mode = resolveMode(settings.modePreference, backend);
+  const value = React.useMemo<Ctx>(() => ({ settings, mode, backend, update: updateSettings }), [settings, mode, backend]);
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 

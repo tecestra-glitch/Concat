@@ -1,6 +1,13 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { ROUTES } from "./routes";
 
-// Never rely on networkidle: the app may keep a live stream open.
+// Never rely on networkidle: the app keeps a live stream open.
+async function expectNoHorizontalScroll(page: Page) {
+  const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
+  const clientW = await page.evaluate(() => document.documentElement.clientWidth);
+  expect(scrollW).toBeLessThanOrEqual(clientW + 1);
+}
+
 test.describe("Fronteira FX terminal", () => {
   test("home renders prices, ranking and demo banner without horizontal scroll", async ({ page }, info) => {
     await page.goto("/");
@@ -9,10 +16,17 @@ test.describe("Fronteira FX terminal", () => {
     await expect(page.getByTestId("price-card-BRLPYG")).toContainText("por 1 BRL");
     await expect(page.getByRole("heading", { level: 2, name: "Visão geral" })).toBeVisible();
     await expect(page.getByTestId("sources-status")).toBeVisible();
-    const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
-    const clientW = await page.evaluate(() => document.documentElement.clientWidth);
-    expect(scrollW).toBeLessThanOrEqual(clientW + 1);
+    await expectNoHorizontalScroll(page);
     await page.screenshot({ path: `dev/screenshots/home-${info.project.name}.png`, fullPage: true });
+  });
+
+  test("price cards keep one context: the reference is shown apart, with the source name", async ({ page }) => {
+    await page.goto("/");
+    const card = page.getByTestId("price-card-USDPYG");
+    await expect(card).toContainText("Dinheiro físico");
+    await expect(card).toContainText("Cambios Alberdi");
+    await expect(card).toContainText("≈ BCP (referência)");
+    await expect(card).not.toContainText("ueno");
   });
 
   test("connection indicator shows demo state and quote age is separate", async ({ page }) => {
@@ -23,18 +37,35 @@ test.describe("Fronteira FX terminal", () => {
   });
 
   test("navigation reaches every screen", async ({ page }) => {
-    for (const [path, heading] of [
-      ["/mercados", "Mercados"],
-      ["/oportunidades", "Oportunidades"],
-      ["/simulador", "Simulador de rotas"],
-      ["/contas", "Contas e cartões"],
-      ["/fontes", "Fontes"],
-      ["/diario", "Diário de operações"],
-      ["/configuracoes", "Configurações"],
-    ] as const) {
+    for (const [path, heading] of ROUTES) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
     }
+  });
+
+  test("no route scrolls horizontally (DS25)", async ({ page }) => {
+    for (const [path, heading] of ROUTES) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
+      await expectNoHorizontalScroll(page);
+    }
+  });
+
+  test("mobile «Mais» menu reaches the screens outside the bottom bar", async ({ page }, info) => {
+    test.skip(info.project.name !== "mobile-390", "só na largura de celular");
+    await page.goto("/");
+    await page.getByTestId("mobile-nav").getByRole("button", { name: "Mais telas" }).click();
+    const menu = page.getByTestId("more-menu");
+    await expect(menu).toBeVisible();
+    for (const label of ["Monitor ao vivo", "Alertas", "Conhecimento", "Memória", "Configurações"]) await expect(menu.getByRole("link", { name: label })).toBeVisible();
+    await menu.getByRole("link", { name: "Memória" }).click();
+    await expect(page.getByRole("heading", { level: 2, name: "Memória" })).toBeVisible();
+  });
+
+  test("unknown route shows the pt-BR not-found page inside the shell", async ({ page }) => {
+    await page.goto("/nao-existe");
+    await expect(page.getByRole("heading", { level: 2, name: "Esta página não existe" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ir para a visão geral" })).toBeVisible();
   });
 
   test("simulator form validates and returns rankings", async ({ page }, info) => {
@@ -63,9 +94,22 @@ test.describe("Fronteira FX terminal", () => {
 
   test("micro-gains are not rounded to zero", async ({ page }) => {
     await page.goto("/oportunidades");
-    const cells = page.locator("td.tnum.font-semibold");
-    const texts = await cells.allTextContents();
-    for (const t of texts) expect(t).not.toMatch(/R\$ 0,00$/);
+    const cells = page.getByTestId("gain-cell");
+    await expect(cells.first()).toBeVisible();
+    expect(await cells.count()).toBeGreaterThan(0);
+    for (const t of await cells.allTextContents()) expect(t).not.toMatch(/\b0,00\b/);
+  });
+
+  test("incomplete estimates are never shown as confirmed profit", async ({ page }) => {
+    await page.goto("/oportunidades");
+    await page.getByRole("tab", { name: /Secundário/ }).click();
+    const incomplete = page.getByTestId("gain-cell").filter({ hasText: "não confirmado" });
+    const count = await incomplete.count();
+    for (let i = 0; i < count; i++) {
+      await expect(incomplete.nth(i)).toContainText("≈");
+      await expect(incomplete.nth(i)).not.toContainText("+");
+    }
+    await expect(page.getByText("Estimativa incompleta")).toHaveCount(0);
   });
 
   test("theme toggle switches to light", async ({ page }) => {
@@ -73,12 +117,62 @@ test.describe("Fronteira FX terminal", () => {
     await page.getByRole("button", { name: "Ativar tema claro" }).click();
     await expect(page.locator("html")).not.toHaveClass(/dark/);
   });
+
+  test("settings offer real, simulation and demo modes and show the backend status", async ({ page }) => {
+    await page.goto("/configuracoes");
+    await expect(page.getByTestId("backend-status")).toBeVisible();
+    await page.getByLabel("Preferência").click();
+    for (const opt of ["Automático", "Real", "Simulação", "Demonstração"]) await expect(page.getByRole("option", { name: opt })).toBeVisible();
+    await page.getByRole("option", { name: "Simulação" }).click();
+    await expect(page.getByTestId("effective-mode")).toHaveText("simulação");
+    await expect(page.getByTestId("simulation-banner")).toBeVisible();
+    await expect(page.getByTestId("demo-banner")).toHaveCount(0);
+  });
 });
 
-test("live cycle crossing lists cycles starting from parked balances", async ({ page }) => {
+test.describe("Contas e diário (demonstração)", () => {
+  test("creating an account closes the dialog after the result and marks it as session-only", async ({ page }) => {
+    await page.goto("/contas");
+    await expect(page.getByTestId("accounts-note")).toContainText("Nada aqui executa operações");
+    await page.getByRole("button", { name: "Cadastrar conta" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Instituição").fill("Banco Teste");
+    await dialog.getByLabel("Rótulo").fill("Conta e2e");
+    await dialog.getByLabel("Saldo livre").fill("1.234,50");
+    await dialog.getByRole("button", { name: "Salvar" }).click();
+    await expect(dialog).toBeHidden();
+    const card = page.getByTestId("account-card").filter({ hasText: "Conta e2e" });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("1.234,50");
+    await expect(card).toContainText("só nesta sessão");
+  });
+
+  test("journal note is saved through the client and listed with the demo badge", async ({ page }) => {
+    await page.goto("/diario");
+    await expect(page.getByTestId("journal-mode")).toHaveText("demonstração");
+    await page.getByLabel("Nova nota").fill("Nota e2e do diário");
+    await page.getByRole("button", { name: "Registrar" }).click();
+    const entry = page.getByTestId("journal-entry").filter({ hasText: "Nota e2e do diário" });
+    await expect(entry).toBeVisible();
+    await expect(entry).toContainText("demonstração");
+    await expect(page.getByLabel("Nova nota")).toHaveValue("");
+  });
+
+  test("evidence highlighted by the URL is marked in the table", async ({ page }) => {
+    await page.goto("/fontes?evidence=demo-ev-3");
+    const row = page.locator('[data-testid="evidence-row"][data-highlight="true"]');
+    await expect(row).toBeVisible();
+    await expect(row).toContainText("demo-ev-3");
+  });
+});
+
+test("live cycle crossing lists cycles starting from parked balances, with mode and confidence", async ({ page }) => {
   await page.goto("/oportunidades");
   await page.getByRole("tab", { name: "Cruzamento ao vivo" }).click();
   const card = page.getByTestId("live-cycles");
   await expect(card).toBeVisible();
-  await expect(card.getByRole("row").nth(1)).toContainText("@");
+  await expect(card.getByTestId("cycles-mode")).toHaveText("demonstração");
+  const row = card.getByTestId("cycle-row").first();
+  await expect(row).toContainText("@");
+  await expect(row.getByText(/Cotado|Estimado|Custo desconhecido/)).toBeVisible();
 });

@@ -7,14 +7,16 @@ import {
   formatThreshold,
   matchesChange,
   median,
-  parseDecimalInput,
   secondsUntil,
   summarizeWatch,
   validateTarget,
   validateThreshold,
+  watchApi,
+  type AlertRule,
   type Change,
   type WatchStatus,
 } from "@/lib/api/watch";
+import { ApiError } from "@/lib/api/client";
 import {
   buildDemoWatch,
   demoAlertEvents,
@@ -28,6 +30,7 @@ import {
   resetDemoWatch,
 } from "@/lib/api/demo-watch";
 import { demoEvidence, demoSources } from "@/lib/api/demo-data";
+import { parseDecimalPtBR } from "@/lib/format";
 
 const NOW = Date.parse("2026-11-02T12:00:00.000Z");
 const at = (offsetS: number) => new Date(NOW + offsetS * 1000).toISOString();
@@ -81,14 +84,16 @@ describe("thresholds", () => {
     expect(formatThreshold("source_down", "900")).toBe("15 min");
     expect(formatThreshold("source_down", null)).toBe("—");
   });
-  it("parses pt-BR decimals", () => {
-    expect(parseDecimalInput("0,25")).toBe(0.25);
-    expect(parseDecimalInput("0.25")).toBe(0.25);
-    expect(parseDecimalInput("1.250,5")).toBe(1250.5);
-    expect(parseDecimalInput(" 15 ")).toBe(15);
-    expect(parseDecimalInput("")).toBeNull();
-    expect(parseDecimalInput("abc")).toBeNull();
-    expect(parseDecimalInput("1,2,3")).toBeNull();
+  it("thresholds are parsed with the shared pt-BR decimal parser", () => {
+    expect(parseDecimalPtBR("0,25")).toBe("0.25");
+    expect(parseDecimalPtBR("0.25")).toBe("0.25");
+    expect(parseDecimalPtBR("1.250,5")).toBe("1250.5");
+    expect(parseDecimalPtBR(" 15 ")).toBe("15");
+    expect(parseDecimalPtBR("")).toBeNull();
+    expect(parseDecimalPtBR("abc")).toBeNull();
+    expect(parseDecimalPtBR("1,2,3")).toBeNull();
+    expect(validateThreshold("cycle_roi", "1.250,5").ok).toBe(false); // > 100 %
+    expect(validateThreshold("source_down", "1.000")).toEqual({ ok: true, value: "60000" });
   });
   it("converts a percent to a ratio string for ratio kinds", () => {
     expect(validateThreshold("cycle_roi", "0,25")).toEqual({ ok: true, value: "0.0025" });
@@ -260,5 +265,16 @@ describe("demo watch dataset", () => {
     expect(ev.error).toMatch(/demonstração/);
     expect(ev.rule_id).toBe(rule.id);
     for (const e of demoAlertEvents(ANCHOR)) expect(demoAlertRules().some((r) => r.id === e.rule_id)).toBe(true);
+  });
+});
+
+describe("watchApi (demo)", () => {
+  it("updating a rule that does not exist fails with 404 instead of inventing a row", async () => {
+    resetDemoWatch();
+    const ghost: AlertRule = { id: "nope", name: "fantasma", kind: "cycle_roi", threshold: "0.002", params: null, channel: "ui", target: null, cooldown_s: 600, enabled: true, data_mode: "demo" };
+    const attempt = watchApi.updateRule("demo", ghost, { enabled: false });
+    await expect(attempt).rejects.toBeInstanceOf(ApiError);
+    await expect(attempt).rejects.toMatchObject({ status: 404 });
+    expect(demoAlertRules().some((r) => r.id === "nope")).toBe(false);
   });
 });

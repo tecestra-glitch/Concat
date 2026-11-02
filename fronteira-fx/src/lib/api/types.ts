@@ -8,7 +8,18 @@ export type SourceMethod = "official_api" | "html" | "browser" | "manual";
 export type Health = "ok" | "degraded" | "blocked" | "stale" | "unknown";
 export type Confidence = "quoted" | "estimated" | "incomplete";
 export type DataMode = "real" | "simulation" | "demo";
+/** D3: the three data modes never mix; `simulation` travels as `?data_mode=simulation`. */
+export type Mode = DataMode;
 export type OpportunityKind = "cycle" | "remittance_saving" | "purchase_saving";
+
+/** GET /v1/health */
+export interface BackendHealth {
+  status: string;
+  data_mode: DataMode;
+  db?: string;
+  version?: string;
+  server_time?: string;
+}
 
 export interface Fee {
   label: string;
@@ -42,6 +53,8 @@ export interface Branch {
 
 export interface Quote {
   id: string;
+  /** D2: `source:city|digital:BASE/QUOTE:modality[:@branch][:amount][:ctx8]` — addresses history, volatility and SSE updates. */
+  series_key: string;
   source_id: string;
   branch_id: string | null;
   city: City;
@@ -59,8 +72,31 @@ export interface Quote {
   captured_at: string;
   declared_updated_at: string | null;
   valid_until: string | null;
-  evidence_id: string;
+  evidence_id: string | null;
   data_mode: DataMode;
+}
+
+/** GET /v1/quotes filters (backend accepts city, base, quote, source, modality, amount). */
+export interface QuoteFilters {
+  city?: string;
+  base?: string;
+  quote?: string;
+  source?: string;
+  modality?: string;
+  amount?: string | number;
+}
+
+/** POST /v1/quotes/request */
+export interface QuoteRequest {
+  source_id: string;
+  params: Record<string, string | number | null>;
+}
+
+export interface QuoteRequestResponse {
+  status: "done" | "queued" | "blocked";
+  quote?: Quote | null;
+  job_id?: string;
+  reason?: string;
 }
 
 export interface HistoryPoint {
@@ -99,6 +135,11 @@ export interface Account {
   balance_in_transit: string;
   updated_at: string;
 }
+
+/** POST /v1/accounts */
+export type AccountInput = Omit<Account, "id" | "updated_at">;
+/** PATCH /v1/accounts/{id} */
+export type AccountPatch = Partial<Pick<Account, "label" | "balance_free" | "balance_reserved" | "balance_in_transit">>;
 
 export interface Position {
   currency: Currency;
@@ -146,6 +187,51 @@ export interface Opportunity {
   data_mode: DataMode;
 }
 
+/** GET /v1/opportunities filters. */
+export interface OpportunityFilters {
+  capital?: string | number;
+  channel?: Channel | "all" | string;
+  city?: string;
+}
+
+/** D1: edge of the positions graph. Money fields are decimal strings. */
+export type EdgeKind = "quote" | "transfer";
+
+export interface Edge {
+  from: string; // `${currency}@${venue}`
+  to: string;
+  kind: EdgeKind;
+  rate: string; // units of `to` per 1 unit of `from`, before costs
+  fee_pct: string; // proportional cost on the input (0.01 = 1 %)
+  fee_fixed: string; // fixed cost in the OUTPUT currency
+  minutes: number;
+  via: string;
+  confidence: Confidence;
+  evidence_id: string | null;
+}
+
+/** D1: GET /v1/opportunities/cycles item. */
+export interface Cycle {
+  start: string;
+  path: string[];
+  edges: Edge[];
+  amount_in: string;
+  amount_out: string;
+  gain: string;
+  roi: string;
+  minutes: number;
+  confidence: Confidence;
+  data_mode: DataMode;
+}
+
+/** GET /v1/opportunities/cycles?max_len=&min_roi=&start=&limit= */
+export interface CycleFilters {
+  maxLen?: number; // 2..6, default 4
+  minRoi?: string; // decimal string
+  start?: string; // node key `${currency}@${venue}`
+  limit?: number; // 1..500, default 200
+}
+
 export interface Evidence {
   id: string;
   source_id: string;
@@ -157,6 +243,12 @@ export interface Evidence {
   rules: string[];
 }
 
+/** GET /v1/evidence?source=&from= */
+export interface EvidenceFilters {
+  source?: string;
+  from?: string;
+}
+
 export interface JournalEntry {
   id: string;
   ts: string;
@@ -166,9 +258,14 @@ export interface JournalEntry {
   account_ids: string[];
 }
 
+/** POST /v1/journal */
+export type JournalInput = Omit<JournalEntry, "id" | "ts">;
+
+export type StreamEventType = "quote.updated" | "source.health" | "opportunity.updated" | "heartbeat" | "source.change" | "alert.fired";
+
 export interface StreamEvent {
   id: string;
-  type: "quote.updated" | "source.health" | "opportunity.updated" | "heartbeat";
+  type: StreamEventType;
   ts: string;
   payload: unknown;
 }
@@ -179,6 +276,21 @@ export interface Snapshot {
   quotes: Quote[];
   sources: Source[];
   opportunities: Opportunity[];
+  data_mode?: DataMode;
+}
+
+/** GET /v1/memory */
+export interface Memory {
+  id: string;
+  kind: string;
+  text: string;
+  tags: string[];
+  created_at: string;
+}
+
+/** GET /v1/memory/summary?limit= */
+export interface MemorySummary {
+  summary: string;
 }
 
 export interface SimulationRequest {

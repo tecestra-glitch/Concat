@@ -22,7 +22,7 @@ export function WatchTable({ statuses, names }: Props) {
   return (
     <>
       <div className="hidden md:block">
-        <Table>
+        <Table scrollLabel="Sondagem por fonte (rola para o lado)">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Fonte</TableHead>
@@ -99,7 +99,7 @@ function PollButton({ s, name, compact = false }: { s: WatchStatus; name: string
 
 function WatchRow({ s, name }: { s: WatchStatus; name: string }) {
   return (
-    <TableRow data-testid="watch-row" data-source={s.source_id} data-last-run={s.last_run_at ?? ""} className={cn(!s.enabled && "opacity-70")}>
+    <TableRow data-testid="watch-row" data-source={s.source_id} data-last-run={s.last_run_at ?? ""} className={cn(!s.enabled && "bg-surface-2/40 text-muted")}>
       <TableCell>
         <p className="font-medium">{name}</p>
         <p className="tnum text-[11px] text-muted">{s.source_id}</p>
@@ -124,7 +124,7 @@ function WatchRow({ s, name }: { s: WatchStatus; name: string }) {
 
 function WatchCard({ s, name }: { s: WatchStatus; name: string }) {
   return (
-    <li data-testid="watch-row" data-source={s.source_id} data-last-run={s.last_run_at ?? ""} className={cn("rounded-md border border-border bg-surface p-3 text-sm", !s.enabled && "opacity-70")}>
+    <li data-testid="watch-row" data-source={s.source_id} data-last-run={s.last_run_at ?? ""} className={cn("rounded-md border border-border bg-surface p-3 text-sm", !s.enabled && "bg-surface-2/40 text-muted")}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-medium">{name}</p>

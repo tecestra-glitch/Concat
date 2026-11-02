@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WU_HISTORICAL_FIXTURE, allDemoQuotes, demoOpportunities, demoWesternUnionQuotes } from "@/lib/api/demo-data";
+import { WU_HISTORICAL_FIXTURE, allDemoQuotes, demoHistory, demoOpportunities, demoWesternUnionQuotes, seriesKey } from "@/lib/api/demo-data";
 
 describe("demo dataset isolation", () => {
   it("every demo record is flagged data_mode=demo", () => {
@@ -25,5 +25,39 @@ describe("demo dataset isolation", () => {
   });
   it("purchase scenario stays an incomplete estimate until card charges are validated", () => {
     expect(demoOpportunities.filter((o) => o.kind === "purchase_saving").every((o) => o.confidence === "incomplete")).toBe(true);
+  });
+});
+
+describe("series_key (D2) in the demo dataset", () => {
+  it("every quote carries series_key in the backend format source:city|digital:BASE/QUOTE:modality[:@branch][:amount][:ctx8]", () => {
+    for (const q of allDemoQuotes) {
+      expect(q.series_key).toBe(seriesKey(q));
+      const prefix = `${q.source_id}:${q.city ?? "digital"}:${q.base}/${q.quote}:${q.modality}`;
+      expect(q.series_key.startsWith(prefix)).toBe(true);
+      const rest = q.series_key.slice(prefix.length);
+      if (q.amount_base === null && !q.context && !q.branch_id) expect(rest).toBe("");
+      if (q.branch_id) expect(rest).toContain(`:@${q.branch_id}`);
+      if (q.amount_base !== null) expect(rest).toContain(`:${q.amount_base}`);
+      if (q.context && Object.keys(q.context).length > 0) expect(rest).toMatch(/:[0-9a-f]{8}$/);
+    }
+  });
+  it("keys are unique per quote and differ between contexts of the same amount", () => {
+    expect(new Set(allDemoQuotes.map((q) => q.series_key)).size).toBe(allDemoQuotes.length);
+    const bank = demoWesternUnionQuotes.find((q) => q.amount_base === "5000" && q.context?.receive === "bank_account")!;
+    const cash = demoWesternUnionQuotes.find((q) => q.amount_base === "5000" && q.context?.receive === "cash_pickup")!;
+    expect(bank.series_key).toMatch(/^westernunion:digital:BRL\/PYG:account:5000:[0-9a-f]{8}$/);
+    expect(cash.series_key).toMatch(/^westernunion:digital:BRL\/PYG:cash:5000:[0-9a-f]{8}$/);
+    expect(bank.series_key).not.toBe(cash.series_key);
+  });
+  it("history is addressed by the same key and echoes it", () => {
+    const q = allDemoQuotes[3];
+    const h = demoHistory(q.series_key, 12);
+    expect(h.key).toBe(q.series_key);
+    expect(h.points).toHaveLength(12);
+  });
+  it("history for an unknown key is empty and still echoes the key (no silent fallback to another series)", () => {
+    const h = demoHistory("nope:XX:USD/PYG:cash", 12);
+    expect(h.key).toBe("nope:XX:USD/PYG:cash");
+    expect(h.points).toHaveLength(0);
   });
 });

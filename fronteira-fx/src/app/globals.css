@@ -13,11 +13,17 @@
   --border: #d9deea;
   --accent: #2563eb;
   --accent-foreground: #ffffff;
-  --gain: #059669;
-  --loss: #e11d48;
-  --warn: #d97706;
+  /* DS7: ganho/perda/aviso passam 4,5:1 sobre #fff, #f4f6fb e #eef1f8 */
+  --gain: #047857;
+  --loss: #be123c;
+  --warn: #92400e;
   --ring: #2563eb;
   --radius: 0.5rem;
+  --border-strong: #7c8597;
+  --surface-3: #e3e8f2;
+  --chart-buy: #2563eb;
+  --chart-sell: #545b6d;
+  --chart-grid: #e6eaf3;
 }
 
 .dark {
@@ -34,6 +40,11 @@
   --loss: #fb7185;
   --warn: #fbbf24;
   --ring: #60a5fa;
+  --border-strong: #64748b;
+  --surface-3: #1f2a40;
+  --chart-buy: #60a5fa;
+  --chart-sell: #a9b0c0;
+  --chart-grid: #1b2440;
 }
 
 @theme inline {
@@ -49,6 +60,11 @@
   --color-loss: var(--loss);
   --color-warn: var(--warn);
   --color-ring: var(--ring);
+  --color-border-strong: var(--border-strong);
+  --color-surface-3: var(--surface-3);
+  --color-chart-buy: var(--chart-buy);
+  --color-chart-sell: var(--chart-sell);
+  --color-chart-grid: var(--chart-grid);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
   --radius-sm: calc(var(--radius) - 2px);
@@ -80,6 +96,10 @@
   }
   ::selection {
     background: color-mix(in oklab, var(--accent) 35%, transparent);
+  }
+  /* DS11: esqueleto de tabela com atraso escalonado (--i por linha) */
+  .stagger > * {
+    animation-delay: calc(var(--i, 0) * 90ms);
   }
 }
 

@@ -2,6 +2,7 @@
 /** React Query hooks for the watch/notify modules (mirrors src/lib/queries.ts for the core API). */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSettings } from "@/lib/settings";
+import { useLive } from "@/lib/live";
 import { matchesChange, watchApi, type Change, type ChangeFilters, type EventFilters, type WatchPatch, type WatchStatus } from "@/lib/api/watch";
 import type { Mode } from "@/lib/api/client";
 
@@ -14,14 +15,29 @@ export const watchKeys = {
   events: (mode: Mode, f: EventFilters) => ["alerts", "events", mode, f] as const,
 };
 
+/** Com o stream conectado as mudanças chegam por `source.change`/`alert.fired`; só os metadados de sondagem (última/próxima leitura, erros) são relidos, no piso de 60 s. */
+const CONNECTED_REFRESH_MS = 60_000;
+
+/**
+ * Polling rápido só como fallback (stream caído ou demonstração). Conectado, o stream é o canal
+ * principal e a releitura cai para o piso de 60 s — ela existe porque o contrato não emite evento a cada
+ * sondagem sem mudança, e sem ela a contagem «próxima sondagem» congelaria.
+ */
+function usePollingFallback(intervalMs: number): number {
+  const { state } = useLive();
+  return state === "connected" ? Math.max(intervalMs, CONNECTED_REFRESH_MS) : intervalMs;
+}
+
 export function useWatchStatuses() {
   const { mode } = useSettings();
-  return useQuery({ queryKey: watchKeys.statuses(mode), queryFn: () => watchApi.statuses(mode), refetchInterval: 5_000, staleTime: 2_000 });
+  const refetchInterval = usePollingFallback(5_000);
+  return useQuery({ queryKey: watchKeys.statuses(mode), queryFn: () => watchApi.statuses(mode), refetchInterval, staleTime: 2_000 });
 }
 
 export function useChanges(f: ChangeFilters = {}) {
   const { mode } = useSettings();
-  return useQuery({ queryKey: watchKeys.changes(mode, f), queryFn: () => watchApi.changes(mode, f), refetchInterval: 10_000, staleTime: 5_000 });
+  const refetchInterval = usePollingFallback(10_000);
+  return useQuery({ queryKey: watchKeys.changes(mode, f), queryFn: () => watchApi.changes(mode, f), refetchInterval, staleTime: 5_000 });
 }
 
 /** Manual poll with optimistic UI: the row's last/next run move immediately; the Change is prepended on success. */
@@ -72,5 +88,6 @@ export function useAlertRules() {
 
 export function useAlertEvents(f: EventFilters = {}) {
   const { mode } = useSettings();
-  return useQuery({ queryKey: watchKeys.events(mode, f), queryFn: () => watchApi.events(mode, f), refetchInterval: 15_000, staleTime: 5_000 });
+  const refetchInterval = usePollingFallback(15_000);
+  return useQuery({ queryKey: watchKeys.events(mode, f), queryFn: () => watchApi.events(mode, f), refetchInterval, staleTime: 5_000 });
 }

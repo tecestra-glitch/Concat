@@ -4,16 +4,18 @@
  * the isolated demo dataset (demo-watch.ts) when mode is "demo"; the demo rows are flagged
  * `data_mode = "demo"` and are never mixed with real data.
  */
-import { API_URL, ApiError, type Mode } from "./client";
+import { ApiError, http, modeQuery, qs, type Mode } from "./client";
 import type { DataMode } from "./types";
-import { formatPercent, toNumber } from "../format";
+import { formatPercent, parseDecimalPtBR, toNumber } from "../format";
 import {
   demoAlertEvents,
   demoAlertRules,
   demoChanges,
   demoCreateRule,
+  demoDeleteRule,
   demoTestRule,
   demoTriggerPoll,
+  demoUpdateRule,
   demoUpdateWatch,
   demoWatchStatuses,
 } from "./demo-watch";
@@ -223,16 +225,6 @@ export function formatThreshold(kind: AlertKind, threshold: string | number | nu
   return n === null ? "—" : formatInterval(n);
 }
 
-/** Parses a pt-BR decimal typed by the user ("0,25" or "0.25"); null when not a finite number. */
-export function parseDecimalInput(raw: string): number | null {
-  let s = raw.trim().replace(/\s/g, "");
-  // With a comma present, dots are thousands separators ("1.250,5"); otherwise a dot is the decimal mark.
-  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
-  if (s === "" || s === "." || s === "-" || !/^-?\d*\.?\d*$/.test(s)) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-
 export type ThresholdValidation = { ok: true; value: string } | { ok: false; error: string };
 
 /**
@@ -241,7 +233,9 @@ export type ThresholdValidation = { ok: true; value: string } | { ok: false; err
  * source_down takes minutes (integer ≥ 1) and stores seconds ("15" → "900").
  */
 export function validateThreshold(kind: AlertKind, raw: string): ThresholdValidation {
-  const n = parseDecimalInput(raw);
+  // pt-BR input ("5.000", "0,25") → canonical decimal string (F7) → number only for the range checks.
+  const parsed = parseDecimalPtBR(raw);
+  const n = parsed === null ? null : Number(parsed);
   if (isRatioKind(kind)) {
     if (n === null || n <= 0 || n > 100) return { ok: false, error: "Informe um percentual entre 0 e 100 (ex.: 0,25)." };
     // Avoid binary noise: 0.25 / 100 → 0.0025 exactly, as a decimal string.
@@ -305,24 +299,6 @@ export function countRecent(changes: Change[], now: number, windowS: number): nu
   }).length;
 }
 
-// ---------------------------------------------------------------------------------------------
-// HTTP (same shape as client.ts; kept local because client.ts does not export its helpers)
-// ---------------------------------------------------------------------------------------------
-
-async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, { ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } });
-  if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText} em ${path}`);
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
-}
-
-function qs(params: Record<string, string | number | undefined>): string {
-  const p = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "" && v !== "all") p.set(k, String(v));
-  const s = p.toString();
-  return s ? `?${s}` : "";
-}
-
 export function matchesChange(c: Change, f: ChangeFilters): boolean {
   if (f.source && f.source !== "all" && c.source_id !== f.source) return false;
   if (f.kind && f.kind !== "all" && c.kind !== f.kind) return false;
@@ -334,45 +310,56 @@ export function matchesChange(c: Change, f: ChangeFilters): boolean {
 // Client
 // ---------------------------------------------------------------------------------------------
 
+/** `real` and `simulation` go to the backend (simulation adds `data_mode=simulation`, D3); only `demo` is local. */
 export const watchApi = {
   async statuses(mode: Mode): Promise<WatchStatus[]> {
-    return mode === "demo" ? demoWatchStatuses() : http<WatchStatus[]>("/v1/watch/sources");
+    if (mode !== "demo") return http<WatchStatus[]>(`/v1/watch/sources${qs(modeQuery(mode))}`);
+    return demoWatchStatuses();
   },
   async updateSource(mode: Mode, id: string, patch: WatchPatch): Promise<WatchStatus> {
-    if (mode === "real") return http<WatchStatus>(`/v1/watch/sources/${encodeURIComponent(id)}`, { method: "POST", body: JSON.stringify(patch) });
+    if (mode !== "demo") return http<WatchStatus>(`/v1/watch/sources/${encodeURIComponent(id)}${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify(patch) });
     return demoUpdateWatch(id, patch);
   },
   /** Sondagem imediata (MCP: trigger_poll). Returns the detected Change, or null when nothing changed. */
   async triggerPoll(mode: Mode, id: string): Promise<Change | null> {
-    if (mode === "real") return http<Change | null>(`/v1/watch/run/${encodeURIComponent(id)}`, { method: "POST" });
+    if (mode !== "demo") return http<Change | null>(`/v1/watch/run/${encodeURIComponent(id)}${qs(modeQuery(mode))}`, { method: "POST" });
     return demoTriggerPoll(id);
   },
   async changes(mode: Mode, f: ChangeFilters = {}): Promise<Change[]> {
-    if (mode === "real") return http<Change[]>(`/v1/watch/changes${qs({ ...f })}`);
+    if (mode !== "demo") return http<Change[]>(`/v1/watch/changes${qs({ ...f, ...modeQuery(mode) })}`);
     return demoChanges().filter((c) => matchesChange(c, f));
   },
   async rules(mode: Mode): Promise<AlertRule[]> {
-    return mode === "demo" ? demoAlertRules() : http<AlertRule[]>("/v1/alerts/rules");
+    if (mode !== "demo") return http<AlertRule[]>(`/v1/alerts/rules${qs(modeQuery(mode))}`);
+    return demoAlertRules();
   },
   async createRule(mode: Mode, input: AlertRuleInput): Promise<AlertRule> {
-    if (mode === "real") return http<AlertRule>("/v1/alerts/rules", { method: "POST", body: JSON.stringify(input) });
+    if (mode !== "demo") return http<AlertRule>(`/v1/alerts/rules${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify(input) });
     return demoCreateRule(input);
   },
-  /** Takes the current rule (not just the id) so the demo fallback can merge rules that exist only in component state. */
+  /**
+   * Takes the rule object (signature kept for the UI). In demo an unknown id fails with 404 exactly like
+   * the backend would; it never answers with a row that was not persisted.
+   */
   async updateRule(mode: Mode, rule: AlertRule, patch: Partial<AlertRuleInput>): Promise<AlertRule> {
-    if (mode === "real") return http<AlertRule>(`/v1/alerts/rules/${encodeURIComponent(rule.id)}`, { method: "PATCH", body: JSON.stringify(patch) });
-    return { ...rule, ...patch, data_mode: "demo" };
+    if (mode !== "demo") return http<AlertRule>(`/v1/alerts/rules/${encodeURIComponent(rule.id)}${qs(modeQuery(mode))}`, { method: "PATCH", body: JSON.stringify(patch) });
+    try {
+      return demoUpdateRule(rule.id, patch);
+    } catch (err) {
+      throw new ApiError(404, err instanceof Error ? err.message : `regra ${rule.id} não encontrada (demo)`);
+    }
   },
   async deleteRule(mode: Mode, id: string): Promise<void> {
-    if (mode === "real") await http<void>(`/v1/alerts/rules/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (mode !== "demo") await http<void>(`/v1/alerts/rules/${encodeURIComponent(id)}${qs(modeQuery(mode))}`, { method: "DELETE" });
+    else demoDeleteRule(id);
   },
   async events(mode: Mode, f: EventFilters = {}): Promise<AlertEvent[]> {
-    if (mode === "real") return http<AlertEvent[]>(`/v1/alerts/events${qs({ ...f })}`);
+    if (mode !== "demo") return http<AlertEvent[]>(`/v1/alerts/events${qs({ ...f, ...modeQuery(mode) })}`);
     return demoAlertEvents().filter((e) => (!f.rule || f.rule === "all" || e.rule_id === f.rule) && (!f.from || new Date(e.ts).getTime() >= new Date(f.from).getTime()));
   },
   /** Envia mensagem de teste pelo canal da regra. In demo mode nothing is sent; the event says so. */
   async testRule(mode: Mode, rule: AlertRule): Promise<AlertEvent> {
-    if (mode === "real") return http<AlertEvent>(`/v1/alerts/test/${encodeURIComponent(rule.id)}`, { method: "POST" });
+    if (mode !== "demo") return http<AlertEvent>(`/v1/alerts/test/${encodeURIComponent(rule.id)}${qs(modeQuery(mode))}`, { method: "POST" });
     return demoTestRule(rule);
   },
 };

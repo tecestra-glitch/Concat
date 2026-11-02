@@ -1,0 +1,98 @@
+/**
+ * zod schemas mirroring docs/api-contract.md (D1/D2/D3). Money stays a decimal string.
+ * Use them at the boundaries where a payload is untrusted (SSE payloads, proxy responses).
+ */
+import { z } from "zod";
+
+export const ModeSchema = z.enum(["real", "simulation", "demo"]);
+
+/** Canonical decimal string: optional sign, digits, optional fraction. Never a float. */
+export const DecimalString = z.string().regex(/^-?\d+(\.\d+)?$/, "esperado decimal em string");
+
+const NullableDecimalString = DecimalString.nullable();
+
+export const ConfidenceSchema = z.enum(["quoted", "estimated", "incomplete"]);
+export const CurrencySchema = z.enum(["BRL", "USD", "PYG"]);
+export const CitySchema = z.enum(["CDE", "ASU", "PJC"]).nullable();
+export const ChannelSchema = z.enum(["digital", "physical"]);
+export const ModalitySchema = z.enum(["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual"]);
+export const QuoteKindSchema = z.enum(["market_reference", "indicative", "executable"]);
+
+export const FeeSchema = z.object({
+  label: z.string(),
+  amount: DecimalString,
+  currency: CurrencySchema,
+});
+
+export const EdgeSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  kind: z.enum(["quote", "transfer"]),
+  rate: DecimalString,
+  fee_pct: DecimalString,
+  fee_fixed: DecimalString,
+  minutes: z.number(),
+  via: z.string(),
+  confidence: ConfidenceSchema,
+  evidence_id: z.string().nullable(),
+});
+
+export const CycleSchema = z.object({
+  start: z.string(),
+  path: z.array(z.string()),
+  edges: z.array(EdgeSchema),
+  amount_in: DecimalString,
+  amount_out: DecimalString,
+  gain: DecimalString,
+  roi: DecimalString,
+  minutes: z.number(),
+  confidence: ConfidenceSchema,
+  data_mode: ModeSchema,
+});
+
+export const QuoteSchema = z.object({
+  id: z.string(),
+  series_key: z.string(),
+  source_id: z.string(),
+  branch_id: z.string().nullable(),
+  city: CitySchema,
+  base: CurrencySchema,
+  quote: CurrencySchema,
+  buy: NullableDecimalString,
+  sell: NullableDecimalString,
+  unit_note: z.string(),
+  amount_base: NullableDecimalString,
+  modality: ModalitySchema,
+  kind: QuoteKindSchema,
+  channel: ChannelSchema,
+  context: z.record(z.string(), z.string().nullable()).nullable(),
+  fees: z.array(FeeSchema),
+  captured_at: z.string(),
+  declared_updated_at: z.string().nullable(),
+  valid_until: z.string().nullable(),
+  evidence_id: z.string().nullable(),
+  data_mode: ModeSchema,
+});
+
+export const StreamEventTypeSchema = z.enum(["quote.updated", "source.health", "opportunity.updated", "heartbeat", "source.change", "alert.fired"]);
+
+export const StreamEventSchema = z.object({
+  id: z.string(),
+  type: StreamEventTypeSchema,
+  ts: z.string(),
+  payload: z.unknown(),
+});
+
+export const HealthSchema = z.object({
+  status: z.string(),
+  data_mode: ModeSchema,
+  db: z.string().optional(),
+  version: z.string().optional(),
+  server_time: z.string().optional(),
+});
+
+export type ParsedQuote = z.infer<typeof QuoteSchema>;
+export type ParsedCycle = z.infer<typeof CycleSchema>;
+export type ParsedEdge = z.infer<typeof EdgeSchema>;
+export type ParsedStreamEvent = z.infer<typeof StreamEventSchema>;
+export type ParsedHealth = z.infer<typeof HealthSchema>;
