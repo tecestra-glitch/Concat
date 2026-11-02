@@ -1,14 +1,69 @@
 #!/usr/bin/env sh
-# Full-history secret scan (when TruffleHog is available) + unit tests before every push.
-cd "$(git rev-parse --show-toplevel)" || exit 1
-if command -v trufflehog >/dev/null 2>&1; then
-  trufflehog git "file://$PWD" --only-verified --fail --no-update >/dev/null 2>&1; rc=$?
-  if [ "$rc" -eq 183 ]; then echo "trufflehog: segredo verificado no histórico. Push bloqueado."; exit 1; fi
-elif docker info >/dev/null 2>&1; then
-  docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:latest git file:///repo --only-verified --fail --no-update >/dev/null 2>&1; rc=$?
-  if [ "$rc" -eq 183 ]; then echo "trufflehog (docker): segredo verificado no histórico. Push bloqueado."; exit 1; fi
-else
-  echo "aviso: trufflehog indisponível; varredura de segredos pulada no push."
+# pre-push do Fronteira FX (husky 9). O Git passa no stdin uma linha por ref enviada:
+# "<ref local> <sha local> <ref remota> <sha remota>" (sha remota zerada = ref nova; sha local zerada = remoção).
+# 1. TruffleHog só nos commits novos de cada ref (--since-commit <sha remota>); ref nova varre o histórico inteiro.
+# 2. Se algum commit enviado toca fronteira-fx/: vitest (frontend) e/ou pytest (backend) completos.
+# Testes destes hooks: fronteira-fx/.husky/tests/test_hooks.py (`pnpm test:hooks`).
+# Pular de propósito: git push --no-verify.
+set -eu
+
+cd "$(git rev-parse --show-toplevel)"
+. ./fronteira-fx/.husky/scan-secrets.sh
+
+zero=0000000000000000000000000000000000000000
+refs=0
+run_front=0
+run_back=0
+
+# As refs chegam pelo stdin deste laço; o scanner recebe </dev/null para não consumir as linhas seguintes.
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -n "$local_ref" ] || continue
+  [ "$local_sha" != "$zero" ] || continue # remoção de ref remota: nada é enviado
+  refs=$((refs + 1))
+  if [ "$remote_sha" = "$zero" ]; then
+    echo "pre-push: $local_ref é nova no remoto; varrendo o histórico inteiro."
+    check_secrets "Push" </dev/null
+    run_front=1
+    run_back=1
+    continue
+  fi
+  check_secrets "Push" --since-commit "$remote_sha" </dev/null
+  # Caminhos de fronteira-fx/ alterados entre o que o remoto tem e o que vai ser enviado.
+  # Se o remoto tiver commits que não temos, o diff falha: aí rodamos tudo, por segurança.
+  if changed=$(git diff --name-only "$remote_sha" "$local_sha" -- fronteira-fx 2>/dev/null); then
+    for path in $changed; do
+      case $path in
+        fronteira-fx/backend/*) run_back=1 ;;
+        *) run_front=1 ;;
+      esac
+    done
+  else
+    run_front=1
+    run_back=1
+  fi
+done
+
+if [ "$refs" -eq 0 ]; then
+  echo "pre-push: nada a enviar; nada a verificar."
+  exit 0
 fi
-cd fronteira-fx && pnpm exec vitest run || exit 1
-if [ -d backend/.venv ]; then ( cd backend && uv run pytest -q ) || exit 1; fi
+if [ "$run_front" -eq 0 ] && [ "$run_back" -eq 0 ]; then
+  echo "pre-push: os commits enviados não tocam fronteira-fx/; testes do FX pulados."
+  exit 0
+fi
+
+cd fronteira-fx
+if [ "$run_front" -eq 1 ]; then
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "erro: pnpm não está no PATH (corepack enable); não dá para rodar o vitest. Push bloqueado." >&2
+    exit 1
+  fi
+  pnpm exec vitest run
+fi
+if [ "$run_back" -eq 1 ]; then
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "erro: uv não está no PATH; não dá para rodar o pytest. Push bloqueado." >&2
+    exit 1
+  fi
+  (cd backend && uv run pytest -q)
+fi
