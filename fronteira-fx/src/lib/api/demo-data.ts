@@ -1,5 +1,6 @@
 /**
- * DEMONSTRAÇÃO — dados ilustrativos. Nunca misturar com dados reais.
+ * DEMONSTRAÇÃO — dados ilustrativos, centrados na referência BCP de 2026-10-30 (USD/PYG 5.944,76; USD/BRL 5,4043).
+ * Nunca misturar com dados reais.
  * Every record carries data_mode = "demo". Values are plausible but invented, and
  * the generator is deterministic (seeded) so screenshots/tests are reproducible.
  */
@@ -52,25 +53,25 @@ interface QSpec {
 
 const specs: QSpec[] = [
   // USD/PYG — casas (PYG por 1 USD)
-  { source: "chaco", branch: "chaco-cde-centro", city: "CDE", base: "USD", quote: "PYG", buy: 7290, sell: 7360, modality: "cash", kind: "indicative", channel: "physical", age: 120 },
-  { source: "chaco", branch: "chaco-asu-shopping", city: "ASU", base: "USD", quote: "PYG", buy: 7280, sell: 7370, modality: "cash", kind: "indicative", channel: "physical", age: 120 },
-  { source: "alberdi", branch: "alberdi-cde", city: "CDE", base: "USD", quote: "PYG", buy: 7300, sell: 7350, modality: "cash", kind: "indicative", channel: "physical", age: 200 },
-  { source: "alberdi", branch: "alberdi-pjc", city: "PJC", base: "USD", quote: "PYG", buy: 7270, sell: 7390, modality: "cash", kind: "indicative", channel: "physical", age: 200 },
-  { source: "norte", branch: "norte-asu", city: "ASU", base: "USD", quote: "PYG", buy: 7285, sell: 7365, modality: "cash", kind: "indicative", channel: "physical", age: 3600, declaredAge: 3600 },
-  { source: "bonanza", branch: "bonanza-asu", city: "ASU", base: "USD", quote: "PYG", buy: 7295, sell: 7355, modality: "cash", kind: "indicative", channel: "physical", age: 300 },
+  { source: "chaco", branch: "chaco-cde-centro", city: "CDE", base: "USD", quote: "PYG", buy: 5905, sell: 5975, modality: "cash", kind: "indicative", channel: "physical", age: 120 },
+  { source: "chaco", branch: "chaco-asu-shopping", city: "ASU", base: "USD", quote: "PYG", buy: 5900, sell: 5980, modality: "cash", kind: "indicative", channel: "physical", age: 120 },
+  { source: "alberdi", branch: "alberdi-cde", city: "CDE", base: "USD", quote: "PYG", buy: 5915, sell: 5965, modality: "cash", kind: "indicative", channel: "physical", age: 200 },
+  { source: "alberdi", branch: "alberdi-pjc", city: "PJC", base: "USD", quote: "PYG", buy: 5890, sell: 5995, modality: "cash", kind: "indicative", channel: "physical", age: 200 },
+  { source: "norte", branch: "norte-asu", city: "ASU", base: "USD", quote: "PYG", buy: 5902, sell: 5978, modality: "cash", kind: "indicative", channel: "physical", age: 3600, declaredAge: 3600 },
+  { source: "bonanza", branch: "bonanza-asu", city: "ASU", base: "USD", quote: "PYG", buy: 5910, sell: 5970, modality: "cash", kind: "indicative", channel: "physical", age: 300 },
   // BRL/PYG — casas (PYG por 1 BRL)
-  { source: "chaco", branch: "chaco-cde-centro", city: "CDE", base: "BRL", quote: "PYG", buy: 1348, sell: 1372, modality: "cash", kind: "indicative", channel: "physical", age: 120 },
-  { source: "alberdi", branch: "alberdi-cde", city: "CDE", base: "BRL", quote: "PYG", buy: 1352, sell: 1370, modality: "cash", kind: "indicative", channel: "physical", age: 200 },
-  { source: "alberdi", branch: "alberdi-pjc", city: "PJC", base: "BRL", quote: "PYG", buy: 1340, sell: 1380, modality: "cash", kind: "indicative", channel: "physical", age: 200 },
-  { source: "bonanza", branch: "bonanza-asu", city: "ASU", base: "BRL", quote: "PYG", buy: 1345, sell: 1375, modality: "cash", kind: "indicative", channel: "physical", age: 300 },
+  { source: "chaco", branch: "chaco-cde-centro", city: "CDE", base: "BRL", quote: "PYG", buy: 1092, sell: 1112, modality: "cash", kind: "indicative", channel: "physical", age: 120 },
+  { source: "alberdi", branch: "alberdi-cde", city: "CDE", base: "BRL", quote: "PYG", buy: 1095, sell: 1110, modality: "cash", kind: "indicative", channel: "physical", age: 200 },
+  { source: "alberdi", branch: "alberdi-pjc", city: "PJC", base: "BRL", quote: "PYG", buy: 1086, sell: 1118, modality: "cash", kind: "indicative", channel: "physical", age: 200 },
+  { source: "bonanza", branch: "bonanza-asu", city: "ASU", base: "BRL", quote: "PYG", buy: 1090, sell: 1114, modality: "cash", kind: "indicative", channel: "physical", age: 300 },
   // BCP reference
-  { source: "bcp", branch: null, city: null, base: "USD", quote: "PYG", buy: 7318.14, sell: 7318.14, modality: "transfer", kind: "market_reference", channel: "digital", age: 900, declaredAge: 43200 },
-  { source: "bcp", branch: null, city: null, base: "BRL", quote: "PYG", buy: 1359.77, sell: 1359.77, modality: "transfer", kind: "market_reference", channel: "digital", age: 900, declaredAge: 43200 },
+  { source: "bcp", branch: null, city: null, base: "USD", quote: "PYG", buy: 5944.76, sell: 5944.76, modality: "transfer", kind: "market_reference", channel: "digital", age: 900, declaredAge: 43200 },
+  { source: "bcp", branch: null, city: null, base: "BRL", quote: "PYG", buy: 1099.99, sell: 1099.99, modality: "transfer", kind: "market_reference", channel: "digital", age: 900, declaredAge: 43200 },
   // ueno digital
-  { source: "ueno", branch: null, city: null, base: "USD", quote: "PYG", buy: 7260, sell: 7330, modality: "account", kind: "indicative", channel: "digital", age: 180 },
-  { source: "ueno", branch: null, city: null, base: "BRL", quote: "PYG", buy: 1330, sell: 1392, modality: "account", kind: "indicative", channel: "digital", age: 180 },
+  { source: "ueno", branch: null, city: null, base: "USD", quote: "PYG", buy: 5880, sell: 5940, modality: "account", kind: "indicative", channel: "digital", age: 180 },
+  { source: "ueno", branch: null, city: null, base: "BRL", quote: "PYG", buy: 1078, sell: 1128, modality: "account", kind: "indicative", channel: "digital", age: 180 },
   // Nomad BRL->USD (USD por 1 BRL => inverse of R$ per US$)
-  { source: "nomad", branch: null, city: null, base: "USD", quote: "BRL", buy: null, sell: 5.4187, modality: "account", kind: "indicative", channel: "digital", age: 240 },
+  { source: "nomad", branch: null, city: null, base: "USD", quote: "BRL", buy: null, sell: 5.4310, modality: "account", kind: "indicative", channel: "digital", age: 240 },
 ];
 
 export const demoQuotes: Quote[] = specs.map((s, i) => ({
@@ -99,11 +100,11 @@ export const demoQuotes: Quote[] = specs.map((s, i) => ({
 /** Western Union simulator quotes carry full context; the two receive methods are distinct quotes. */
 export const demoWesternUnionQuotes: Quote[] = [
   // illustrative: rate improves slightly with the amount; cash pickup pays less than bank account
-  { receive: "bank_account", amount: 5000, out: 6_806_000, dur: "0–4 dias úteis" },
-  { receive: "cash_pickup", amount: 5000, out: 6_713_200, dur: "minutos" },
-  { receive: "bank_account", amount: 10000, out: 13_622_000, dur: "0–4 dias úteis" },
-  { receive: "bank_account", amount: 25000, out: 34_082_500, dur: "0–4 dias úteis" },
-  { receive: "bank_account", amount: 50000, out: 68_215_000, dur: "0–4 dias úteis" },
+  { receive: "bank_account", amount: 5000, out: 5_505_000, dur: "0–4 dias úteis" },
+  { receive: "cash_pickup", amount: 5000, out: 5_430_000, dur: "minutos" },
+  { receive: "bank_account", amount: 10000, out: 11_020_000, dur: "0–4 dias úteis" },
+  { receive: "bank_account", amount: 25000, out: 27_575_000, dur: "0–4 dias úteis" },
+  { receive: "bank_account", amount: 50000, out: 55_200_000, dur: "0–4 dias úteis" },
 ].map((w, i) => ({
   id: `demo-wu-${i}`,
   source_id: "westernunion",
@@ -186,9 +187,9 @@ function buildOpportunities(capital: number): Opportunity[] {
     const r = runRoute(capital, [
       { description: "Pix BRL → Western Union → conta ueno (PYG)", rate: wuRate, rateNote: "PYG por 1 BRL (simulador WU)", duration: "0–4 dias úteis", promo: "100 % desconto na tarifa", feeIn: [{ label: "tarifa WU", amount: "0", currency: "BRL" }], from: pos("BRL", "acc-brl-bank", "digital", "transfer"), to: pos("PYG", "acc-ueno-pyg", "digital", "account") },
     ]);
-    const refPyg = capital * 1359.77; // BCP reference
+    const refPyg = capital * 1099.99; // BCP reference (2026-10-30: USD/PYG 5944.76, USD/BRL 5.4043)
     const gainPyg = r.final - refPyg;
-    const gainBrl = gainPyg / 1359.77;
+    const gainBrl = gainPyg / 1099.99;
     list.push(opp("demo-op-wu", "Remessa Pix → WU → ueno vs referência BCP", "remittance_saving", "digital", null, capital, capital + gainBrl, gainBrl, wuRate, r.steps, r.confidence, r.pending));
   }
   // 2. Digital cycle: BRL -> ueno PYG (WU) -> ueno USD -> Nomad? (sell USD for BRL at Nomad rate) micro gain
@@ -204,7 +205,7 @@ function buildOpportunities(capital: number): Opportunity[] {
   {
     const r = runRoute(capital, [
       { description: "Chaco CDE: BRL espécie → PYG", rate: chacoBrlBuy, rateNote: "PYG por 1 BRL (compra da casa)", duration: "presencial", from: pos("BRL", null, "CDE", "cash"), to: pos("PYG", null, "CDE", "cash") },
-      { description: "Chaco CDE: PYG → USD", rate: 1 / 7360, rateNote: "USD por 1 PYG (venda USD)", duration: "presencial", from: pos("PYG", null, "CDE", "cash"), to: pos("USD", null, "CDE", "cash") },
+      { description: "Chaco CDE: PYG → USD", rate: 1 / 5975, rateNote: "USD por 1 PYG (venda USD)", duration: "presencial", from: pos("PYG", null, "CDE", "cash"), to: pos("USD", null, "CDE", "cash") },
       { description: "Chaco CDE: USD → BRL", rate: chacoUsdBuy / chacoBrlSell, rateNote: "BRL por 1 USD (cruzado)", duration: "presencial", feeOut: [{ label: "deslocamento", amount: "60", currency: "BRL" }], from: pos("USD", null, "CDE", "cash"), to: pos("BRL", null, "CDE", "cash") },
     ]);
     list.push(opp("demo-op-cycle-cde", "Ciclo presencial CDE (Chaco) BRL → PYG → USD → BRL", "cycle", "physical", "CDE", capital, r.final, r.final - capital, r.final / capital, r.steps, r.confidence, r.pending));
@@ -212,18 +213,18 @@ function buildOpportunities(capital: number): Opportunity[] {
   // 4. Physical remittance alternative: carry BRL cash to Alberdi PJC and deposit at ueno
   {
     const r = runRoute(capital, [
-      { description: "Alberdi PJC: BRL espécie → PYG espécie", rate: 1340 + (capital >= 25000 ? 48 : 0), rateNote: "PYG por 1 BRL (compra da casa; melhora acima de R$ 25 mil)", duration: "presencial", feeIn: [{ label: "deslocamento + estadia", amount: "180", currency: "BRL" }], from: pos("BRL", null, "PJC", "cash"), to: pos("PYG", null, "PJC", "cash") },
+      { description: "Alberdi PJC: BRL espécie → PYG espécie", rate: 1086 + (capital >= 25000 ? 30 : 0), rateNote: "PYG por 1 BRL (compra da casa; melhora acima de R$ 25 mil)", duration: "presencial", feeIn: [{ label: "deslocamento + estadia", amount: "180", currency: "BRL" }], from: pos("BRL", null, "PJC", "cash"), to: pos("PYG", null, "PJC", "cash") },
       { description: "Depósito em conta ueno", rate: 1, rateNote: "sem conversão", duration: "imediato", from: pos("PYG", null, "PJC", "cash"), to: pos("PYG", "acc-ueno-pyg", "digital", "account") },
     ]);
-    const refPyg = capital * 1359.77;
-    const gainBrl = (r.final - refPyg) / 1359.77;
+    const refPyg = capital * 1099.99;
+    const gainBrl = (r.final - refPyg) / 1099.99;
     list.push(opp("demo-op-pjc", "Remessa presencial PJC (Alberdi) → depósito ueno", "remittance_saving", "physical", "PJC", capital, capital + gainBrl, gainBrl, r.final / capital, r.steps, r.confidence, r.pending));
   }
   // 5. Purchase saving: pay a 2,000,000 PYG purchase via ueno card funded by WU vs paying with BR card (IOF+spread ~ 6%)
   {
     const purchasePyg = 2_000_000;
     const costViaWu = purchasePyg / wuRate;
-    const costBrCard = (purchasePyg / 1359.77) * 1.0638;
+    const costBrCard = (purchasePyg / 1099.99) * 1.0638;
     const saving = costBrCard - costViaWu;
     const r = runRoute(costViaWu, [
       { description: "Pix BRL → WU → saldo ueno PYG", rate: wuRate, rateNote: "PYG por 1 BRL", duration: "0–4 dias úteis", promo: "100 % desconto na tarifa", from: pos("BRL", "acc-brl-bank", "digital", "transfer"), to: pos("PYG", "acc-ueno-pyg", "digital", "account") },

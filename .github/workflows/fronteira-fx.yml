@@ -1,0 +1,170 @@
+name: Fronteira FX CI
+
+# Checks for the Fronteira FX project in fronteira-fx/, a subfolder of this
+# repository. The Rust app at the root has its own workflows, which this file
+# does not touch.
+#
+# Read-only: nothing is released or deployed here. The Vercel deploy is
+# described in fronteira-fx/docs/ci.md and is not set up yet.
+#
+# Action versions are pinned to a major tag, as the project asked. The one
+# exception is TruffleHog, which follows @main, as the owner's secret-scanning
+# policy specifies.
+
+on:
+  push:
+    paths: ["fronteira-fx/**", ".github/workflows/fronteira-fx.yml"]
+  pull_request:
+    paths: ["fronteira-fx/**", ".github/workflows/fronteira-fx.yml"]
+
+# Read access to the repository and nothing else.
+permissions:
+  contents: read
+
+# One run per branch or pull request at a time. A newer push to a pull request
+# cancels the run it replaces. Runs on pushes are not cancelled, so the run on
+# main stays the record of whether main is green.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # No `defaults` block on this job or on `docker`: neither has `run` steps.
+  # This one scans the whole range of commits from the repository root.
+  secrets:
+    name: Secret scan (TruffleHog)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # The scan reads the commits between the two ends of the range, so the
+      # clone needs the whole history.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # On push the action scans from github.event.before to github.event.after;
+      # on pull_request, from the base to the head of the pull request.
+      # --only-verified reports only secrets TruffleHog could confirm are live.
+      # A verified secret fails the job.
+      - uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: fronteira-fx
+    steps:
+      - uses: actions/checkout@v7
+      # pnpm is set up before Node so that setup-node's cache can find pnpm's
+      # store. The version comes from "packageManager" in package.json.
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: fronteira-fx/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: fronteira-fx/pnpm-lock.yaml
+      # HUSKY=0 skips the "prepare" script, which installs the local git hooks.
+      # A CI runner makes no commits, so there is nothing for them to guard.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: "0"
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Unit tests
+        run: pnpm test
+      - name: Build
+        run: pnpm build
+      # Chromium only: the three Playwright projects (desktop-1440, tablet-1024,
+      # mobile-390) all run on it. --with-deps installs the system libraries it needs.
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      # playwright.config.ts starts `next start` itself, on the build made above.
+      - name: End-to-end tests
+        run: pnpm test:e2e
+      # Uploaded whether the tests pass or fail, and kept for 7 days.
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: fronteira-fx/dev/playwright-report
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-screenshots
+          path: fronteira-fx/dev/screenshots
+          retention-days: 7
+          if-no-files-found: ignore
+
+  backend:
+    name: Backend (Python 3.13)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: fronteira-fx/backend
+    steps:
+      - uses: actions/checkout@v7
+      # Installs uv and Python 3.13 (the version in backend/.python-version),
+      # and caches uv's downloads keyed on uv.lock.
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.13"
+          cache-dependency-glob: fronteira-fx/backend/uv.lock
+      # --locked fails the job if uv.lock is out of date with pyproject.toml,
+      # instead of quietly updating the lock file.
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+      - name: Lint (ruff)
+        run: uv run ruff check src tests
+      # The tests use SQLite, so no database service is needed.
+      - name: Tests (pytest)
+        run: uv run pytest -q --junitxml=junit.xml
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-junit
+          path: fronteira-fx/backend/junit.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
+  docker:
+    name: Docker images (build only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # The Dockerfiles are still in progress, so a failed build is shown but does
+    # not fail the workflow. Remove this line once both images build reliably.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - { name: fronteira-fx-api, file: Dockerfile }
+          - { name: fronteira-fx-worker, file: Dockerfile.worker }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      # push: false builds the image and discards it, which checks that the
+      # Dockerfile still builds. The build context is backend/, as in docker-compose.yml.
+      - name: Build ${{ matrix.image.name }}
+        uses: docker/build-push-action@v7
+        with:
+          context: fronteira-fx/backend
+          file: fronteira-fx/backend/${{ matrix.image.file }}
+          push: false
+          tags: ${{ matrix.image.name }}:ci
+          cache-from: type=gha,scope=${{ matrix.image.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}

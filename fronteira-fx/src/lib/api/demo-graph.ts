@@ -34,7 +34,7 @@ export function demoTransferEdges(): Edge[] {
     { from: nodeKey("USD", "ueno"), to: nodeKey("USD", "nomad"), rate: 1, feePct: 0.003, feeFixed: 0, minutes: 1440, via: "transferência USD ueno → Nomad (custo a confirmar)", confidence: "incomplete" },
     { from: nodeKey("USD", "nomad"), to: nodeKey("USD", "ueno"), rate: 1, feePct: 0.003, feeFixed: 0, minutes: 1440, via: "transferência USD Nomad → ueno (custo a confirmar)", confidence: "incomplete" },
     // Nomad: USD → BRL (venda) de volta ao banco BR
-    { from: nodeKey("USD", "nomad"), to: nodeKey("BRL", "brbank"), rate: 5.4187 * 0.9961, feePct: 0, feeFixed: 0, minutes: 1440, via: "Nomad vende USD → Pix BRL", confidence: "estimated" },
+    { from: nodeKey("USD", "nomad"), to: nodeKey("BRL", "brbank"), rate: 5.4310 * 0.9961, feePct: 0, feeFixed: 0, minutes: 1440, via: "Nomad vende USD → Pix BRL", confidence: "estimated" },
     // Brasil: cartão BR pagando em PYG (compra) não é ciclo; omitido.
   ];
 }
