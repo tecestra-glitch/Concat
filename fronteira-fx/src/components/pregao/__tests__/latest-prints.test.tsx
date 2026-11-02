@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { LatestPrints, type LatestPrintsProps, printTime } from "@/components/pregao/latest-prints";
+import { LatestPrints, type LatestPrintsProps, printSubtitle, printTime, printTimeShort } from "@/components/pregao/latest-prints";
 import { demoPrints } from "@/lib/pregao/demo";
 import type { Print } from "@/lib/pregao/types";
 
@@ -50,6 +50,26 @@ describe("LatestPrints: estrutura e rótulo", () => {
 describe("printTime", () => {
   it("formata a hora em America/Asuncion (UTC−3 em novembro)", () => {
     expect(printTime("2026-11-02T15:04:05Z")).toBe("12:04:05");
+  });
+});
+
+describe("LatestPrints: painel estreito (18rem em xl)", () => {
+  it("printTimeShort dá HH:mm e printSubtitle junta par e sigla da cidade (digital só o par)", () => {
+    expect(printTimeShort("2026-11-02T15:04:05Z")).toBe("12:04");
+    expect(printSubtitle({ pair: "USD/PYG", city: "CDE" })).toBe("USD/PYG · CDE");
+    expect(printSubtitle({ pair: "USD/BRL", city: null })).toBe("USD/BRL");
+  });
+
+  it("nome da casa truncado com title (nome e cidade por extenso); preços nunca quebram; rolagem dentro do painel", () => {
+    const p: Print = { ...prints[0], house: "Cambios Chaco", city: "ASU", kind: "indicative" };
+    const html = render({ prints: [p] });
+    expect(html).toMatch(/<span title="Cambios Chaco · Asunción" class="[^"]*\btruncate\b[^"]*">Cambios Chaco<\/span>/);
+    expect(html).toContain(`>${p.pair} · ASU</span>`);
+    expect(html).toMatch(/class="@container relative max-h-\[22rem\] overflow-auto"/);
+    const priceCells = [...html.matchAll(/<td class="(tnum[^"]*text-right[^"]*)"/g)].map((m) => m[1]);
+    expect(priceCells.length).toBeGreaterThanOrEqual(2);
+    for (const c of priceCells) expect(c).toContain("whitespace-nowrap");
+    expect(html).toContain(`title="${printTime(p.captured_at)}"`);
   });
 });
 

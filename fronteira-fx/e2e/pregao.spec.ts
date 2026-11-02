@@ -37,6 +37,29 @@ test.describe("Pregão", () => {
     } else {
       await expect(page.getByTestId("pregao-tabs")).toBeHidden();
       for (const id of ["pregao-book", "pregao-heatmap", "pregao-cross", "pregao-prints", "pregao-watchlist"]) await expect(page.getByTestId(id)).toBeVisible();
+      // Livro, mapa e últimas cabem no próprio painel: nenhuma tabela passa da borda do painel (nem com rolagem interna).
+      await expect(page.getByTestId("pregao-print-row").first()).toBeVisible();
+      for (const id of ["pregao-book", "pregao-heatmap", "pregao-prints"]) {
+        const overflow = await page.getByTestId(id).evaluate((root) => {
+          const box = root.getBoundingClientRect();
+          return [...root.querySelectorAll("table")].map((t) => {
+            const scroller = t.parentElement!;
+            return { tableRight: t.getBoundingClientRect().right - box.right, hidden: scroller.scrollWidth - scroller.clientWidth };
+          });
+        });
+        expect(overflow.length, id).toBeGreaterThan(0);
+        for (const o of overflow) {
+          expect(o.tableRight, `${id}: tabela além da borda`).toBeLessThanOrEqual(1);
+          expect(o.hidden, `${id}: conteúdo escondido na rolagem horizontal`).toBeLessThanOrEqual(1);
+        }
+      }
+      // Sem vão entre os controles e o resumo: o resumo começa logo abaixo dos controles.
+      const gap = await page.evaluate(() => {
+        const controls = document.querySelector('[aria-labelledby="pregao-h-controles"]')!.getBoundingClientRect();
+        const resumo = document.getElementById("pregao-h-resumo")!.getBoundingClientRect();
+        return resumo.top - controls.bottom;
+      });
+      expect(gap).toBeLessThanOrEqual(24);
     }
     const { scrollWidth, clientWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);

@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CITY_LABEL } from "@/lib/api/types";
 import { formatRate } from "@/lib/format";
 import { quoteOfPair } from "@/lib/pregao/candles";
 import type { Print } from "@/lib/pregao/types";
@@ -24,10 +25,21 @@ export interface LatestPrintsProps {
 
 const TZ = "America/Asuncion";
 const TIME = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+const TIME_SHORT = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
 /** Hora HH:mm:ss no fuso de exibição da tela. */
 export function printTime(iso: string): string {
   return TIME.format(new Date(iso));
+}
+
+/** Hora HH:mm no fuso de exibição da tela (coluna estreita; os segundos ficam no `title`). */
+export function printTimeShort(iso: string): string {
+  return TIME_SHORT.format(new Date(iso));
+}
+
+/** Par e cidade da filial ("USD/PYG · CDE"); digital fica só com o par. */
+export function printSubtitle(p: Pick<Print, "pair" | "city">): string {
+  return p.city ? `${p.pair} · ${p.city}` : p.pair;
 }
 
 function rateText(value: string | null, p: Print): string {
@@ -35,25 +47,47 @@ function rateText(value: string | null, p: Print): string {
   return p.kind === "market_reference" && value !== null ? `≈ ${text}` : text;
 }
 
+/**
+ * Nome da casa numa linha só (`truncate`, nome inteiro e cidade no `title`) e, embaixo, o par e a cidade
+ * quando a coluna Par está oculta (painel estreito). O nome nunca empurra as colunas de preço para fora.
+ */
 function houseCell(p: Print, onSelect?: (key: string) => void): ReactElement {
   const isRef = p.kind === "market_reference";
+  const title = p.city ? `${p.house} · ${CITY_LABEL[p.city]}` : p.house;
+  const nameClass = "block min-w-0 truncate";
   const name =
     onSelect && !isRef ? (
       <button
         type="button"
+        title={title}
         onClick={() => onSelect(p.key)}
-        className="rounded-sm text-left underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+        className={cn(
+          nameClass,
+          "max-w-full rounded-sm text-left underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+        )}
       >
         {p.house}
       </button>
     ) : (
-      <span>{p.house}</span>
+      <span title={title} className={nameClass}>
+        {p.house}
+      </span>
     );
   return (
-    <span className="inline-flex flex-wrap items-center gap-1">
-      {name}
-      {isRef ? <ReferenceBadge compact /> : null}
-      {p.incomplete ? <Badge variant="warn">incompleta</Badge> : null}
+    <span className="flex min-w-0 flex-col">
+      <span className="flex min-w-0 items-center gap-1">
+        {name}
+        {p.city ? (
+          <span className="shrink-0 whitespace-nowrap text-xs text-muted @max-md:hidden">
+            · {p.city}
+          </span>
+        ) : null}
+        {isRef ? <ReferenceBadge compact /> : null}
+        {p.incomplete ? <Badge variant="warn">incompleta</Badge> : null}
+      </span>
+      <span data-testid="pregao-print-sub" className="truncate text-[11px] text-muted @md:hidden">
+        {printSubtitle(p)}
+      </span>
     </span>
   );
 }
@@ -98,28 +132,36 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
       {state === "empty" ? <p className="text-sm text-muted">Nenhuma atualização ainda. As casas publicam a cada minuto ou mais.</p> : null}
 
       {state === "ready" ? (
-        <div className="relative max-h-[22rem] overflow-y-auto">
-          <table className="w-full text-[13px]">
+        /* Consulta de contêiner: em xl o painel tem 18rem. Abaixo de @md (28rem) o par e a cidade viram
+           subtítulo da casa, a variação desce para baixo da venda e a hora perde os segundos (que ficam no
+           title); a rolagem nos dois eixos é só a rede de segurança. */
+        <div className="@container relative max-h-[22rem] overflow-auto">
+          <table className="w-full text-[12px] @md:text-[13px] [&_td]:px-1 [&_th]:px-1 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0 [&_td:last-child]:pr-0 [&_th:last-child]:pr-0">
             <caption className="sr-only">Últimas atualizações de cotação</caption>
             <thead>
               <tr className="text-muted">
                 <th scope="col" className="text-left font-medium">
                   Hora
                 </th>
-                <th scope="col" className="text-left font-medium">
+                <th scope="col" className="w-full text-left font-medium">
                   Casa
                 </th>
-                <th scope="col" className="text-left font-medium">
+                <th scope="col" className="text-left font-medium @max-md:hidden">
                   Par
                 </th>
                 <th scope="col" className="text-right font-medium max-sm:hidden">
                   Compra
                 </th>
-                <th scope="col" className="text-right font-medium">
+                <th scope="col" className="whitespace-nowrap text-right font-medium">
                   Venda
+                  <span className="@md:hidden">
+                    <span aria-hidden> · Δ</span>
+                    <span className="sr-only"> e variação</span>
+                  </span>
                 </th>
-                <th scope="col" className="text-right font-medium">
-                  Δ
+                <th scope="col" className="text-right font-medium @max-md:hidden">
+                  <span aria-hidden>Δ</span>
+                  <span className="sr-only">Variação</span>
                 </th>
               </tr>
             </thead>
@@ -133,14 +175,22 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
                   data-kind={p.kind}
                   className="h-8 max-md:h-10 border-t border-border motion-safe:animate-[pregao-flash_1.2s_ease-out_1]"
                 >
-                  <td className="tnum">
-                    <time dateTime={p.captured_at}>{printTime(p.captured_at)}</time>
+                  <td className="tnum whitespace-nowrap">
+                    <time dateTime={p.captured_at} title={printTime(p.captured_at)}>
+                      <span className="@max-md:hidden">{printTime(p.captured_at)}</span>
+                      <span className="@md:hidden">{printTimeShort(p.captured_at)}</span>
+                    </time>
                   </td>
-                  <td>{houseCell(p, onSelect)}</td>
-                  <td>{p.pair}</td>
-                  <td className="tnum text-right text-foreground max-sm:hidden">{rateText(p.buy, p)}</td>
-                  <td className="tnum text-right text-foreground">{rateText(p.sell, p)}</td>
-                  <td className="text-right">
+                  <td className="max-w-0">{houseCell(p, onSelect)}</td>
+                  <td className="whitespace-nowrap @max-md:hidden">{p.pair}</td>
+                  <td className="tnum whitespace-nowrap text-right text-foreground max-sm:hidden">{rateText(p.buy, p)}</td>
+                  <td className="tnum whitespace-nowrap text-right text-foreground">
+                    {rateText(p.sell, p)}
+                    <span className="block text-[11px] @md:hidden">
+                      <Delta value={p.change_pct} />
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap text-right @max-md:hidden">
                     <Delta value={p.change_pct} />
                   </td>
                 </tr>

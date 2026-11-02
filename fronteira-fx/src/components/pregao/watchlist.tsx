@@ -29,6 +29,8 @@ export const WATCHLIST_COLUMNS: readonly string[] = ["pair", "house", "city", "b
 
 const NUMERIC = new Set(["buy", "sell", "spread", "delta"]);
 const HIDDEN_BELOW_SM = new Set(["city", "spread", "trend"]);
+/** Preço, spread e variação nunca quebram no meio ("≈" de um lado, número do outro); o par também não. */
+const NOWRAP = new Set(["pair", "buy", "sell", "spread", "delta"]);
 
 const col = createColumnHelper<WatchlistRow>();
 
@@ -204,7 +206,7 @@ export function Watchlist({ rows, selectedKey, onSelect, loading = false, error 
                     <TableCell
                       key={cell.id}
                       data-col={id}
-                      className={cn(NUMERIC.has(id) && "text-right tnum", HIDDEN_BELOW_SM.has(id) && "max-sm:hidden")}
+                      className={cn(NUMERIC.has(id) && "text-right tnum", NOWRAP.has(id) && "whitespace-nowrap", HIDDEN_BELOW_SM.has(id) && "max-sm:hidden")}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>

@@ -81,7 +81,7 @@ function heatTd(cell: HeatCell | null, pair: PairKey, selectedKey: string | null
           aria-label="sem spread"
           aria-pressed={false}
           disabled
-          className="tnum h-8 w-full text-foreground max-md:h-10"
+          className="tnum h-8 w-full whitespace-nowrap text-foreground max-md:h-10"
         >
           —
         </button>
@@ -99,7 +99,7 @@ function heatTd(cell: HeatCell | null, pair: PairKey, selectedKey: string | null
         aria-label={heatCellLabel(cell)}
         aria-pressed={cell.key === selectedKey}
         disabled={step === 0}
-        className={cn("tnum h-8 w-full text-foreground max-md:h-10", cell.status === "closed" && "border border-dashed border-border-strong")}
+        className={cn("tnum h-8 w-full whitespace-nowrap text-foreground max-md:h-10", cell.status === "closed" && "border border-dashed border-border-strong")}
         onClick={() => onSelect(cell.key)}
       >
         {shown}
@@ -140,8 +140,19 @@ export function SpreadHeatmap({
 
   return (
     <div data-testid="pregao-heatmap" data-state="ready" className={cn("grid gap-2", className)}>
+      {/*
+        Tabela de layout fixo na largura do painel (20rem em lg+): coluna da casa com nome truncado (nome
+        inteiro no title) e uma coluna igual por par, sem cortar cabeçalho nem célula. A rolagem horizontal
+        fica só como rede de segurança para nomes de par mais longos.
+      */}
       <div className="relative overflow-x-auto">
-        <table className="text-[13px]">
+        <table className="w-full min-w-[16rem] table-fixed text-[12px]">
+          <colgroup>
+            <col className="w-[38%]" />
+            {pairs.map((p) => (
+              <col key={p} />
+            ))}
+          </colgroup>
           <caption className="sr-only">Spread por casa e par</caption>
           <thead>
             <tr>
@@ -149,7 +160,7 @@ export function SpreadHeatmap({
                 <span className="sr-only">Casa</span>
               </th>
               {pairs.map((p) => (
-                <th key={p} scope="col" className="px-2 text-right font-medium">
+                <th key={p} scope="col" className="whitespace-nowrap px-1 text-center text-[11px] font-medium">
                   {PAIR_LABEL[p]}
                 </th>
               ))}
@@ -158,7 +169,7 @@ export function SpreadHeatmap({
           <tbody>
             {houses.map((h) => (
               <tr key={h.source_id}>
-                <th scope="row" className="whitespace-nowrap pr-3 text-left font-medium">
+                <th scope="row" title={h.house} className="truncate pr-2 text-left font-medium">
                   {h.house}
                 </th>
                 {pairs.map((p) => heatTd(index.get(h.source_id)?.get(p) ?? null, p, selectedKey, onSelect))}
