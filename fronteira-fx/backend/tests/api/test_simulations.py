@@ -1,8 +1,57 @@
 from decimal import Decimal
 
-from tests.conftest import seed_market
+import pytest
+from sqlalchemy import select
+
+from fronteira_fx.models import Opportunity, Simulation
+from tests.conftest import make_settings, seed_market
 
 D = Decimal
+
+CYCLE_BODY = {
+    "capital": "1000",
+    "valuation_currency": "BRL",
+    "steps": [
+        {
+            "description": "BRL -> USD",
+            "from": {"currency": "BRL", "institution": "nomad"},
+            "to": {"currency": "USD", "institution": "nomad"},
+            "rate": "0.2",
+        },
+        {
+            "description": "USD -> BRL",
+            "from": {"currency": "USD", "institution": "nomad"},
+            "to": {"currency": "BRL", "institution": "nomad"},
+            "rate": "5.1",
+        },
+    ],
+}
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        ("/v1/simulations/routes", {"capital_brl": "5000", "objective": "cycle"}),
+        ("/v1/simulations/cycle", CYCLE_BODY),
+    ],
+)
+def test_simulations_require_api_key_when_configured(path, body):
+    """B7: both simulation POSTs are write-like endpoints and honour API_KEY (X-API-Key or Bearer)."""
+    from fastapi.testclient import TestClient
+
+    from fronteira_fx.main import create_app
+    from fronteira_fx.services.collector import Collector
+
+    settings = make_settings(api_key="segredo")
+    app = create_app(settings)
+    app.state.collector = Collector(app.state.session_factory, settings, adapters={})
+    with TestClient(app) as c:
+        assert c.post(path, json=body).status_code == 401
+        assert c.post(path, json=body, headers={"X-API-Key": "errada"}).status_code == 401
+        ok = c.post(path, json=body, headers={"X-API-Key": "segredo"})
+        assert ok.status_code == 200, ok.text
+        bearer = c.post(path, json=body, headers={"Authorization": "Bearer segredo"})
+        assert bearer.status_code == 200, bearer.text
 
 
 def test_compare_routes_returns_ranked_opportunities_and_search(client, db):
@@ -86,6 +135,28 @@ def test_remittance_objective_and_persist(client, db):
     assert all(o["kind"] == "remittance_saving" for o in data["opportunities"])
     assert any(D(o["net_gain_brl"]) == 0 for o in data["opportunities"])  # the reference (worst) route
     assert any(D(o["net_gain_brl"]) > 0 for o in data["opportunities"])
+
+
+def test_simulations_are_written_as_simulation_mode_and_never_leak(client, db):
+    """D3: persisted simulations carry data_mode="simulation" (with simulation_id) and the standing
+    `real` ranking never shows them."""
+    seed_market(db)
+    before = client.get("/v1/opportunities").json()
+    assert before and all(o["data_mode"] == "real" for o in before)
+    r = client.post("/v1/simulations/routes", json={"capital_brl": "5000", "objective": "cycle", "persist": True})
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["simulation_id"] and data["opportunities"]
+    assert all(o["data_mode"] == "simulation" for o in data["opportunities"])
+    db.expire_all()
+    sim = db.get(Simulation, data["simulation_id"])
+    assert sim is not None and sim.data_mode == "simulation"
+    sim_rows = list(db.scalars(select(Opportunity).where(Opportunity.simulation_id == sim.id)))
+    assert sim_rows and all(row.data_mode == "simulation" for row in sim_rows)
+    after = client.get("/v1/opportunities").json()
+    assert [o["id"] for o in after] == [o["id"] for o in before]
+    assert all(o["data_mode"] == "real" for o in after)
+    assert make_settings(data_mode="simulation").data_mode == "simulation"
 
 
 def test_opportunities_listing_filters(client, db):

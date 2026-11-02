@@ -8,10 +8,12 @@ defensively: when it is missing the collector simply has no adapters.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
@@ -22,6 +24,7 @@ from ..config import Settings
 from ..db import session_scope
 from ..models import Branch, Evidence, Quote, Source, Task, utcnow
 from ..schemas import ChangeOut
+from ..watch.fetcher import FetchOutcome, conditional_get
 from . import alerts as alerts_svc
 from . import events as events_svc
 from . import watch as watch_svc
@@ -39,6 +42,32 @@ HEALTH_BY_STATUS: dict[AdapterStatus, str] = {
     AdapterStatus.ERROR: "degraded",
 }
 FAILURE_STATUSES = {AdapterStatus.BLOCKED, AdapterStatus.NEEDS_SESSION, AdapterStatus.ERROR}
+FORCE_FLOOR_S = 60  # a source is never fetched twice within this window, forced or not (D6)
+
+
+class CollectorError(Exception):
+    """Base class for the typed collector errors the API maps to HTTP statuses (D4/D6)."""
+
+
+class UnknownSource(CollectorError):
+    def __init__(self, source_id: str) -> None:
+        super().__init__(f"fonte '{source_id}' sem adaptador registrado")
+        self.source_id = source_id
+
+
+class WrongDataMode(CollectorError):
+    def __init__(self, data_mode: str) -> None:
+        super().__init__(f"sondagem indisponível no modo {data_mode}; só o modo real consulta provedores")
+        self.data_mode = data_mode
+
+
+class RateLimited(CollectorError):
+    def __init__(self, source_id: str, retry_after_s: int) -> None:
+        super().__init__(
+            f"fonte '{source_id}' sondada há menos de {FORCE_FLOOR_S} s; tente novamente em {retry_after_s} s"
+        )
+        self.source_id = source_id
+        self.retry_after_s = retry_after_s
 
 
 def load_registry() -> dict[str, Adapter]:
@@ -60,6 +89,7 @@ class CollectOutcome:
     message: str | None = None
     evidence_id: str | None = None
     skipped: bool = False
+    retry_after_s: int | None = None  # set when a forced run fell inside the 60 s floor (D6)
     changes: list[ChangeOut] = field(default_factory=list)
     alert_event_ids: list[str] = field(default_factory=list)
 
@@ -88,6 +118,7 @@ class Collector:
         self.inline_browser = inline_browser
         self._last_sha: dict[str, str] = {}
         self._last_evidence: dict[str, str] = {}
+        self._last_outcome: dict[str, CollectOutcome] = {}
         self._known_opportunities: set[str] | None = None
 
     @property
@@ -139,8 +170,17 @@ class Collector:
 
     # -- ingestion ---------------------------------------------------------------------------
     def ingest(
-        self, session: Session, info: AdapterInfo, result: AdapterResult, *, now: datetime | None = None
+        self,
+        session: Session,
+        info: AdapterInfo,
+        result: AdapterResult,
+        *,
+        now: datetime | None = None,
+        etag: str | None = None,
+        last_modified: str | None = None,
     ) -> CollectOutcome:
+        """Store one adapter result. `etag`/`last_modified` are the validators of the HTTP response the
+        collector itself made (conditional GET); adapters that fetch on their own leave them None."""
         now = now or self.now_fn()
         source = self.ensure_source(session, info)
         ws = watch_svc.ensure_watch(session, source, now=now, data_mode=self.data_mode)
@@ -273,6 +313,8 @@ class Collector:
             changed=changed,
             status=str(result.status),
             content_hash=content_hash,
+            etag=etag,
+            last_modified=last_modified,
             backoff_max_s=self.settings.backoff_max_s,
         )
         if failed:  # classic exponential backoff on the Source schedule too
@@ -322,6 +364,101 @@ class Collector:
         return outcome
 
     # -- collection --------------------------------------------------------------------------
+    def _floor_remaining_s(self, ws: Any, now: datetime) -> int | None:
+        """Seconds left in the per-source floor (D6), or None when a fetch is allowed."""
+        if ws.last_run_at is None:
+            return None
+        floor = max(FORCE_FLOOR_S, int(ws.min_interval_s or 0))
+        remaining = (ws.last_run_at + timedelta(seconds=floor) - now).total_seconds()
+        if remaining <= 0:
+            return None
+        return max(1, math.ceil(remaining))
+
+    def _rate_limited_outcome(self, source_id: str, ws: Any, health: str, retry_after_s: int) -> CollectOutcome:
+        last = self._last_outcome.get(source_id)
+        if last is None:  # process restarted since the last run: rebuild the gist from the watch state
+            last = CollectOutcome(source_id=source_id, status=ws.status, health=health, new_capture=False)
+        return replace(last, skipped=True, retry_after_s=retry_after_s, changes=[], alert_event_ids=[])
+
+    # -- conditional GET (B8/B9) --------------------------------------------------------------
+    @staticmethod
+    def _uses_conditional_get(adapter: Adapter, params: Mapping[str, Any] | None) -> bool:
+        """Scheduled polls of html adapters that opt in (`conditional_get = True`) are fetched by the
+        collector with If-None-Match / If-Modified-Since; the adapter only parses. On-demand requests
+        with parameters always go through the adapter's own `fetch` (forms, amounts, sessions)."""
+        info = adapter.info
+        return (
+            bool(getattr(adapter, "conditional_get", False))
+            and params is None
+            and info.method == "html"
+            and bool(info.url)
+        )
+
+    def _store_raw(self, source_id: str, fetched: FetchOutcome, *, now: datetime, sha256: str) -> str | None:
+        """Write the raw payload under `settings.evidence_dir/<source>/`; never fails the collection."""
+        payload = fetched.content if fetched.content is not None else (fetched.body or "").encode()
+        if not payload:
+            return None
+        directory = Path(self.settings.evidence_dir) / source_id
+        path = directory / f"{now.strftime('%Y%m%dT%H%M%SZ')}-{sha256[:12]}.html"
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(payload)
+        except OSError as exc:
+            log.warning("raw payload for %s not stored (%s): %s", source_id, path, exc)
+            return None
+        return str(path)
+
+    def _parse_fetched(self, adapter: Adapter, fetched: FetchOutcome, *, now: datetime) -> AdapterResult:
+        info = adapter.info
+        if fetched.blocked:
+            return AdapterResult(status=AdapterStatus.BLOCKED, quotes=[], evidence=None, message=fetched.error)
+        if fetched.error is not None or fetched.body is None:
+            message = fetched.error or f"HTTP {fetched.status_code}: resposta sem corpo"
+            return AdapterResult(status=AdapterStatus.ERROR, quotes=[], evidence=None, message=message)
+        try:
+            result = adapter.parse(fetched.body, captured_at=now, url=fetched.url)
+        except Exception as exc:  # a broken parser is a degraded source, not a dead worker
+            log.exception("adapter %s parse raised", info.id)
+            return AdapterResult(
+                status=AdapterStatus.ERROR, quotes=[], evidence=None, message=f"{type(exc).__name__}: {exc}"
+            )
+        ev = result.evidence
+        if ev is not None and ev.raw_path is None:
+            raw_path = self._store_raw(info.id, fetched, now=now, sha256=ev.sha256)
+            if raw_path is not None:
+                result = replace(result, evidence=replace(ev, raw_path=raw_path))
+        return result
+
+    def _record_not_modified(self, info: AdapterInfo, fetched: FetchOutcome) -> CollectOutcome:
+        """304: nothing to parse or diff; the page is unchanged, so the interval grows like an unchanged capture."""
+        now = self.now_fn()
+        with session_scope(self.session_factory) as session:
+            source = self.ensure_source(session, info)
+            ws = watch_svc.ensure_watch(session, source, now=now, data_mode=self.data_mode)
+            watch_svc.after_run(
+                ws,
+                now=now,
+                ok=True,
+                changed=False,
+                status=ws.status,
+                content_hash=None,
+                etag=fetched.etag,
+                last_modified=fetched.last_modified,
+                backoff_max_s=self.settings.backoff_max_s,
+            )
+            source.next_poll_at = ws.next_run_at
+            source.updated_at = now
+            outcome = CollectOutcome(
+                source_id=info.id,
+                status="not_modified",
+                health=source.health,
+                new_capture=False,
+                message="304 Not Modified",
+            )
+        self._last_outcome[info.id] = outcome
+        return outcome
+
     async def collect(
         self, adapter: Adapter, *, force: bool = False, params: Mapping[str, Any] | None = None
     ) -> CollectOutcome:
@@ -335,15 +472,34 @@ class Collector:
                 return CollectOutcome(
                     source_id=info.id, status="skipped", health=source.health, skipped=True, message=reason
                 )
-        try:
-            result = await adapter.fetch(**dict(params or {}))
-        except Exception as exc:  # adapters should not raise, but never let one kill the loop
-            log.exception("adapter %s raised", info.id)
-            result = AdapterResult(
-                status=AdapterStatus.ERROR, quotes=[], evidence=None, message=f"{type(exc).__name__}: {exc}"
-            )
+            remaining = self._floor_remaining_s(ws, now)
+            if remaining is not None:  # D6: never hammer a source, even on demand; hand back the last result
+                return self._rate_limited_outcome(info.id, ws, source.health, remaining)
+            validators = (ws.etag, ws.last_modified)
+        fetched: FetchOutcome | None = None
+        if self._uses_conditional_get(adapter, params):
+            fetched = await conditional_get(info.url, etag=validators[0], last_modified=validators[1])
+            if fetched.not_modified:
+                return self._record_not_modified(info, fetched)
+            result = self._parse_fetched(adapter, fetched, now=self.now_fn())
+        else:
+            try:
+                result = await adapter.fetch(**dict(params or {}))
+            except Exception as exc:  # adapters should not raise, but never let one kill the loop
+                log.exception("adapter %s raised", info.id)
+                result = AdapterResult(
+                    status=AdapterStatus.ERROR, quotes=[], evidence=None, message=f"{type(exc).__name__}: {exc}"
+                )
         with session_scope(self.session_factory) as session:
-            outcome = self.ingest(session, info, result, now=self.now_fn())
+            outcome = self.ingest(
+                session,
+                info,
+                result,
+                now=self.now_fn(),
+                etag=fetched.etag if fetched is not None else None,
+                last_modified=fetched.last_modified if fetched is not None else None,
+            )
+        self._last_outcome[info.id] = outcome
         if outcome.alert_event_ids:
             await alerts_svc.deliver_events(self.session_factory, outcome.alert_event_ids, self.settings)
         return outcome
@@ -357,11 +513,16 @@ class Collector:
         return outcomes
 
     async def poll_now(self, source_id: str) -> ChangeOut | None:
-        """`POST /v1/watch/run/{id}`: immediate poll; first detected Change or None. None also when unknown."""
+        """`POST /v1/watch/run/{id}`: immediate poll; the first detected Change, or None when nothing changed.
+        Raises UnknownSource (404), WrongDataMode (409) or RateLimited (429) instead of guessing (D4/D6)."""
         adapter = self.adapters().get(source_id)
-        if adapter is None or self.data_mode != "real":
-            return None
+        if adapter is None:
+            raise UnknownSource(source_id)
+        if self.data_mode != "real":
+            raise WrongDataMode(self.data_mode)
         outcome = await self.collect(adapter, force=True)
+        if outcome.retry_after_s is not None:
+            raise RateLimited(source_id, outcome.retry_after_s)
         return outcome.changes[0] if outcome.changes else None
 
     # -- on-demand requests ------------------------------------------------------------------
@@ -410,6 +571,8 @@ class Collector:
                 return {"status": "queued", "job_id": task.id, "reason": "requer navegador; o worker processa a fila"}
 
         outcome = await self.collect(adapter, force=True, params=params)
+        if outcome.retry_after_s is not None:
+            raise RateLimited(source_id, outcome.retry_after_s)
         if outcome.health == "blocked":
             return {"status": "blocked", "reason": outcome.message or "fonte bloqueada"}
         with session_scope(self.session_factory) as session:
@@ -446,18 +609,24 @@ class Collector:
                 outcome = await self.collect(adapter, force=True, params=params)
             with session_scope(self.session_factory) as session:
                 task = session.get(Task, task_id)
-                if task is not None:
-                    task.finished_at = self.now_fn()
-                    failed = outcome.health in ("blocked", "unknown") and not outcome.quotes_stored
-                    task.status = "failed" if failed else "done"
-                    task.result = {
-                        "status": outcome.status,
-                        "health": outcome.health,
-                        "quotes_stored": outcome.quotes_stored,
-                        "evidence_id": outcome.evidence_id,
-                    }
-                    task.error = outcome.message if failed else None
-            done += 1
+                if task is None:
+                    continue
+                if outcome.retry_after_s is not None:  # inside the floor: back to the queue, next tick retries
+                    task.status = "queued"
+                    task.started_at = None  # it is waiting again, not "running since"
+                    task.error = f"piso de {FORCE_FLOOR_S} s; nova tentativa em {outcome.retry_after_s} s"
+                    continue
+                task.finished_at = self.now_fn()
+                failed = outcome.health in ("blocked", "unknown") and not outcome.quotes_stored
+                task.status = "failed" if failed else "done"
+                task.result = {
+                    "status": outcome.status,
+                    "health": outcome.health,
+                    "quotes_stored": outcome.quotes_stored,
+                    "evidence_id": outcome.evidence_id,
+                }
+                task.error = outcome.message if failed else None
+                done += 1
         return done
 
     def prune_events(self) -> int:

@@ -28,6 +28,7 @@ MCP_OPERATIONS: list[str] = [
     "remember",
     "recall",
     "forget",
+    "memory_summary",
 ]
 
 

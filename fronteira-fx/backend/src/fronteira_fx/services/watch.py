@@ -58,20 +58,17 @@ def _side(prev: Decimal | None, cur: Decimal | None) -> str | None:
 def detect_quote_changes(
     previous: list[Quote], current: list[Quote]
 ) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
-    """Compare the latest quote per context before/after a capture. Returns (summary, before, after)."""
+    """Compare the latest quote per context before/after a capture. Returns (summary, before, after).
+
+    `before`/`after` carry the structured context (`pair`, `city`, `source_id`, `series_key`) so alert rules
+    match on fields, never on the human summary (B18)."""
     prev_by = {context_identity(q): q for q in previous}
     out = []
     for q in current:
         p = prev_by.get(context_identity(q))
         where = q.city or "digital"
         label = f"{q.base}/{q.quote} {where}" + (f" {fmt(q.amount_base)}" if q.amount_base is not None else "")
-        after = {
-            "buy": fmt(q.buy),
-            "sell": fmt(q.sell),
-            "captured_at": q.captured_at.isoformat(),
-            "series_key": q.series_key,
-            "quote_id": q.id,
-        }
+        after = _snapshot(q)
         if p is None:
             out.append((f"{label}: nova cotação (compra {fmt(q.buy) or '—'}, venda {fmt(q.sell) or '—'})", {}, after))
             continue
@@ -83,15 +80,21 @@ def detect_quote_changes(
         if s:
             parts.append(f"venda {s}")
         if parts:
-            before = {
-                "buy": fmt(p.buy),
-                "sell": fmt(p.sell),
-                "captured_at": p.captured_at.isoformat(),
-                "series_key": p.series_key,
-                "quote_id": p.id,
-            }
-            out.append((f"{label} {'; '.join(parts)}", before, after))
+            out.append((f"{label} {'; '.join(parts)}", _snapshot(p), after))
     return out
+
+
+def _snapshot(q: Quote) -> dict[str, Any]:
+    return {
+        "buy": fmt(q.buy),
+        "sell": fmt(q.sell),
+        "captured_at": q.captured_at.isoformat(),
+        "series_key": q.series_key,
+        "quote_id": q.id,
+        "pair": f"{q.base}/{q.quote}",
+        "city": q.city,
+        "source_id": q.source_id,
+    }
 
 
 def record_change(
@@ -133,16 +136,20 @@ def after_run(
     status: str,
     content_hash: str | None,
     etag: str | None = None,
+    last_modified: str | None = None,
     backoff_max_s: int = 3600,
 ) -> None:
     """Adapt the interval: errors => exponential backoff; real change => shorter; unchanged => longer.
-    `changed=None` means "nothing to compare against" (first capture): the interval is kept."""
+    `changed=None` means "nothing to compare against" (first capture): the interval is kept.
+    `etag`/`last_modified` are the validators of the last response, reused by the next conditional GET."""
     ws.last_run_at = now
     ws.status = status
     if content_hash:
         ws.content_hash = content_hash
     if etag:
         ws.etag = etag
+    if last_modified:
+        ws.last_modified = last_modified
     if not ok:
         ws.errors_in_row = (ws.errors_in_row or 0) + 1
         ws.interval_s = min(max(ws.max_interval_s, backoff_max_s), ws.interval_s * 2)
@@ -181,6 +188,7 @@ def status_out(session: Session, ws: WatchState, now: datetime | None = None) ->
         changes_24h=changes_24h(session, ws.source_id, now),
         errors_in_row=ws.errors_in_row,
         etag=ws.etag,
+        last_modified=ws.last_modified,
         content_hash=ws.content_hash,
         status=ws.status,
     )

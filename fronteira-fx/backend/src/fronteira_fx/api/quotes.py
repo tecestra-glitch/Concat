@@ -3,9 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from ..schemas import City, Currency, Modality, QuoteOut, QuoteRequestIn, QuoteRequestOut
+from ..services.collector import RateLimited
 from ..services.quotes import latest_quotes, quote_to_out
 from .deps import ApiKey, CollectorDep, DataModeDep, DbDep, SettingsDep
 
@@ -43,7 +44,11 @@ def get_quotes(
     operation_id="request_quote",
     dependencies=[ApiKey],
     summary="Fetch a quote from one source now (or queue it for the worker)",
+    responses={429: {"description": "fonte sondada há menos de 60 s; `Retry-After` em segundos"}},
 )
 async def request_quote(body: QuoteRequestIn, collector: CollectorDep) -> QuoteRequestOut:
-    result = await collector.request_quote(body.source_id, body.params)
+    try:
+        result = await collector.request_quote(body.source_id, body.params)
+    except RateLimited as exc:
+        raise HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": str(exc.retry_after_s)}) from exc
     return QuoteRequestOut.model_validate(result)

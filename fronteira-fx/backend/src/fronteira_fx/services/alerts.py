@@ -68,6 +68,20 @@ def _match_cycle_roi(rule: AlertRule, ctx: AlertContext) -> tuple[str, dict[str,
     }
 
 
+def _change_matches(ch: Change, *, pair: str | None, city: str | None) -> bool:
+    """Compare the rule against the structured `pair`/`city` recorded in `Change.after` (B18). Rows written
+    before those fields existed fall back to the label prefix of the summary."""
+    after = ch.after or {}
+    if "pair" in after:
+        if pair and after.get("pair") != pair:
+            return False
+        return not city or after.get("city") == city
+    head = ch.summary.split(":")[0]
+    if pair and not head.startswith(pair):
+        return False
+    return not city or f" {city}" in head
+
+
 def _match_quote_move(rule: AlertRule, ctx: AlertContext) -> tuple[str, dict[str, Any]] | None:
     params = rule.params or {}
     pair = params.get("pair")
@@ -75,9 +89,7 @@ def _match_quote_move(rule: AlertRule, ctx: AlertContext) -> tuple[str, dict[str
     for ch in ctx.changes:
         if ch.kind != "quote_change" or not ch.before:
             continue
-        if pair and not ch.summary.startswith(pair):
-            continue
-        if city and f" {city}" not in ch.summary.split(":")[0]:
+        if not _change_matches(ch, pair=pair, city=city):
             continue
         for side in ("sell", "buy"):
             b, a = ch.before.get(side), ch.after.get(side)

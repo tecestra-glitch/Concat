@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ..models import Source
 from ..schemas import ChangeKind, ChangeOut, WatchPatch, WatchStatusOut
 from ..services import watch as watch_svc
+from ..services.collector import RateLimited, UnknownSource, WrongDataMode
 from .deps import ApiKey, CollectorDep, DataModeDep, DbDep, SettingsDep
 
 router = APIRouter(prefix="/watch", tags=["watch"])
@@ -60,12 +61,21 @@ def update_watch(
     operation_id="trigger_poll",
     dependencies=[ApiKey],
     summary="Poll one source now; returns the first detected Change or null",
+    responses={
+        404: {"description": "fonte sem adaptador registrado"},
+        409: {"description": "instância fora do modo real (simulation/demo não consultam provedores)"},
+        429: {"description": "fonte sondada há menos de 60 s; `Retry-After` em segundos"},
+    },
 )
 async def trigger_poll(source_id: str, collector: CollectorDep) -> ChangeOut | None:
-    result = await collector.poll_now(source_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail="fonte sem adaptador registrado")
-    return result
+    try:
+        return await collector.poll_now(source_id)
+    except UnknownSource as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except WrongDataMode as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RateLimited as exc:
+        raise HTTPException(status_code=429, detail=str(exc), headers={"Retry-After": str(exc.retry_after_s)}) from exc
 
 
 @router.get("/changes", operation_id="list_changes")

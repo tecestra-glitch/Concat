@@ -80,7 +80,8 @@ def test_edges_from_quotes_directions_and_reference_skip() -> None:
         "evidence_id": "ev",
         "amount_base": None,
     }
-    edges = edges_from_quotes([q, {**q, "kind": "market_reference"}])
+    # references (BCP/PTAX style) are valuation only, whichever field flags them (B23)
+    edges = edges_from_quotes([q, {**q, "kind": "market_reference"}, {**q, "modality": "reference"}])
     assert len(edges) == 2
     buy = next(x for x in edges if x.src == node_key("USD", "s"))
     sell = next(x for x in edges if x.src == node_key("PYG", "s"))

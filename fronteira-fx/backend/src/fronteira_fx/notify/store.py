@@ -2,9 +2,10 @@
 
 Duas implementações do protocolo `AlertStore`:
 - `InMemoryAlertStore`: testes e desenvolvimento sem banco (tudo some ao reiniciar);
-- `SqlAlchemyAlertStore`: tabelas `alert_rules` e `alert_events`, no metadata próprio `NotifyBase`.
+- `SqlAlchemyAlertStore`: tabelas `notify_alert_rules` e `notify_alert_events`, no metadata próprio `NotifyBase`.
 
-`NotifyBase` é isolado de `models.py` de propósito. O core deve incluir `NotifyBase.metadata` no Alembic
+`NotifyBase` é isolado de `models.py` de propósito, e os nomes levam o prefixo `notify_` para nunca colidir com
+`alert_rules`/`alert_events` do core (B11). O core deve incluir `NotifyBase.metadata` no Alembic
 (migração própria do módulo notify). Até lá, `create_notify_tables(engine)` cria as tabelas.
 Os limiares são guardados como texto para preservar o `Decimal` exato (SQLite não tem Decimal).
 """
@@ -128,7 +129,7 @@ class NotifyBase(DeclarativeBase):
 
 
 class AlertRuleRow(NotifyBase):
-    __tablename__ = "alert_rules"
+    __tablename__ = "notify_alert_rules"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -143,8 +144,8 @@ class AlertRuleRow(NotifyBase):
 
 
 class AlertEventRow(NotifyBase):
-    __tablename__ = "alert_events"
-    __table_args__ = (Index("ix_alert_events_rule_dedupe", "rule_id", "dedupe_key"),)
+    __tablename__ = "notify_alert_events"
+    __table_args__ = (Index("ix_notify_alert_events_rule_dedupe", "rule_id", "dedupe_key"),)
 
     seq: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
@@ -240,7 +241,7 @@ class SqlAlchemyAlertStore:
             row = session.get(AlertRuleRow, rule_id)
             if row is None:
                 return False
-            session.delete(row)  # o histórico (alert_events) fica: é registro do que foi enviado
+            session.delete(row)  # o histórico (notify_alert_events) fica: é registro do que foi enviado
             return True
 
     def add_event(self, event: AlertEvent, *, dedupe_key: str | None = None) -> None:

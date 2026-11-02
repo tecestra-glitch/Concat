@@ -1,12 +1,13 @@
 from datetime import timedelta
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import select
 
 from fronteira_fx.adapters.base import AdapterStatus
 from fronteira_fx.models import AlertEvent, AlertRule, Change, Source, WatchState
 from fronteira_fx.services import watch as watch_svc
-from fronteira_fx.services.collector import Collector
+from fronteira_fx.services.collector import Collector, UnknownSource
 from tests.conftest import NOW, make_settings
 from tests.services.test_collector import Clock, FakeAdapter
 
@@ -99,7 +100,8 @@ async def test_collector_records_changes_and_fires_ui_alert(session_factory):
     clock.t = clock.t + timedelta(seconds=5000)
     change = await collector.poll_now("chaco")
     assert change is not None and change.kind == "status_change"
-    assert await collector.poll_now("unknown") is None
+    with pytest.raises(UnknownSource):  # D4: 404, not a silent None
+        await collector.poll_now("unknown")
     clock.t = clock.t + timedelta(seconds=5000)
     assert await collector.poll_now("chaco") is None  # same sha, no changes
 
@@ -134,5 +136,51 @@ def test_detect_quote_changes_matches_contexts(db):
     assert len(changes) == 2
     summary, before, after = changes[0]
     assert summary == "USD/PYG CDE venda 7360 → 7380" and before["sell"] == "7360" and after["quote_id"] == b.id
+    # B18: structured context travels with the change (alerts never parse the summary)
+    for payload in (before, after):
+        assert payload["pair"] == "USD/PYG" and payload["city"] == "CDE" and payload["source_id"] == "chaco"
     assert "nova cotação" in changes[1][0]
+    _, _, after_new = changes[1]
+    assert after_new["pair"] == "BRL/PYG" and after_new["city"] == "CDE" and after_new["source_id"] == "chaco"
     assert watch_svc.detect_quote_changes([b], [b]) == []
+
+
+def _quote_change(summary: str, *, before: dict, after: dict) -> Change:
+    return Change(
+        id="chg-1",
+        kind="quote_change",
+        source_id="chaco",
+        summary=summary,
+        before=before,
+        after=after,
+        ts=NOW,
+        data_mode="real",
+    )
+
+
+def test_quote_move_matches_structured_pair_and_city():
+    from fronteira_fx.services.alerts import AlertContext, _match_quote_move
+
+    # the summary is a human label and must not drive the match
+    ch = _quote_change(
+        "Cotação atualizada no balcão",
+        before={"sell": "7350", "buy": "7290", "pair": "USD/PYG", "city": "CDE", "source_id": "chaco"},
+        after={"sell": "7360", "buy": "7290", "pair": "USD/PYG", "city": "CDE", "source_id": "chaco"},
+    )
+    ctx = AlertContext(now=NOW, source_id="chaco", changes=[ch])
+
+    def rule(**params):
+        return AlertRule(name="r", kind="quote_move", threshold=D("0.001"), params=params, channel="ui", data_mode="real")
+
+    assert _match_quote_move(rule(pair="USD/PYG", city="CDE"), ctx) is not None
+    assert _match_quote_move(rule(pair="USD/PYG"), ctx) is not None
+    assert _match_quote_move(rule(pair="BRL/PYG"), ctx) is None
+    assert _match_quote_move(rule(pair="USD/PYG", city="ASU"), ctx) is None
+    # a digital quote has no city: a rule with a city never matches it
+    digital = _quote_change(
+        "USD/PYG CDE venda 7350 → 7360",  # misleading summary on purpose
+        before={"sell": "7350", "pair": "USD/PYG", "city": None, "source_id": "nomad"},
+        after={"sell": "7360", "pair": "USD/PYG", "city": None, "source_id": "nomad"},
+    )
+    assert _match_quote_move(rule(pair="USD/PYG", city="CDE"), AlertContext(now=NOW, changes=[digital])) is None
+    assert _match_quote_move(rule(pair="USD/PYG"), AlertContext(now=NOW, changes=[digital])) is not None

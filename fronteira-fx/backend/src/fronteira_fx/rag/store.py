@@ -216,7 +216,7 @@ class ChunkRow(RagBase):
 
 
 class SqlStore:
-    """Armazenamento SQLAlchemy. Cria as tabelas com `create_schema()` ou via Alembic (ver docs/rag.md)."""
+    """Armazenamento SQLAlchemy. Cria as tabelas com `create_schema()` ou via Alembic (ver docs/backend.md)."""
 
     def __init__(self, engine: Engine) -> None:
         self._engine = engine

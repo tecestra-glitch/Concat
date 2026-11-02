@@ -37,6 +37,7 @@ class FeeOut(ApiModel):
     label: str
     amount: DecStr | None = None
     currency: str
+    pct: DecStr | None = None  # share of the input amount (e.g. "0.015"); omitted when the fee is fixed only
 
 
 class Coverage(ApiModel):
@@ -107,7 +108,7 @@ class QuoteOut(ApiModel):
     valid_until: datetime | None = None
     evidence_id: str | None = None
     data_mode: str = "real"
-    series_key: str | None = None
+    series_key: str = Field(description="chave comparável da série (D2), aceita em GET /v1/history?key=")
 
 
 class HistoryPoint(ApiModel):
@@ -366,32 +367,35 @@ class RouteResultOut(ApiModel):
     pending_costs: list[str] = Field(default_factory=list)
 
 
-# ---- position graph / cycles (contract uses camelCase + JSON numbers here) -----------------------
+# ---- position graph / cycles (D1: snake_case, money as decimal strings) -------------------------
+
+EdgeKind = Literal["quote", "transfer", "deposit", "withdraw"]
 
 
 class EdgeOut(ApiModel):
     from_: str = Field(alias="from", serialization_alias="from")
     to: str
-    kind: str  # quote | transfer | deposit | withdraw
-    rate: float
-    feePct: float = 0.0
-    feeFixed: float = 0.0
+    kind: EdgeKind
+    rate: DecStr
+    fee_pct: DecStr = Decimal(0)
+    fee_fixed: DecStr = Decimal(0)
     minutes: int = 0
     via: str
     confidence: Confidence
-    evidenceId: str | None = None
+    evidence_id: str | None = None
 
 
 class CycleOut(ApiModel):
     start: str
     path: list[str]
     edges: list[EdgeOut]
-    amountIn: float
-    amountOut: float
-    gain: float
-    roi: float
+    amount_in: DecStr
+    amount_out: DecStr
+    gain: DecStr
+    roi: DecStr
     minutes: int
     confidence: Confidence
+    data_mode: DataMode
 
 
 # ---- watch ---------------------------------------------------------------------------------------
@@ -412,6 +416,7 @@ class WatchStatusOut(ApiModel):
     changes_24h: int = 0
     errors_in_row: int = 0
     etag: str | None = None
+    last_modified: str | None = None
     content_hash: str | None = None
     status: str
 
@@ -541,3 +546,9 @@ class MemoryOut(ApiModel):
     created_at: datetime
     expires_at: datetime | None = None
     source: str
+
+
+class MemorySummary(ApiModel):
+    """One line per kind (`Preferências`, `Decisões`, `Fatos`, `Resultados`), newest first; `""` when empty."""
+
+    summary: str

@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import logging
+import os
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DataMode = Literal["real", "demo"]
+log = logging.getLogger("fronteira_fx.config")
+
+DataMode = Literal["real", "simulation", "demo"]
+SIMULATION_MODE: DataMode = "simulation"  # every persisted simulation row is tagged with this mode (D3)
 
 
 class Settings(BaseSettings):
@@ -39,7 +44,10 @@ class Settings(BaseSettings):
     poll_interval_s: int = 300
     worker_tick_s: int = 30  # worker wakes this often; sources are polled only when due
     backoff_max_s: int = 3600
-    evidence_dir: str = "./var/evidence"
+    # Raw payloads captured by the collector. `FX_EVIDENCE_DIR` is a deprecated alias (warns at startup).
+    evidence_dir: str = Field(
+        default="./var/evidence", validation_alias=AliasChoices("EVIDENCE_DIR", "FX_EVIDENCE_DIR")
+    )
     history_default_grid_s: int = 300
     watch_min_interval_s: int = 60
     watch_max_interval_s: int = 900
@@ -54,6 +62,18 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
     alert_http_timeout_s: float = 10.0
     quotes_lookback_s: int = 7 * 86400  # how far back "latest per context" looks
+
+    # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
+    # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).
+    # One-off alternative: `python -m fronteira_fx.cli seed-knowledge`.
+    seed_knowledge: bool = True
+    knowledge_dir: str | None = None
+
+    @model_validator(mode="after")
+    def _warn_deprecated_env_names(self) -> Self:
+        if "FX_EVIDENCE_DIR" in os.environ:
+            log.warning("FX_EVIDENCE_DIR está obsoleto; use EVIDENCE_DIR (diretório em uso: %s)", self.evidence_dir)
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:
