@@ -42,6 +42,67 @@ indefinidos. Backend (`api`) e coletor (`worker`) são containers; veja `docs/ba
 `docker-compose.yml` (PostgreSQL + pgvector, API, worker). Hosts compatíveis: Fly.io, Railway, Render,
 uma VPS com Docker, etc. Exponha a API em HTTPS e aponte `NEXT_PUBLIC_API_URL` para ela.
 
+## Supabase como Postgres gerenciado (opcional)
+
+1. **Enquadramento.** O Supabase entra **somente** como Postgres gerenciado com pgvector. O backend
+   continua falando SQLAlchemy + `psycopg` 3, o mesmo driver de hoje (`postgresql+psycopg://`). Nenhum
+   SDK, Auth, Storage ou Edge Function do Supabase é usado, e o frontend não conhece o banco.
+
+2. **Como `DATABASE_URL` é lida.** Em `backend/src/fronteira_fx/config.py`, `Settings` é
+   `pydantic-settings` com `env_file=".env"` (caminho relativo ao diretório de execução: rode os
+   comandos a partir de `backend/`) e `extra="ignore"`. O campo `database_url: str` (padrão
+   `sqlite:///./var/fx.db`) vem da variável `DATABASE_URL`. `auto_create_schema: bool = True` vem de
+   `AUTO_CREATE_SCHEMA`. `is_sqlite` é `database_url.startswith("sqlite")`. O `alembic/env.py` lê o
+   mesmo `get_settings().database_url`. O `docker-compose.yml` já monta
+   `postgresql+psycopg://…@postgres:5432/…`; a mesma forma vale para o Supabase.
+
+3. **Conexão.** Use o **pooler em modo sessão, porta 5432** (`aws-0-<regiao>.pooler.supabase.com`,
+   usuário `postgres.<project-ref>`) para API, worker e Alembic, sempre com `?sslmode=require`.
+
+   **Por que não o modo transação (porta 6543).** O `psycopg` 3 cria comandos preparados no servidor a
+   partir da 5ª execução, e o pooler em modo transação não os suporta. Habilitar o modo transação
+   exigiria `connect_args={"prepare_threshold": None}` no `create_engine`, uma mudança de código fora
+   desta seção, registrada em `dev/spec-pregao.md` §0.17 (dúvida 8). Até lá, o modo transação não é
+   suportado.
+
+   Exemplo de URL, com placeholders:
+
+   ```text
+   postgresql+psycopg://postgres.<project-ref>:<senha>@aws-0-<regiao>.pooler.supabase.com:5432/postgres?sslmode=require
+   ```
+
+4. **Primeira configuração.** No SQL Editor do projeto, rode uma vez:
+
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+
+   No primeiro deploy, use `AUTO_CREATE_SCHEMA=true` **ou** migrações com
+   `cd backend && uv run alembic upgrade head`. Regra: ambientes de produção usam Alembic e
+   `AUTO_CREATE_SCHEMA=false` a partir do segundo deploy.
+
+5. **Segredos.** `DATABASE_URL` fica só nas variáveis de ambiente do host do backend (Fly, Railway,
+   Render ou VPS). Nunca em `NEXT_PUBLIC_*` e nunca no Git: o hook `pre-commit` do husky bloqueia commit
+   com segredo verificado pelo TruffleHog quando o TruffleHog está disponível (binário ou Docker).
+   Rotação: redefina a senha do banco no painel do Supabase, atualize a variável e reinicie API e worker.
+
+6. **Verificação.** Com `DATABASE_URL` apontando para o Supabase no ambiente:
+
+   ```bash
+   cd backend && uv run python -c "from fronteira_fx.config import get_settings; s = get_settings(); print(s.is_sqlite, s.database_url.split('@')[-1])"
+   ```
+
+   Deve imprimir `False` e o host sem credenciais. `GET /v1/health` responde o `data_mode` do ambiente.
+   Para confirmar que o JSON de horários das casas entra no wheel publicado (o comando deve imprimir uma linha; sem saída, o arquivo não foi empacotado):
+
+   ```bash
+   cd backend && uv build && unzip -l dist/*.whl | grep market_hours.json
+   ```
+
+7. **O que não fazer.** Não usar `sslmode` diferente de `require` e não desligar a verificação TLS do
+   cliente. Não colar a service_role key em nenhum arquivo versionado. Não usar a conexão direta IPv6
+   em hosts que só têm IPv4.
+
 ## Checklist de aceitação antes de promover para produção
 
 - `pnpm test:all` verde (typecheck, lint, unitários, build, Playwright em 1440/1024/390 px).
