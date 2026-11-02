@@ -53,6 +53,9 @@ FAKE_TOOLS = {
         '#!/bin/sh\necho "trufflehog $*" >> "$FAKE_LOG"\n'
         'if [ "$1" = "--version" ]; then echo "trufflehog ${FAKE_TRUFFLEHOG_VERSION}"; exit 0; fi\n'
         'if [ "${FAKE_TRUFFLEHOG_EAT_STDIN:-0}" = "1" ]; then while read -r _l; do :; done; fi\n'
+        # Como o clone do TruffleHog de verdade: o checkout dele escreve no índice que GIT_INDEX_FILE apontar.
+        'echo "trufflehog-index ${GIT_INDEX_FILE-unset}" >> "$FAKE_LOG"\n'
+        'if [ -n "${GIT_INDEX_FILE:-}" ]; then git read-tree HEAD; fi\n'
         'echo "TRUFFLEHOG-SAIDA-VISIVEL" >&2\nexit "${FAKE_TRUFFLEHOG_RC:-0}"\n'
     ),
     # `docker info` responde conforme FAKE_DOCKER_INFO_RC; `docker run` imita o TruffleHog na imagem.
@@ -327,6 +330,26 @@ class PreCommit(HookTestCase):
         common = self.r.git("rev-parse", "--path-format=absolute", "--git-common-dir")
         self.assertIn(f"-v {worktree}:/repo", run)
         self.assertIn(f"-v {common}:{common}:ro", run, "o diretório .git principal deve ser montado no mesmo caminho")
+
+    def test_worktree_mantem_o_indice_do_commit(self) -> None:
+        # No pre-commit o Git exporta GIT_INDEX_FILE; num worktree o caminho é absoluto e o TruffleHog não
+        # pode herdá-lo, senão o commit sai sem as mudanças em stage.
+        worktree = self.r.root / "arvore"
+        self.r.git("worktree", "add", "-q", "-b", "wt", str(worktree))
+        env = {**os.environ, "PATH": self.r.path, "GIT_CONFIG_NOSYSTEM": "1", "HOME": str(self.r.root)}
+        (worktree / "fronteira-fx" / "src" / "app.ts").write_text("export const a = 9;\n", encoding="utf-8")
+        subprocess.run(["git", "add", "fronteira-fx/src/app.ts"], cwd=worktree, env=env, check=True)
+        index = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-path", "index"],
+            cwd=worktree, env=env, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+        res = self.r.run_hook("pre-commit", env={"GIT_INDEX_FILE": index}, cwd=worktree)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertCalled("trufflehog-index unset")
+        staged = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"], cwd=worktree, env=env, check=True, capture_output=True, text=True
+        ).stdout.split()
+        self.assertEqual(staged, ["fronteira-fx/src/app.ts"], "o índice do commit não pode ser reescrito")
 
     def test_docker_no_checkout_principal_nao_monta_nada_a_mais(self) -> None:
         os.remove(self.r.bin / "trufflehog")

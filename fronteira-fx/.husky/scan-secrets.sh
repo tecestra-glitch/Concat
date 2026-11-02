@@ -20,7 +20,13 @@ scan_secrets() {
       *"$TRUFFLEHOG_VERSION"*) ;;
       *) echo "aviso: trufflehog local (${_installed:-versão desconhecida}) difere da versão da CI ($TRUFFLEHOG_VERSION)." >&2 ;;
     esac
-    trufflehog git "file://$PWD" --only-verified --fail --no-update "$@"
+    # Sem GIT_INDEX_FILE: no pre-commit o Git exporta o caminho do índice, que num worktree é absoluto; o
+    # TruffleHog clona o repositório e o checkout desse clone herdaria a variável e reescreveria o índice
+    # do commit em andamento (o commit sairia sem as mudanças em stage, ou um merge com a árvore antiga).
+    (
+      unset GIT_INDEX_FILE
+      trufflehog git "file://$PWD" --only-verified --fail --no-update "$@"
+    )
   elif docker info >/dev/null 2>&1; then
     # Num worktree, .git é um arquivo que aponta para o repositório principal, fora de $PWD: esse diretório é
     # montado também (só leitura), no mesmo caminho, senão o Git dentro do container não abre o repositório.
