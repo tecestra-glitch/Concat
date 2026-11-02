@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Pregao } from "@/components/pregao/pregao";
+import { Pregao, remotePanel } from "@/components/pregao/pregao";
 import { SettingsProvider } from "@/lib/settings";
 
 const SRC = new URL("../pregao.tsx", import.meta.url).pathname;
@@ -74,5 +74,25 @@ describe("Pregao (container da integração, §24.4)", () => {
     expect(src).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(src).not.toContain("NEXT_PUBLIC_");
     expect(src).toMatch(/dynamic\(\s*\(\) => import\("@\/components\/pregao\/candle-chart"\)/);
+  });
+});
+
+describe("remotePanel (resumo e gráfico dependem das cotações)", () => {
+  const idle = { isLoading: false, data: undefined, error: null };
+  const quotesErr = new Error("cotações");
+
+  it("enquanto as cotações carregam o painel carrega, mesmo com a consulta própria desligada", () => {
+    expect(remotePanel(idle, { loading: true, error: null })).toEqual({ loading: true, error: null, retryUpstream: false });
+  });
+
+  it("falha das cotações sem dados próprios vira erro do painel, com nova tentativa nas cotações", () => {
+    expect(remotePanel(idle, { loading: false, error: quotesErr })).toEqual({ loading: false, error: quotesErr, retryUpstream: true });
+  });
+
+  it("erro próprio vence; com dados já mostrados não há erro", () => {
+    const own = new Error("velas");
+    expect(remotePanel({ ...idle, error: own }, { loading: false, error: quotesErr })).toEqual({ loading: false, error: own, retryUpstream: false });
+    expect(remotePanel({ ...idle, data: {}, error: own }, { loading: false, error: null })).toEqual({ loading: false, error: null, retryUpstream: false });
+    expect(remotePanel({ ...idle, isLoading: true }, { loading: false, error: null }).loading).toBe(true);
   });
 });

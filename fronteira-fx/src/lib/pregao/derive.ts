@@ -56,10 +56,10 @@ export function statusOf(sessions: HouseSession[], sourceId: string): SessionSta
 const REF_PRIORITY: Record<string, number> = { bcp: 0, dolarpy: 1 };
 
 /**
- * `mid` da referência mais recente do par (bcp antes de dolarpy); `null` se não existe ou se
- * tem mais de 24 h ("sem referência").
+ * Cotação de referência do par usada no ágio e na linha do gráfico: prioridade bcp, depois dolarpy,
+ * depois as demais; no empate, a mais recente. `null` se não existe ou se tem mais de 24 h.
  */
-export function refMidFor(quotes: Quote[], pair: PairKey, now: Date): number | null {
+export function refQuoteFor(quotes: Quote[], pair: PairKey, now: Date): Quote | null {
   const freshAfter = now.getTime() - REF_MAX_AGE_MS;
   let best: Quote | null = null;
   let bestAt = Number.NaN;
@@ -76,6 +76,12 @@ export function refMidFor(quotes: Quote[], pair: PairKey, now: Date): number | n
       bestRank = rank;
     }
   }
+  return best;
+}
+
+/** `mid` de `refQuoteFor`; `null` sem referência recente ("sem referência"). */
+export function refMidFor(quotes: Quote[], pair: PairKey, now: Date): number | null {
+  const best = refQuoteFor(quotes, pair, now);
   return best === null ? null : midOf(best.buy, best.sell);
 }
 

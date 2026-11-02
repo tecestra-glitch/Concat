@@ -115,6 +115,13 @@ describe("buildPregaoView — chaves, mapa de calor e referência", () => {
     expect(v.reference).toEqual({ value: String(refMidFor(d.quotes, "USD/PYG", NOW)), label: "≈ BCP (referência)" });
   });
 
+  it("rótulo e valor vêm da mesma referência (empate de prioridade: vale a mais recente)", () => {
+    const refA = mkQuote({ id: "ra", source_id: "ref-a", city: null, kind: "market_reference", channel: "digital", modality: "transfer", buy: "5900", sell: "5900", captured_at: ago(600) });
+    const refB = mkQuote({ id: "rb", source_id: "ref-b", city: null, kind: "market_reference", channel: "digital", modality: "transfer", buy: "5950", sell: "5950", captured_at: ago(60) });
+    const v = buildPregaoView({ quotes: [refA, refB], sources: [src("ref-a", "Ref A", "central_bank"), src("ref-b", "Ref B", "central_bank")], sessions: [], pair: "USD/PYG", selectedKey: null, now: NOW });
+    expect(v.reference).toEqual({ value: "5950", label: "≈ Ref B" });
+  });
+
   it("sem referência recente (24 h) não há linha de referência", () => {
     const quotes = [
       mkQuote({ id: "c", source_id: "chaco" }),
@@ -153,6 +160,19 @@ describe("buildPregaoView — cruzamento BRL/PYG via USD (mesma casa, mesmo cont
     const v = buildPregaoView({ quotes: [usdPyg, usdBrlAccount], sources, sessions: [], pair: "USD/PYG", selectedKey: null, now: NOW });
     expect(v.cross.usdPyg).not.toBeNull();
     expect(v.cross.usdBrl).toBeNull();
+  });
+
+  it("filial ou faixa de montante diferente não vira perna; mesma filial vira", () => {
+    const atBranch = (p: Partial<Quote> & Pick<Quote, "id">) => mkQuote({ source_id: "chaco", branch_id: "chaco-cde-centro", ...p });
+    const py = atBranch({ id: "py-b" });
+    const brOther = atBranch({ id: "br-o", base: "USD", quote: "BRL", buy: "5.40", sell: "5.46", branch_id: "chaco-cde-shopping" });
+    const brTier = atBranch({ id: "br-t", base: "USD", quote: "BRL", buy: "5.40", sell: "5.46", amount_base: "1000" });
+    const brSame = atBranch({ id: "br-s", base: "USD", quote: "BRL", buy: "5.41", sell: "5.47" });
+    const mixed = buildPregaoView({ quotes: [py, brOther, brTier], sources, sessions: [], pair: "USD/PYG", selectedKey: null, now: NOW });
+    expect(mixed.cross.usdPyg).not.toBeNull();
+    expect(mixed.cross.usdBrl).toBeNull();
+    const same = buildPregaoView({ quotes: [py, brOther, brTier, brSame], sources, sessions: [], pair: "USD/PYG", selectedKey: null, now: NOW });
+    expect(same.cross.usdBrl?.buy).toBe("5.41");
   });
 
   it("referência selecionada nunca é perna: o cartão usa a casa padrão do par", () => {

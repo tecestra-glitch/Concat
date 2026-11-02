@@ -6,13 +6,9 @@
  */
 import type { Quote, Source } from "@/lib/api/types";
 import { legOf, type Leg } from "./cross";
-import { defaultKeyFor, houseName, refMidFor, toBookLevels } from "./derive";
-import { quoteKey } from "./keys";
-import { pairKeyOf } from "./candles";
+import { midOf } from "./candles";
+import { defaultKeyFor, houseName, refQuoteFor, toBookLevels } from "./derive";
 import { PAIRS, type BookLevel, type HouseSession, type PairKey } from "./types";
-
-const REF_MAX_AGE_MS = 24 * 3600 * 1000;
-const REF_PRIORITY: Record<string, number> = { bcp: 0, dolarpy: 1 };
 
 export interface PregaoViewInput {
   quotes: Quote[];
@@ -53,8 +49,8 @@ export interface PregaoView {
 
 const isRef = (l: { kind: Quote["kind"] }) => l.kind === "market_reference";
 const stripDemo = (id: string) => (id.startsWith("demo-") ? id.slice(5) : id);
-/** Segmento `[3]` da chave (`fonte:cidade:PAR:modalidade…`). */
-const modalityOf = (key: string) => key.split(":")[3] ?? "";
+/** Contexto da série: a chave sem o par (`fonte:cidade:modalidade[:@filial][:montante][:ctx]`). */
+const contextOf = (key: string) => key.split(":").filter((_, i) => i !== 2).join(":");
 
 /** Próximo par na sequência de `PAIRS`, dando a volta nos dois sentidos. */
 export function cyclePair(pair: PairKey, dir: 1 | -1): PairKey {
@@ -62,30 +58,19 @@ export function cyclePair(pair: PairKey, dir: 1 | -1): PairKey {
   return PAIRS[(i + dir + PAIRS.length) % PAIRS.length];
 }
 
-/** Linha de referência do gráfico: o mesmo `mid` de `refMidFor`, com o nome da fonte que o deu. */
+/** Linha de referência do gráfico: valor e rótulo vêm da mesma cotação (`refQuoteFor`, a do ágio). */
 function referenceFor(quotes: Quote[], sources: Source[], pair: PairKey, now: Date): PregaoReference | null {
-  const mid = refMidFor(quotes, pair, now);
-  if (mid === null) return null;
-  const freshAfter = now.getTime() - REF_MAX_AGE_MS;
-  let sourceId: string | null = null;
-  let bestRank = Number.POSITIVE_INFINITY;
-  for (const q of quotes) {
-    if (q.kind !== "market_reference" || pairKeyOf(quoteKey(q)) !== pair) continue;
-    const at = Date.parse(q.captured_at);
-    if (Number.isNaN(at) || at < freshAfter) continue;
-    const rank = REF_PRIORITY[stripDemo(q.source_id)] ?? 2;
-    if (rank < bestRank) {
-      bestRank = rank;
-      sourceId = q.source_id;
-    }
-  }
-  return { value: String(mid), label: `≈ ${sourceId === null ? "referência" : houseName(sources, sourceId)}` };
+  const ref = refQuoteFor(quotes, pair, now);
+  const mid = ref === null ? null : midOf(ref.buy, ref.sell);
+  if (ref === null || mid === null) return null;
+  return { value: String(mid), label: `≈ ${houseName(sources, ref.source_id)}` };
 }
 
-/** Pernas do cruzamento na mesma casa, cidade e modalidade da casa base (contexto não se mistura). */
+/** Pernas do cruzamento no mesmo contexto da casa base: casa, cidade, modalidade, filial, montante e contexto. */
 function crossFor(levelsByPair: Record<PairKey, BookLevel[]>, base: BookLevel | null): PregaoCross {
   if (base === null) return { house: "—", usdPyg: null, usdBrl: null, direct: null };
-  const same = (l: BookLevel) => !isRef(l) && l.source_id === base.source_id && l.city === base.city && modalityOf(l.key) === modalityOf(base.key);
+  const ctx = contextOf(base.key);
+  const same = (l: BookLevel) => !isRef(l) && contextOf(l.key) === ctx;
   return {
     house: base.house,
     usdPyg: legOf(levelsByPair["USD/PYG"].find(same)),

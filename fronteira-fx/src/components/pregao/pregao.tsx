@@ -54,6 +54,20 @@ const NO_SESSIONS: HouseSession[] = [];
 const PRINTS_LIMIT = 30;
 const SPARK_COUNT = 24;
 
+/**
+ * Estado de um painel cuja consulta depende das cotações (resumo e gráfico): enquanto as cotações
+ * carregam não há chave e a consulta própria fica desligada, mas o painel continua "carregando";
+ * se as cotações falham, o painel mostra esse erro e a nova tentativa vai para as cotações.
+ */
+export function remotePanel(
+  own: { isLoading: boolean; data: unknown; error: Error | null },
+  upstream: { loading: boolean; error: Error | null },
+): { loading: boolean; error: Error | null; retryUpstream: boolean } {
+  const ownError = own.data !== undefined ? null : own.error;
+  const error = ownError ?? (own.data !== undefined ? null : upstream.error);
+  return { loading: upstream.loading || own.isLoading, error, retryUpstream: ownError === null && error !== null };
+}
+
 const setTimeframe = (tf: Timeframe) => updatePregaoPrefs({ tf });
 const setIndicators = (indicators: IndicatorState) => updatePregaoPrefs({ indicators });
 
@@ -101,6 +115,9 @@ export function Pregao() {
 
   const quotesLoading = !ready || quotesQ.isPending;
   const quotesError = quotesQ.error;
+  const upstream = { loading: quotesLoading, error: quotesError };
+  const statsPanel = remotePanel(statsQ, upstream);
+  const chartPanel = remotePanel(candlesQ, upstream);
 
   const choosePair = (p: PairKey) => {
     setPair(p);
@@ -159,9 +176,9 @@ export function Pregao() {
             stats={stats}
             quote={quote}
             now={now}
-            loading={!ready || statsQ.isLoading}
-            error={statsQ.data ? null : statsQ.error}
-            onRetry={() => void statsQ.refetch()}
+            loading={statsPanel.loading}
+            error={statsPanel.error}
+            onRetry={statsPanel.retryUpstream ? quotesQ.refetch : () => void statsQ.refetch()}
           />
         }
         chart={
@@ -174,9 +191,9 @@ export function Pregao() {
             house={selectedLevel?.house}
             reference={reference}
             demo={demo}
-            loading={!ready || candlesQ.isLoading}
-            error={candlesQ.data ? null : candlesQ.error}
-            onRetry={() => void candlesQ.refetch()}
+            loading={chartPanel.loading}
+            error={chartPanel.error}
+            onRetry={chartPanel.retryUpstream ? quotesQ.refetch : () => void candlesQ.refetch()}
           />
         }
         book={

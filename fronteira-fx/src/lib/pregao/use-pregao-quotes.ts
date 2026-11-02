@@ -20,6 +20,12 @@ export function pregaoQuotesFor(mode: Mode, fetched: Quote[], now: number): Quot
   return now === 0 ? NO_QUOTES : demoQuotesAt(new Date(now));
 }
 
+/** Puro: em demo os dados são locais, então a consulta de rede não manda em carregando nem em erro. */
+export function pregaoQuotesStatus(mode: Mode, q: { isPending: boolean; error: Error | null; hasData: boolean }): { isPending: boolean; error: Error | null } {
+  if (mode === "demo") return { isPending: false, error: null };
+  return { isPending: q.isPending, error: q.hasData ? null : q.error };
+}
+
 export interface PregaoQuotes {
   quotes: Quote[];
   sources: Source[];
@@ -35,11 +41,11 @@ export function usePregaoQuotes(now: number): PregaoQuotes {
   const sourcesQ = useSources();
   const fetched = quotesQ.data ?? NO_QUOTES;
   const quotes = useMemo(() => pregaoQuotesFor(mode, fetched, now), [mode, fetched, now]);
+  const status = pregaoQuotesStatus(mode, { isPending: quotesQ.isPending, error: quotesQ.error, hasData: quotesQ.data !== undefined });
   return {
     quotes,
     sources: sourcesQ.data ?? NO_SOURCES,
-    isPending: quotesQ.isPending,
-    error: quotesQ.data ? null : quotesQ.error,
+    ...status,
     refetch: () => void quotesQ.refetch(),
   };
 }

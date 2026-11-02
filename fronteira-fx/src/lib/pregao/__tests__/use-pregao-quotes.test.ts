@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { demoQuotesAt } from "@/lib/pregao/demo";
-import { pregaoQuotesFor } from "@/lib/pregao/use-pregao-quotes";
+import { pregaoQuotesFor, pregaoQuotesStatus } from "@/lib/pregao/use-pregao-quotes";
 import type { Quote } from "@/lib/api/types";
 
 const NOW = Date.UTC(2026, 10, 2, 12, 0);
@@ -23,6 +23,13 @@ describe("pregaoQuotesFor (cotações da tela por modo)", () => {
   it("real e simulação: as cotações da API, sem mistura com demo", () => {
     expect(pregaoQuotesFor("real", fetched, NOW)).toBe(fetched);
     expect(pregaoQuotesFor("simulation", fetched, NOW)).toBe(fetched);
+  });
+
+  it("demo não herda carregando nem erro da consulta de rede (os dados são locais)", () => {
+    const failing = { isPending: true, error: new Error("rede"), hasData: false };
+    expect(pregaoQuotesStatus("demo", failing)).toEqual({ isPending: false, error: null });
+    expect(pregaoQuotesStatus("real", failing)).toEqual({ isPending: true, error: failing.error });
+    expect(pregaoQuotesStatus("real", { ...failing, isPending: false, hasData: true })).toEqual({ isPending: false, error: null });
   });
 
   it("o hook chama useQuotes e useSources incondicionalmente", () => {

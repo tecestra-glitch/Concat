@@ -30,7 +30,7 @@ Visão geral da tela e das regras de negócio: `docs/pregao.md`.
 
 | Arquivo | Exporta | Papel |
 |---|---|---|
-| `pregao.tsx` | `Pregao` | Container `"use client"`: liga hooks, preferências, atalhos e derivações; monta o layout |
+| `pregao.tsx` | `Pregao`, `remotePanel` | Container `"use client"`: liga hooks, preferências, atalhos e derivações; monta o layout. `remotePanel`: resumo e gráfico carregam enquanto as cotações carregam e mostram o erro delas |
 | `pregao-layout.tsx` | `PregaoLayout`, `MOBILE_TABS`, `nextTab`, `PregaoMobileTab`, `PregaoLayoutProps` | Grade da tela e abas do celular (Gráfico, Livro, Lista, Últimas) |
 | `timeframe-bar.tsx` | `TimeframeBar`, `rovingIndex`, `TimeframeBarProps` | Radiogroup de intervalo (15 min, 1 hora, 4 horas, 1 dia) |
 | `pair-selector.tsx` | `PairSelector`, `PairSelectorProps` | Radiogroup de par (USD/PYG, BRL/PYG, USD/BRL) |
@@ -64,7 +64,7 @@ Os testes de componentes ficam em `src/components/pregao/__tests__/` e são feit
 | `hours.ts` | `PRE_OPEN_MIN`, `houseStatus`, `isAlwaysOpen`, `localParts`, `zonedToUtc` | Algoritmo de status das casas (`open`, `pre`, `closed`, `unknown`) |
 | `cross.ts` | `Leg`, `ImpliedCross`, `STALE_MS`, `legOf`, `isStale`, `midOfLeg`, `impliedBrlPyg`, `diffPct` | Cruzamento BRL/PYG via USD e diferença contra o direto |
 | `keys.ts` | `quoteKey` | Chave da série de uma cotação: `Quote.series_key` (D2), com fallback reconstruído quando ausente |
-| `derive.ts` | `isIncomplete`, `spreadPct`, `agioPct`, `pctChange`, `houseName`, `statusOf`, `refMidFor`, `toBookLevels`, `toTickerItems`, `toWatchlistRows`, `toHeatCells`, `quoteToPrint`, `defaultKeyFor` | Derivação pura de fita, livro, lista, mapa e últimas atualizações |
+| `derive.ts` | `isIncomplete`, `spreadPct`, `agioPct`, `pctChange`, `houseName`, `statusOf`, `refQuoteFor`, `refMidFor`, `toBookLevels`, `toTickerItems`, `toWatchlistRows`, `toHeatCells`, `quoteToPrint`, `defaultKeyFor` | Derivação pura de fita, livro, lista, mapa e últimas atualizações |
 | `demo.ts` | `DEFAULT_SERIES_KEY`, `DEMO_HOUSES`, `DEMO_HOURS`, `DEMO_HOUSE_IDS`, `DEMO_ANCHOR`, `DEMO_VOL`, `fnv1a`, `lcg`, `demoCandles`, `demoStats`, `demoSessions`, `demoQuotesAt`, `demoBook`, `demoTicker`, `demoPrints`, `demoWatchlist`, `demoHeat` | Gerador demo determinístico; `now` sempre é parâmetro |
 | `api.ts` | `fetchCandles`, `fetchStats`, `fetchSessions`, `STATS_BATCH`, `FetchOpts`, `CandleOpts` | Cliente HTTP do pregão pelo proxy `/api/fx` (`API_BASE`), com zod, `?data_mode=simulation` em `simulation` e fallback de `/v1/history` |
 | `indicators.ts` | `closes`, `sma`, `ema`, `bollinger`, `atr`, `vwapProxy`, `buildOverlays` | Indicadores (SMA, EMA, Bollinger, ATR de Wilder, VWAP-proxy) |
@@ -75,8 +75,8 @@ Os testes de componentes ficam em `src/components/pregao/__tests__/` e são feit
 | `use-prints.ts` | `usePrints`, `useDemoPrints`, `usePrintsFor`, `usePrintsFeed` | Hooks das últimas atualizações nos dois modos |
 | `use-hotkeys.ts` | `HotkeyBinding`, `isTextTarget`, `inDialog`, `matchHotkey`, `useHotkeys`, `buildPregaoBindings` | Atalhos de teclado da página do pregão |
 | `prefs.ts` | `PregaoPrefs`, `DEFAULT_PREFS`, `PREFS_KEY`, `parsePrefs`, `readPregaoPrefs`, `subscribePregaoPrefs`, `usePregaoPrefs`, `updatePregaoPrefs` | Preferências de intervalo e indicadores (`fx.pregao.prefs`), com `useSyncExternalStore`; valor gravado inválido volta ao padrão |
-| `use-pregao-quotes.ts` | `pregaoQuotesFor`, `usePregaoQuotes`, `PregaoQuotes` | Cotações e fontes da tela no modo atual; em demo, `demoQuotesAt(now)` com o relógio da tela |
-| `view.ts` | `buildPregaoView`, `cyclePair`, `PregaoView`, `PregaoViewInput`, `PregaoReference`, `PregaoCross` | Derivações da tela: níveis por par, série escolhida, chaves do resumo e das miniaturas, casas do mapa, linha de referência e pernas do cruzamento (mesma casa, cidade e modalidade; referência nunca é perna) |
+| `use-pregao-quotes.ts` | `pregaoQuotesFor`, `pregaoQuotesStatus`, `usePregaoQuotes`, `PregaoQuotes` | Cotações e fontes da tela no modo atual; em demo, `demoQuotesAt(now)` com o relógio da tela |
+| `view.ts` | `buildPregaoView`, `cyclePair`, `PregaoView`, `PregaoViewInput`, `PregaoReference`, `PregaoCross` | Derivações da tela: níveis por par, série escolhida, chaves do resumo e das miniaturas, casas do mapa, linha de referência e pernas do cruzamento (mesmo contexto: casa, cidade, modalidade, filial e montante; referência nunca é perna) |
 
 Os testes ficam em `src/lib/pregao/__tests__/`. Hooks são testados pelas suas `*QueryOptions` puras.
 

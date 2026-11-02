@@ -173,7 +173,7 @@ Fórmula: `diffPct(direto, implícito) = (direto / implícito − 1) · 100`.
 
 Regras:
 
-- As pernas vêm da casa selecionada, na mesma cidade e na mesma modalidade (dinheiro com dinheiro, conta com conta): o contexto da cotação não se mistura. Se a série selecionada é uma referência, o cartão usa a casa padrão do par.
+- As pernas vêm da casa selecionada, no mesmo contexto: mesma cidade, modalidade (dinheiro com dinheiro, conta com conta), filial e faixa de montante. O contexto da cotação não se mistura. Se a série selecionada é uma referência, o cartão usa a casa padrão do par.
 - Se falta Compra ou Venda em qualquer perna, o cruzamento fica sem valor e aparece o aviso "incompleto".
 - Se uma perna tem mais de 24 horas, ela aparece como desatualizada.
 - O cruzamento é **informativo**. Não é cotação, não é oferta e não é executável.
