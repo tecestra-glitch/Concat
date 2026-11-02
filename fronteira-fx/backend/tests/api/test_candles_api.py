@@ -194,7 +194,7 @@ def test_demo_mode_uses_generators_not_the_database():
         assert candles.status_code == 200, candles.text
         body = candles.json()
         assert body["data_mode"] == "demo" and body["key"] == KEY and body["tf"] == "1h"
-        assert body["candles"] == []  # stub da fundação; B3 passa a esperar 5 velas
+        assert len(body["candles"]) == 5  # gerador demo (B3): 5 velas
         assert all(cndl["data_mode"] == "demo" for cndl in body["candles"])
 
         stats = c.get("/v1/pregao/stats", params={"keys": "k"})
@@ -205,7 +205,8 @@ def test_demo_mode_uses_generators_not_the_database():
 
         sessions = c.get("/v1/pregao/sessions")
         assert sessions.status_code == 200, sessions.text
-        assert sessions.json() == []  # stub da fundação; B3 passa a esperar 7 sessões
+        assert len(sessions.json()) == 7  # gerador demo (B3): uma sessão por casa demo
+        assert [s["source_id"] for s in sessions.json() if s["reference"]] == ["demo-bcp"]
         assert all(s["data_mode"] == "demo" for s in sessions.json())
 
 
