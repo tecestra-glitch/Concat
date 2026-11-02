@@ -1,5 +1,8 @@
 # Writes
 
+> **Fronteira FX:** escritas estão desativadas neste projeto (somente leitura, compartilhamento desativado).
+> Nunca aprenda (`add --write`) nem envie uma escrita; o texto abaixo é referência do upstream.
+
 A write (post, like, send, buy) changes the user's account: use only their own accounts.
 
 ## Learning one
@@ -14,8 +17,8 @@ A write (post, like, send, buy) changes the user's account: use only their own a
 
 ## Sending one
 
-- Over MCP, `call_write_operation` on a server started with `--allow-writes`; with the CLI,
-  `call ... --allow-writes`. Confirm the exact text or target first if there is any doubt.
+- **Off in Fronteira FX.** The MCP server is never started with `--allow-writes`, so `call_write_operation` never exists here,
+  and the CLI form `call ... --allow-writes` is never used. The rest of this section is upstream reference only.
 - Before the first real send, `call ... --dry` prints the exact request: check the ids and text.
 - `write` says what happened, and only `applied` proves the write landed. After `accepted` or
   `may_have_applied`, never send it again: tell the user to check the site.

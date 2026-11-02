@@ -34,9 +34,12 @@ com 4 só aparecem idas e voltas na mesma casa, que nunca dão lucro. Bellman-Fo
 
 Ordem de preferência:
 
-1. **MCP do Fronteira FX** (se conectado): `find_cycles` já devolve ciclos prontos; `get_quotes`,
+1. **MCP do Fronteira FX** (se conectado): `find_cycles` já devolve ciclos prontos — chame sempre com
+   `max_len=6` (o padrão do servidor é 4, que só mostra idas e voltas; 6 é o máximo aceito); `get_quotes`,
    `list_sources` e `compare_routes` trazem cotações com evidência e contexto. Use-os e não recalcule
-   o que o motor já calculou.
+   o que o motor já calculou. Os campos monetários chegam como strings decimais (`rate`, `gain`, `roi`…):
+   trate-os com `Decimal`, nunca como float. `compare_routes` grava uma simulação (`data_mode="simulation"`);
+   as demais são só leitura.
 2. **JSON ou tabela fornecida pelo usuário**: converta para o formato de `references/formato-entrada.md`
    e rode o script.
 3. **Nada disponível**: diga o que falta (cotações, custos de transferência, saldos) e monte o grafo

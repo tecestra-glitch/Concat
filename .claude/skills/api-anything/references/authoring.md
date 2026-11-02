@@ -61,5 +61,6 @@ api-anything add site search --trigger "https://site.com/search?q={q}" \
 
 ## 5. Report
 
-A table of `op | inputs | returns | checked with`, and what isn't covered. `api-anything publish
-<site> <op>` previews what sharing would send; send it with `--yes` only on the user's yes.
+A table of `op | inputs | returns | checked with`, and what isn't covered. Sharing is off in this project:
+never run `api-anything publish <site> <op>`, with or without `--yes`; the report stays local (see
+`docs/api-anything.md`).
