@@ -132,6 +132,23 @@ describe("PregaoLayout — painéis", () => {
     expect(panel).toContain('data-testid="slot-chart"');
   });
 
+  it("em lg+ a sessão ocupa as linhas 1–2 da direita e o gráfico começa na linha 2: a esquerda não herda a altura da sessão", () => {
+    const html = render();
+    const sessao = classesOf(tagWith(html, 'aria-labelledby="pregao-h-sessao"'));
+    expect(sessao).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:row-span-2", "lg:col-start-2", "xl:col-start-3"]));
+    const controles = classesOf(tagWith(html, 'aria-labelledby="pregao-h-controles"'));
+    expect(controles).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:col-start-1", "xl:col-end-3"]));
+    const grafico = classesOf(tagWith(html, 'id="pregao-panel-grafico"'));
+    expect(grafico).toEqual(expect.arrayContaining(["lg:row-start-2", "lg:row-span-2"]));
+    const livro = classesOf(tagWith(html, 'id="pregao-panel-livro"'));
+    expect(livro).toEqual(expect.arrayContaining(["lg:row-start-3", "xl:row-start-2", "xl:row-span-2"]));
+    // controles, sessão, abas e painéis na mesma grade, com a linha 1fr que absorve a altura dos painéis
+    const grade = tagWith(html, 'data-testid="pregao-tabs"');
+    expect(html.indexOf("lg:grid-rows-[auto_auto_1fr_auto]")).toBeLessThan(html.indexOf(grade));
+    expect(html).toContain("xl:grid-rows-[auto_auto_1fr]");
+    expect(html).toContain("lg:items-start");
+  });
+
   it("o contêiner do gráfico tem altura por breakpoint, até xl:h-[420px]", () => {
     const html = render();
     expect(html).toMatch(/h-\[280px\] md:h-\[360px\] xl:h-\[420px\]">\s*<div data-testid="slot-chart"/);

@@ -83,41 +83,50 @@ export function PregaoLayout({
         {ticker}
       </section>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_20rem_18rem]">
-        <section aria-labelledby="pregao-h-controles" className="xl:col-span-2">
+      {/*
+        Controles, sessão e painéis numa grade só. Em lg+ a sessão ocupa as linhas 1–2 da coluna da direita
+        e o painel do gráfico começa na linha 2: a linha 1 fica com a altura dos controles e a coluna esquerda
+        não herda a altura da sessão (sem vão entre os controles e o resumo). A linha 2 só existe para a
+        sobra da sessão; a linha `1fr` absorve a altura dos painéis que a atravessam (gráfico e, em xl, livro),
+        senão o algoritmo da grade repartiria essa altura com a linha 2 e empurraria "Últimas" para baixo.
+        `items-start` impede que um painel estique até a altura do vizinho.
+      */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:grid-rows-[auto_auto_1fr_auto] lg:items-start xl:grid-cols-[minmax(0,1fr)_20rem_18rem] xl:grid-rows-[auto_auto_1fr]">
+        <section aria-labelledby="pregao-h-controles" className="min-w-0 lg:col-start-1 lg:row-start-1 xl:col-end-3">
           <h3 id="pregao-h-controles" className="sr-only">
             Controles
           </h3>
           {controls}
         </section>
-        <section aria-labelledby="pregao-h-sessao" className="max-md:order-first">
+        <section aria-labelledby="pregao-h-sessao" className="min-w-0 max-md:order-first lg:col-start-2 lg:row-span-2 lg:row-start-1 xl:col-start-3">
           <h3 id="pregao-h-sessao" className="text-sm font-medium">
             Sessão
           </h3>
           {clocks}
         </section>
-      </div>
 
-      <div role="tablist" aria-label="Seções do pregão" data-testid="pregao-tabs" onKeyDown={onTablistKeyDown} className="sticky top-0 z-10 flex gap-1 bg-background py-1 md:hidden">
-        {MOBILE_TABS.map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            id={`pregao-tab-${id}`}
-            aria-selected={id === tab}
-            aria-controls={`pregao-panel-${id}`}
-            tabIndex={id === tab ? 0 : -1}
-            className={cn("h-10 flex-1 rounded-md text-sm", id === tab ? "bg-surface-2 text-foreground" : "text-muted")}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        <div role="tablist" aria-label="Seções do pregão" data-testid="pregao-tabs" onKeyDown={onTablistKeyDown} className="sticky top-0 z-10 flex gap-1 bg-background py-1 md:hidden">
+          {MOBILE_TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={`pregao-tab-${id}`}
+              aria-selected={id === tab}
+              aria-controls={`pregao-panel-${id}`}
+              tabIndex={id === tab ? 0 : -1}
+              className={cn("h-10 flex-1 rounded-md text-sm", id === tab ? "bg-surface-2 text-foreground" : "text-muted")}
+              onClick={() => setTab(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_20rem_18rem]">
-        <div id="pregao-panel-grafico" className={cn("grid grid-cols-1 content-start gap-3 min-w-0", tab !== "grafico" && "max-md:hidden")}>
+        <div
+          id="pregao-panel-grafico"
+          className={cn("grid grid-cols-1 content-start gap-3 min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-2", tab !== "grafico" && "max-md:hidden")}
+        >
           <section aria-labelledby="pregao-h-resumo">
             <h3 id="pregao-h-resumo" className="text-sm font-medium">
               Resumo da sessão
@@ -132,14 +141,22 @@ export function PregaoLayout({
           </section>
         </div>
 
-        <section id="pregao-panel-livro" aria-labelledby="pregao-h-livro" className={cn("min-w-0", tab !== "livro" && "max-md:hidden")}>
+        <section
+          id="pregao-panel-livro"
+          aria-labelledby="pregao-h-livro"
+          className={cn("min-w-0 lg:col-start-2 lg:row-start-3 xl:row-span-2 xl:row-start-2", tab !== "livro" && "max-md:hidden")}
+        >
           <h3 id="pregao-h-livro" className="text-sm font-medium">
             Livro de casas
           </h3>
           {book}
         </section>
 
-        <section id="pregao-panel-ultimas" aria-labelledby="pregao-h-ultimas" className={cn("min-w-0 lg:col-span-2 xl:col-span-1", tab !== "ultimas" && "max-md:hidden")}>
+        <section
+          id="pregao-panel-ultimas"
+          aria-labelledby="pregao-h-ultimas"
+          className={cn("min-w-0 lg:col-span-2 lg:col-start-1 lg:row-start-4 xl:col-span-1 xl:col-start-3 xl:row-start-3", tab !== "ultimas" && "max-md:hidden")}
+        >
           <h3 id="pregao-h-ultimas" className="text-sm font-medium">
             Últimas atualizações
           </h3>
