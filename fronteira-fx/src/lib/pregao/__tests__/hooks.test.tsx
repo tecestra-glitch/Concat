@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SERIES_KEY, demoStats } from "@/lib/pregao/demo";
 import { TIMEFRAMES, type CandleSeries } from "@/lib/pregao/types";
@@ -87,6 +87,50 @@ describe("stats: chave estável quando só a ordem das chaves muda (QA-5)", () =
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe("placeholder das velas só vale para a mesma série (QA-3)", () => {
+  const A = "chaco:CDE:USD/PYG:cash:@chaco-cde-centro";
+  const B = "nomad:digital:USD/BRL:transfer";
+  const series = (key: string, tf: CandleSeries["tf"]): CandleSeries => ({ ...SERIE, key, tf });
+
+  /** Observa A (resolvida) e troca para `next` com a busca pendente: o que a tela recebe nesse intervalo. */
+  async function switchTo(next: { key: string; tf: CandleSeries["tf"] }) {
+    const client = new QueryClient();
+    let release: (s: CandleSeries) => void = () => {};
+    const pending = new Promise<CandleSeries>((resolve) => {
+      release = resolve;
+    });
+    const fetchMock = vi
+      .fn<(input: string) => Promise<Response>>()
+      .mockResolvedValueOnce(response(series(A, "1h")))
+      .mockImplementationOnce(async () => response(await pending));
+    vi.stubGlobal("fetch", fetchMock);
+    const observer = new QueryObserver(client, candlesQueryOptions("real", A, "1h"));
+    const unsubscribe = observer.subscribe(() => {});
+    await vi.waitFor(() => expect(observer.getCurrentResult().data?.key).toBe(A));
+    observer.setOptions(candlesQueryOptions("real", next.key, next.tf));
+    const during = observer.getCurrentResult();
+    release(series(next.key, next.tf));
+    await vi.waitFor(() => expect(observer.getCurrentResult().isPlaceholderData).toBe(false));
+    unsubscribe();
+    vi.unstubAllGlobals();
+    return during;
+  }
+
+  it("troca de par ou de casa: sem placeholder da série anterior, a consulta fica carregando", async () => {
+    const during = await switchTo({ key: B, tf: "1h" });
+    expect(during.data).toBeUndefined();
+    expect(during.isPlaceholderData).toBe(false);
+    expect(during.isLoading).toBe(true);
+  });
+
+  it("troca de intervalo na mesma série: mantém as velas anteriores como placeholder", async () => {
+    const during = await switchTo({ key: A, tf: "1d" });
+    expect(during.isPlaceholderData).toBe(true);
+    expect(during.data?.key).toBe(A);
+    expect(during.isLoading).toBe(false);
   });
 });
 

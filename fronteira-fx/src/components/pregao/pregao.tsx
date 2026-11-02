@@ -68,19 +68,6 @@ export function remotePanel(
   return { loading: upstream.loading || own.isLoading, error, retryUpstream: ownError === null && error !== null };
 }
 
-/**
- * Velas da chave pedida. Com `keepPreviousData`, durante a troca de par ou de casa a consulta devolve a série
- * anterior como placeholder; mostrá-la como pronta formataria PYG como BRL e juntaria o par antigo à casa
- * nova (QA-3). Placeholder de outra chave vira "carregando"; na troca de intervalo (mesma chave) fica.
- */
-export function candlesForKey<T extends { key: string }, E>(
-  q: { data: T | undefined; isPlaceholderData: boolean; isLoading: boolean; error: E },
-  key: string | null,
-): { data: T | undefined; isLoading: boolean; error: E } {
-  const otherSeries = q.isPlaceholderData && q.data !== undefined && q.data.key !== key;
-  return { data: otherSeries ? undefined : q.data, isLoading: q.isLoading || otherSeries, error: q.error };
-}
-
 const setTimeframe = (tf: Timeframe) => updatePregaoPrefs({ tf });
 const setIndicators = (indicators: IndicatorState) => updatePregaoPrefs({ indicators });
 
@@ -113,12 +100,13 @@ export function Pregao() {
 
   const statsQ = useSessionStats(allKeys);
   const byKey = React.useMemo(() => statsByKey(statsQ.data), [statsQ.data]);
+  // Na troca de par ou de casa não há placeholder (a consulta fica carregando); na troca de intervalo, as velas
+  // anteriores ficam até chegar a série nova (`candlesQueryOptions`, QA-3).
   const candlesQ = useCandles(effectiveKey, tf);
-  const candles = candlesForKey(candlesQ, effectiveKey);
   const sparks = useSparklines(houseKeys, SPARK_COUNT);
   const allPrints = usePrintsFor(mode, PRINTS_LIMIT);
 
-  const overlays = React.useMemo(() => buildOverlays(candles.data?.candles ?? [], indicators), [candles.data, indicators]);
+  const overlays = React.useMemo(() => buildOverlays(candlesQ.data?.candles ?? [], indicators), [candlesQ.data, indicators]);
   const rows = React.useMemo(() => toWatchlistRows(levels, byKey, sparks), [levels, byKey, sparks]);
   const ticker = React.useMemo(() => toTickerItems(quotes, sources, byKey), [quotes, sources, byKey]);
   const heat = React.useMemo(() => toHeatCells(allLevels), [allLevels]);
@@ -131,7 +119,7 @@ export function Pregao() {
   const quotesError = quotesQ.error;
   const upstream = { loading: quotesLoading, error: quotesError };
   const statsPanel = remotePanel(statsQ, upstream);
-  const chartPanel = remotePanel(candles, upstream);
+  const chartPanel = remotePanel(candlesQ, upstream);
 
   const choosePair = (p: PairKey) => {
     setPair(p);
@@ -197,7 +185,7 @@ export function Pregao() {
         }
         chart={
           <CandleChart
-            series={candles.data ?? null}
+            series={candlesQ.data ?? null}
             timeframe={tf}
             quote={quote}
             indicators={indicators}

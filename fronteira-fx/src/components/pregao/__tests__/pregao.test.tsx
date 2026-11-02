@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Pregao, candlesForKey, remotePanel } from "@/components/pregao/pregao";
+import { Pregao, remotePanel } from "@/components/pregao/pregao";
 import { SettingsProvider } from "@/lib/settings";
 
 const SRC = new URL("../pregao.tsx", import.meta.url).pathname;
@@ -94,27 +94,5 @@ describe("remotePanel (resumo e gráfico dependem das cotações)", () => {
     expect(remotePanel({ ...idle, error: own }, { loading: false, error: quotesErr })).toEqual({ loading: false, error: own, retryUpstream: false });
     expect(remotePanel({ ...idle, data: {}, error: own }, { loading: false, error: null })).toEqual({ loading: false, error: null, retryUpstream: false });
     expect(remotePanel({ ...idle, isLoading: true }, { loading: false, error: null }).loading).toBe(true);
-  });
-});
-
-describe("candlesForKey (placeholder de outra série não é a série pedida, QA-3)", () => {
-  const A = "chaco:CDE:USD/PYG:cash:@chaco-cde-centro";
-  const B = "nomad:digital:USD/BRL:transfer";
-  const seriesA = { key: A, tf: "1h" as const, candles: [], data_mode: "real" as const };
-
-  it("troca de par: o placeholder da chave antiga vira carregando, sem série", () => {
-    const q = { data: seriesA, isPlaceholderData: true, isLoading: false, error: null };
-    expect(candlesForKey(q, B)).toEqual({ data: undefined, isLoading: true, error: null });
-    expect(remotePanel(candlesForKey(q, B), { loading: false, error: null }).loading).toBe(true);
-  });
-
-  it("troca de intervalo na mesma chave: mantém o placeholder (keepPreviousData) e não carrega", () => {
-    const q = { data: seriesA, isPlaceholderData: true, isLoading: false, error: null };
-    expect(candlesForKey(q, A)).toEqual({ data: seriesA, isLoading: false, error: null });
-  });
-
-  it("dados próprios passam direto", () => {
-    const q = { data: seriesA, isPlaceholderData: false, isLoading: false, error: null };
-    expect(candlesForKey(q, A)).toEqual({ data: seriesA, isLoading: false, error: null });
   });
 });

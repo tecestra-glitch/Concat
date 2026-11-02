@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { LineStyle, TickMarkType, type Time } from "lightweight-charts";
+import { LineStyle, TickMarkType, type Time, type UTCTimestamp } from "lightweight-charts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CandleChart } from "@/components/pregao/candle-chart";
@@ -14,7 +14,6 @@ import {
   chartAriaLabel,
   chartFitKey,
   formatTick,
-  toChartTime,
   withChartTime,
   overlayLineData,
   toCandlestickData,
@@ -22,12 +21,14 @@ import {
   toVolumeData,
   tokensFromGetter,
 } from "@/components/pregao/candle-chart-options";
-import { INDICATOR_DEFAULTS, type Candle, type CandleSeries } from "@/lib/pregao/types";
+import { INDICATOR_DEFAULTS, type Candle, type CandleSeries, type Timeframe } from "@/lib/pregao/types";
 
 // Velas do exemplo canônico de §0.4 (chaco:CDE:USD/PYG:cash, real, 2026-11-02 UTC, intervalo 15 min).
 const C1: Candle = { t: "2026-11-02T12:00:00.000Z", o: "7335", h: "7337", l: "7318", c: "7318", n: 3, spread_avg: "30", buy_c: "7318", sell_c: "7352", data_mode: "real" };
 const C2: Candle = { t: "2026-11-02T12:15:00.000Z", o: "7340", h: "7340", l: "7340", c: "7340", n: 1, spread_avg: "30", buy_c: "7325", sell_c: "7355", data_mode: "real" };
 const T1 = Date.UTC(2026, 10, 2, 12) / 1000;
+/** Tempo do gráfico de um instante isolado, pelo mesmo caminho do `setData` (`withChartTime`). */
+const chartTime = (timeSec: number, tf: Timeframe): UTCTimestamp => withChartTime([{ time: timeSec as UTCTimestamp }], tf)[0].time;
 const T2 = T1 + 900;
 const SERIES: CandleSeries = { key: "chaco:CDE:USD/PYG:cash", tf: "15m", candles: [C1, C2], data_mode: "real" };
 
@@ -146,9 +147,9 @@ describe("formatTick", () => {
   const ASU_1504 = Date.UTC(2026, 10, 2, 15, 4) / 1000;
 
   it("formata o tempo do gráfico (já no relógio de exibição) em pt-BR", () => {
-    expect(formatTick(toChartTime(ASU_1504, "1h"), "time")).toBe("12:04");
-    expect(formatTick(toChartTime(ASU_1504, "1h"), "day")).toBe("02/11");
-    expect(formatTick(toChartTime(ASU_1504, "1h"), "year")).toBe("2026");
+    expect(formatTick(chartTime(ASU_1504, "1h"), "time")).toBe("12:04");
+    expect(formatTick(chartTime(ASU_1504, "1h"), "day")).toBe("02/11");
+    expect(formatTick(chartTime(ASU_1504, "1h"), "year")).toBe("2026");
   });
 });
 
@@ -157,17 +158,17 @@ describe("relógio do gráfico: dia UTC no 1d, Assunção nos intradiários (QA-
   type TickFn = (time: Time, type: TickMarkType, locale: string) => string;
   type CursorFn = (time: Time) => string;
   const tick = (tf: "1h" | "4h" | "1d", iso: string, type: TickMarkType) =>
-    (buildChartOptions(FALLBACK_TOKENS, { tf, quote: "PYG" }).timeScale!.tickMarkFormatter as TickFn)(toChartTime(sec(iso), tf), type, "pt-BR");
+    (buildChartOptions(FALLBACK_TOKENS, { tf, quote: "PYG" }).timeScale!.tickMarkFormatter as TickFn)(chartTime(sec(iso), tf), type, "pt-BR");
   const cursor = (tf: "1h" | "4h" | "1d", iso: string) =>
-    (buildChartOptions(FALLBACK_TOKENS, { tf, quote: "PYG" }).localization!.timeFormatter as CursorFn)(toChartTime(sec(iso), tf));
+    (buildChartOptions(FALLBACK_TOKENS, { tf, quote: "PYG" }).localization!.timeFormatter as CursorFn)(chartTime(sec(iso), tf));
 
   it("1d: o bucket é o dia UTC, então o tempo não é deslocado", () => {
-    expect(toChartTime(sec("2026-11-02T00:00:00Z"), "1d")).toBe(sec("2026-11-02T00:00:00Z"));
+    expect(chartTime(sec("2026-11-02T00:00:00Z"), "1d")).toBe(sec("2026-11-02T00:00:00Z"));
   });
 
   it("intradiário: desloca pelo fuso de Assunção (UTC−3), para as marcas de dia caírem na meia-noite local", () => {
-    expect(toChartTime(sec("2026-11-02T12:00:00Z"), "4h")).toBe(sec("2026-11-02T09:00:00Z"));
-    expect(toChartTime(sec("2026-11-02T03:00:00Z"), "1h")).toBe(sec("2026-11-02T00:00:00Z"));
+    expect(chartTime(sec("2026-11-02T12:00:00Z"), "4h")).toBe(sec("2026-11-02T09:00:00Z"));
+    expect(chartTime(sec("2026-11-02T03:00:00Z"), "1h")).toBe(sec("2026-11-02T00:00:00Z"));
   });
 
   it("1d: a vela de 02/11 (00:00Z) aparece como 02/11 no eixo e no cursor, não 01/11 nem 21:00", () => {
@@ -265,6 +266,13 @@ describe("CandleChart — três estados (§0.12)", () => {
     expect(withRetry).toContain("Tentar de novo");
     const noRetry = renderToStaticMarkup(<CandleChart {...BASE} series={null} error={err} />);
     expect(noRetry).not.toContain("Tentar de novo");
+  });
+
+  it("data-tf é o intervalo da série na tela: o placeholder do intervalo anterior não se anuncia como o novo", () => {
+    const placeholder = renderToStaticMarkup(<CandleChart {...BASE} series={SERIES} timeframe="1d" />);
+    expect(placeholder).toContain('data-tf="15m"');
+    expect(renderToStaticMarkup(<CandleChart {...BASE} series={{ ...SERIES, tf: "1d" }} timeframe="1d" />)).toContain('data-tf="1d"');
+    expect(renderToStaticMarkup(<CandleChart {...BASE} series={null} timeframe="4h" loading />)).toContain('data-tf="4h"');
   });
 
   it("carregando vence erro na precedência", () => {

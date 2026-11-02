@@ -25,14 +25,19 @@ export function refetchMsFor(tf: Timeframe): number {
 
 export function candlesQueryOptions(mode: Mode, key: string | null, tf: Timeframe, limit = 300) {
   const interval = refetchMsFor(tf);
+  const queryKey = pregaoKeys.candles(mode, key ?? "", tf, limit);
   return queryOptions<CandleSeries, ApiError>({
-    queryKey: pregaoKeys.candles(mode, key ?? "", tf, limit),
+    queryKey,
     queryFn: ({ signal }) => fetchCandles(mode, key ?? "", tf, { limit, signal, now: new Date() }),
     enabled: key !== null && key.length > 0,
     staleTime: interval,
     refetchInterval: interval,
     refetchOnWindowFocus: false,
-    placeholderData: keepPreviousData,
+    // Só a mesma série (modo e chave) serve de placeholder, como na troca de intervalo. De outro par ou casa,
+    // a série anterior sairia formatada na moeda nova e com o rótulo trocado; na lista de miniaturas
+    // (`useQueries` por posição) iria para a linha errada. Nesses casos a consulta fica carregando (QA-3).
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === queryKey[2] && previousQuery.queryKey[3] === queryKey[3] ? keepPreviousData(previous) : undefined,
   });
 }
 

@@ -132,11 +132,6 @@ function asuncionOffsetSec(timeSec: number): number {
   return local - Math.floor(timeSec);
 }
 
-/** Tempo entregue ao gráfico para o instante `timeSec` (UTC) num intervalo `tf`. */
-export function toChartTime(timeSec: number, tf: Timeframe): UTCTimestamp {
-  return (tf === "1d" ? timeSec : timeSec + asuncionOffsetSec(timeSec)) as UTCTimestamp;
-}
-
 /**
  * Desloca linhas de dados (velas, histograma, indicadores) para o relógio do gráfico. Um único deslocamento
  * por série, o da última linha: numa troca de fuso (um navegador com tzdata antigo ainda vê horário de verão
@@ -169,7 +164,7 @@ function formatLabel(chartSec: number, kind: LabelKind): string {
   return fmt.format(new Date(chartSec * 1000)).replace(",", "");
 }
 
-/** Rótulo do eixo para um tempo do gráfico (`toChartTime`), em pt-BR. */
+/** Rótulo do eixo para um tempo do gráfico (`withChartTime`), em pt-BR. */
 export function formatTick(chartSec: number, kind: TickKind): string {
   return formatLabel(chartSec, kind);
 }

@@ -105,6 +105,8 @@ export function CandleChart({
   // Intervalo dos dados na tela: durante a troca de intervalo o placeholder ainda é a série anterior
   // (keepPreviousData), e eixo, cursor e tempo dos dados seguem a série, não o botão (QA-2/QA-3).
   const dataTf = series?.tf ?? timeframe;
+  // Velas já no relógio do gráfico: alimentam o `setData` e o índice do cursor (o mesmo relógio nos dois).
+  const chartCandles = React.useMemo(() => withChartTime(toCandlestickData(series?.candles ?? []), dataTf), [series, dataTf]);
 
   // 1. Criação única do gráfico e das séries; o cleanup remove tudo.
   React.useEffect(() => {
@@ -160,19 +162,18 @@ export function CandleChart({
     const h = handlesRef.current;
     if (!h) return;
     const candles = series?.candles ?? [];
-    const tf = series?.tf ?? "1d";
-    h.candles.setData(withChartTime(toCandlestickData(candles), tf));
-    h.volume.setData(withChartTime(toVolumeData(candles), tf));
-    h.sma.setData(withChartTime(overlayLineData(candles, overlays?.sma), tf));
-    h.ema.setData(withChartTime(overlayLineData(candles, overlays?.ema), tf));
-    h.bbUpper.setData(withChartTime(overlayLineData(candles, overlays?.bbUpper), tf));
-    h.bbLower.setData(withChartTime(overlayLineData(candles, overlays?.bbLower), tf));
+    h.candles.setData(chartCandles);
+    h.volume.setData(withChartTime(toVolumeData(candles), dataTf));
+    h.sma.setData(withChartTime(overlayLineData(candles, overlays?.sma), dataTf));
+    h.ema.setData(withChartTime(overlayLineData(candles, overlays?.ema), dataTf));
+    h.bbUpper.setData(withChartTime(overlayLineData(candles, overlays?.bbUpper), dataTf));
+    h.bbLower.setData(withChartTime(overlayLineData(candles, overlays?.bbLower), dataTf));
     const fitKey = chartFitKey(series);
     if (fitKey !== null && fitKey !== lastFitRef.current) {
       h.chart.timeScale().fitContent();
       lastFitRef.current = fitKey;
     }
-  }, [series, overlays]);
+  }, [series, overlays, chartCandles, dataTf]);
 
   // 4. Visibilidade dos indicadores e do histograma.
   React.useEffect(() => {
@@ -229,12 +230,12 @@ export function CandleChart({
         ? "empty"
         : "ready";
 
-  // O cursor devolve o tempo do gráfico (`withChartTime`), então o índice usa o mesmo relógio.
+  // O cursor devolve o tempo do gráfico, então o índice usa as mesmas velas deslocadas do `setData`.
   const indexByTime = React.useMemo(() => {
     const m = new Map<number, number>();
-    withChartTime(toCandlestickData(series?.candles ?? []), series?.tf ?? "1d").forEach((row, i) => m.set(Number(row.time), i));
+    chartCandles.forEach((row, i) => m.set(Number(row.time), i));
     return m;
-  }, [series]);
+  }, [chartCandles]);
 
   const lastIndex = candles.length - 1;
   const lastCandle = lastIndex >= 0 ? candles[lastIndex] : null;
@@ -281,7 +282,7 @@ export function CandleChart({
       aria-label={label}
       aria-busy={state === "loading" ? true : undefined}
       data-state={state}
-      data-tf={timeframe}
+      data-tf={dataTf}
       data-key={series?.key ?? ""}
       data-mode={demo ? "demo" : undefined}
       className={cn("relative flex h-full min-h-[240px] flex-col", className)}
