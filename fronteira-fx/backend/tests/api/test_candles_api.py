@@ -200,7 +200,12 @@ def test_get_candles_rejects_keys_without_the_full_series_format(app, client, ba
 
 def test_get_candles_accepts_keys_with_suffixes(app, client):
     _mount(app)
-    for key in (KEY, f"{KEY}:@chaco-cde-centro", "ueno:digital:USD/PYG:transfer:5000", "demo-bcp:digital:BRL/PYG:reference"):
+    for key in (
+        KEY,
+        f"{KEY}:@chaco-cde-centro",
+        "ueno:digital:USD/PYG:transfer:5000",
+        "demo-bcp:digital:BRL/PYG:reference",
+    ):
         assert client.get("/v1/candles", params={"key": key, "tf": "15m"}).status_code == 200, key
 
 

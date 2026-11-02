@@ -17,14 +17,15 @@ const ctxOf = (url: string) => {
 };
 const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
-let upstream: ReturnType<typeof vi.fn>;
+type Upstream = (url: string, init?: RequestInit) => Promise<Response>;
+let upstream: ReturnType<typeof vi.fn<Upstream>>;
 
 beforeEach(() => {
   vi.stubEnv("FX_API_URL", UPSTREAM);
   vi.stubEnv("FX_API_KEY", KEY);
   vi.stubEnv("FX_FRONTEND_PROTECTED", "1");
   vi.stubEnv("FX_BASIC_AUTH", "");
-  upstream = vi.fn();
+  upstream = vi.fn<Upstream>();
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -56,7 +57,7 @@ describe("proxy /api/fx com as rotas do pregão (SEC-1)", () => {
     await expect(fetchSessions("real")).resolves.toEqual([]);
 
     expect(seen.map((u) => new URL(u).pathname)).toEqual(["/api/fx/v1/candles", "/api/fx/v1/pregao/stats", "/api/fx/v1/pregao/sessions"]);
-    const sent = upstream.mock.calls.map(([u]) => new URL(u as string));
+    const sent = upstream.mock.calls.map(([u]) => new URL(u));
     expect(sent.map((u) => u.origin + u.pathname)).toEqual([`${UPSTREAM}/v1/candles`, `${UPSTREAM}/v1/pregao/stats`, `${UPSTREAM}/v1/pregao/sessions`]);
     expect(sent[0].searchParams.get("key")).toBe(KEY_A);
     expect(sent[0].searchParams.get("data_mode")).toBe("real");
@@ -97,7 +98,7 @@ describe("proxy /api/fx com as rotas do pregão (SEC-1)", () => {
     upstream.mockResolvedValue(json([]));
     const read = "http://localhost:3000/api/fx/v1/pregao/sessions";
     expect((await GET(new Request(read), ctxOf(read))).status).toBe(200);
-    expect(new Headers((upstream.mock.calls[0][1] as RequestInit).headers).has("x-api-key")).toBe(false);
+    expect(new Headers(upstream.mock.calls[0][1]?.headers).has("x-api-key")).toBe(false);
     upstream.mockClear();
     const write = "http://localhost:3000/api/fx/v1/journal";
     const res = await POST(new Request(write, { method: "POST", body: "{}", headers: { "sec-fetch-site": "same-origin" } }), ctxOf(write));

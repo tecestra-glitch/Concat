@@ -117,7 +117,9 @@ def get_pregao_stats(
 
 @router.get("/pregao/sessions", operation_id="get_pregao_sessions", response_model=list[HouseSession])
 def get_pregao_sessions(session: DbDep, mode: DataModeDep) -> list[HouseSession]:
-    """Status de funcionamento por fonte do modo (ordem por `Source.id`); referências (BCP, dolarPy) com `reference: true`."""
+    """Status de funcionamento por fonte do modo (ordem por `Source.id`).
+
+    Referências (BCP, dolarPy) saem com `reference: true`."""
     now = datetime.now(UTC)
     if mode == "demo":
         return demo_house_sessions(now)

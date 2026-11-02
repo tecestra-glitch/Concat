@@ -846,7 +846,7 @@
           "pregao"
         ],
         "summary": "Get Pregao Sessions",
-        "description": "Status de funcionamento por fonte do modo (ordem por `Source.id`); referências (BCP, dolarPy) com `reference: true`.",
+        "description": "Status de funcionamento por fonte do modo (ordem por `Source.id`).\n\nReferências (BCP, dolarPy) saem com `reference: true`.",
         "operationId": "get_pregao_sessions",
         "parameters": [
           {

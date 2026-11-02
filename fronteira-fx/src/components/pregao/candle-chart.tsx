@@ -31,7 +31,6 @@ import {
   overlayLineData,
   readChartTokens,
   toCandlestickData,
-  toChartTime,
   toVolumeData,
   withChartTime,
   type ChartTokens,
@@ -230,11 +229,10 @@ export function CandleChart({
         ? "empty"
         : "ready";
 
-  // O cursor devolve o tempo do gráfico (`toChartTime`), então o índice usa o mesmo relógio.
+  // O cursor devolve o tempo do gráfico (`withChartTime`), então o índice usa o mesmo relógio.
   const indexByTime = React.useMemo(() => {
     const m = new Map<number, number>();
-    const tf = series?.tf ?? "1d";
-    (series?.candles ?? []).forEach((c, i) => m.set(toChartTime(Math.floor(Date.parse(c.t) / 1000), tf), i));
+    withChartTime(toCandlestickData(series?.candles ?? []), series?.tf ?? "1d").forEach((row, i) => m.set(Number(row.time), i));
     return m;
   }, [series]);
 

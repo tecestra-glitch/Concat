@@ -137,10 +137,16 @@ export function toChartTime(timeSec: number, tf: Timeframe): UTCTimestamp {
   return (tf === "1d" ? timeSec : timeSec + asuncionOffsetSec(timeSec)) as UTCTimestamp;
 }
 
-/** Aplica `toChartTime` a linhas de dados (velas, histograma, indicadores). */
+/**
+ * Desloca linhas de dados (velas, histograma, indicadores) para o relógio do gráfico. Um único deslocamento
+ * por série, o da última linha: numa troca de fuso (um navegador com tzdata antigo ainda vê horário de verão
+ * em Assunção) um deslocamento por vela repetiria horas locais, e o gráfico recusa tempos fora de ordem.
+ * As linhas de uma série têm todas os mesmos tempos, então velas, histograma e linhas recebem o mesmo valor.
+ */
 export function withChartTime<T extends { time: UTCTimestamp }>(rows: T[], tf: Timeframe): T[] {
-  if (tf === "1d") return rows;
-  return rows.map((r) => ({ ...r, time: toChartTime(r.time, tf) }));
+  if (tf === "1d" || rows.length === 0) return rows;
+  const offset = asuncionOffsetSec(rows[rows.length - 1].time);
+  return rows.map((r) => ({ ...r, time: (r.time + offset) as UTCTimestamp }));
 }
 
 type LabelKind = TickKind | "cursorDay" | "cursorTime";

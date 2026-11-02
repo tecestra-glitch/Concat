@@ -175,6 +175,13 @@ describe("relógio do gráfico: dia UTC no 1d, Assunção nos intradiários (QA-
     expect(cursor("1d", "2026-11-02T00:00:00Z")).toBe("02/11/2026");
   });
 
+  it("1d: com o instante cru do bucket (00:00Z), as opções do gráfico rotulam o dia UTC no eixo e no cursor", () => {
+    const opts = buildChartOptions(FALLBACK_TOKENS, { tf: "1d", quote: "PYG" });
+    const t = sec("2026-11-02T00:00:00Z") as Time;
+    expect((opts.timeScale!.tickMarkFormatter as TickFn)(t, TickMarkType.DayOfMonth, "pt-BR")).toBe("02/11");
+    expect((opts.localization!.timeFormatter as CursorFn)(t)).toBe("02/11/2026");
+  });
+
   it("intradiário: o cursor traz data e hora locais", () => {
     expect(cursor("4h", "2026-11-02T12:00:00Z")).toBe("02/11 09:00");
     expect(cursor("1h", "2026-11-02T02:00:00Z")).toBe("01/11 23:00");
@@ -189,6 +196,16 @@ describe("relógio do gráfico: dia UTC no 1d, Assunção nos intradiários (QA-
     const rows = toCandlestickData([C1]);
     expect(withChartTime(rows, "1d")).toEqual(rows);
     expect(withChartTime(rows, "15m")[0].time).toBe(T1 - 3 * 3600);
+  });
+
+  it("withChartTime mantém os tempos estritamente crescentes numa troca de fuso (o gráfico recusa tempo repetido)", () => {
+    // 24/03/2024 03:00Z: Assunção passou de UTC−3 para UTC−4 (último fim de horário de verão no tzdata). Um
+    // deslocamento por vela repetiria horas locais; um navegador com tzdata antigo veria isso todo março.
+    const at = (iso: string): Candle => ({ ...C1, t: iso });
+    const candles = ["02:15", "02:30", "02:45", "03:00", "03:15", "03:30"].map((hm) => at(`2024-03-24T${hm}:00.000Z`));
+    const times = withChartTime(toCandlestickData(candles), "15m").map((r) => Number(r.time));
+    for (let i = 1; i < times.length; i++) expect(times[i], `vela ${i}`).toBeGreaterThan(times[i - 1]);
+    expect(times.at(-1)).toBe(Date.parse("2024-03-24T03:30:00Z") / 1000 - 4 * 3600);
   });
 });
 
