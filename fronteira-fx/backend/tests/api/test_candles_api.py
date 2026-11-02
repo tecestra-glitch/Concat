@@ -214,10 +214,10 @@ def test_demo_mode_uses_generators_not_the_database():
 # ---- registro -----------------------------------------------------------------------------------
 
 
-def test_router_is_not_registered_by_the_foundation(app):
+def test_router_is_registered_in_the_default_app(app):
     paths = app.openapi()["paths"]
-    assert "/v1/candles" not in paths
-    assert "/v1/pregao/stats" not in paths and "/v1/pregao/sessions" not in paths
+    assert "/v1/candles" in paths
+    assert "/v1/pregao/stats" in paths and "/v1/pregao/sessions" in paths
     assert "/v1/history" in paths  # o app continua inteiro
 
 

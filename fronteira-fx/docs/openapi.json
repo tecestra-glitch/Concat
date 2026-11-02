@@ -484,6 +484,185 @@
         }
       }
     },
+    "/v1/candles": {
+      "get": {
+        "tags": [
+          "pregao"
+        ],
+        "summary": "Get Candles",
+        "description": "Velas OHLC do `mid` de uma série. `from` inclusivo, `to` exclusivo; datas sem fuso são UTC.\n\nSem cotações → `200` com `candles: []`, nunca 404.",
+        "operationId": "get_candles",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Key"
+            }
+          },
+          {
+            "name": "tf",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "15m",
+                "1h",
+                "4h",
+                "1d"
+              ],
+              "type": "string",
+              "title": "Tf"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 300,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandleSeries"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pregao/stats": {
+      "get": {
+        "tags": [
+          "pregao"
+        ],
+        "summary": "Get Pregao Stats",
+        "description": "Resumo do dia (00:00 em Assunção) por chave; `keys` separadas por vírgula, 1 a 20, mesma ordem na resposta.",
+        "operationId": "get_pregao_stats",
+        "parameters": [
+          {
+            "name": "keys",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Keys"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SessionStats"
+                  },
+                  "title": "Response Get Pregao Stats"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pregao/sessions": {
+      "get": {
+        "tags": [
+          "pregao"
+        ],
+        "summary": "Get Pregao Sessions",
+        "description": "Status de funcionamento por fonte do modo (ordem por `Source.id`); referências (BCP) com `reference: true`.",
+        "operationId": "get_pregao_sessions",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HouseSession"
+                  },
+                  "type": "array",
+                  "title": "Response Get Pregao Sessions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/accounts": {
       "get": {
         "tags": [
@@ -784,8 +963,8 @@
               "anyOf": [
                 {
                   "enum": [
-                    "digital",
-                    "physical"
+                    "physical",
+                    "digital"
                   ],
                   "type": "string"
                 },
@@ -3092,6 +3271,131 @@
         ],
         "title": "BranchOut"
       },
+      "Candle": {
+        "properties": {
+          "t": {
+            "type": "string",
+            "format": "date-time",
+            "title": "T"
+          },
+          "o": {
+            "type": "string",
+            "title": "O"
+          },
+          "h": {
+            "type": "string",
+            "title": "H"
+          },
+          "l": {
+            "type": "string",
+            "title": "L"
+          },
+          "c": {
+            "type": "string",
+            "title": "C"
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "N"
+          },
+          "spread_avg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Avg"
+          },
+          "buy_c": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy C"
+          },
+          "sell_c": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sell C"
+          },
+          "data_mode": {
+            "type": "string",
+            "enum": [
+              "real",
+              "simulation",
+              "demo"
+            ],
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "t",
+          "o",
+          "h",
+          "l",
+          "c",
+          "n",
+          "data_mode"
+        ],
+        "title": "Candle"
+      },
+      "CandleSeries": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "tf": {
+            "type": "string",
+            "enum": [
+              "15m",
+              "1h",
+              "4h",
+              "1d"
+            ],
+            "title": "Tf"
+          },
+          "candles": {
+            "items": {
+              "$ref": "#/components/schemas/Candle"
+            },
+            "type": "array",
+            "title": "Candles"
+          },
+          "data_mode": {
+            "type": "string",
+            "enum": [
+              "real",
+              "simulation",
+              "demo"
+            ],
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "tf",
+          "candles",
+          "data_mode"
+        ],
+        "title": "CandleSeries"
+      },
       "ChangeOut": {
         "properties": {
           "id": {
@@ -3630,6 +3934,128 @@
           "key"
         ],
         "title": "HistorySeries"
+      },
+      "HouseSession": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "CDE",
+                  "ASU",
+                  "PJC"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "tz": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tz"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "physical",
+                  "digital"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "reference": {
+            "type": "boolean",
+            "title": "Reference",
+            "default": false
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "closed",
+              "pre",
+              "unknown"
+            ],
+            "title": "Status"
+          },
+          "opens_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens At"
+          },
+          "closes_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closes At"
+          },
+          "next_change_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Change At"
+          },
+          "data_mode": {
+            "type": "string",
+            "enum": [
+              "real",
+              "simulation",
+              "demo"
+            ],
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "name",
+          "status",
+          "data_mode"
+        ],
+        "title": "HouseSession"
       },
       "JournalEntryCreate": {
         "properties": {
@@ -4759,6 +5185,134 @@
         },
         "type": "object",
         "title": "SearchOut"
+      },
+      "SessionStats": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "day_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Day Start"
+          },
+          "open": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
+          "low": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last"
+          },
+          "last_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last At"
+          },
+          "change_abs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Abs"
+          },
+          "change_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Pct"
+          },
+          "n_quotes": {
+            "type": "integer",
+            "title": "N Quotes",
+            "default": 0
+          },
+          "spread_avg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread Avg"
+          },
+          "houses": {
+            "type": "integer",
+            "title": "Houses",
+            "default": 0
+          },
+          "data_mode": {
+            "type": "string",
+            "enum": [
+              "real",
+              "simulation",
+              "demo"
+            ],
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "day_start",
+          "data_mode"
+        ],
+        "title": "SessionStats"
       },
       "SimulationRequest": {
         "properties": {

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from . import (
     accounts,
     alerts,
+    candles,
     evidence,
     health,
     history,
@@ -26,6 +27,7 @@ for module in (
     sources,
     quotes,
     history,
+    candles,
     accounts,
     simulations,
     opportunities,
