@@ -71,9 +71,16 @@ on:
       ANDROID_KEY_PASSWORD:
         description: The key's own password; the keystore's when unset
         required: false
+  # The Fronteira FX project under fronteira-fx/ has workflows of its own
+  # (fronteira-fx.yml, secret-scan.yml); a pull request that touches only
+  # it builds nothing here.
   pull_request:
+    paths-ignore:
+      - "fronteira-fx/**"
+      - ".github/workflows/fronteira-fx.yml"
+      - ".github/workflows/secret-scan.yml"
   # Every push to main, so main is known to build for phones; a push that
-  # changes only words for people to read builds nothing.
+  # changes only words for people to read, or only Fronteira FX, builds nothing.
   push:
     branches: [main]
     paths-ignore:
@@ -81,6 +88,9 @@ on:
       - "docs/**"
       - "audit/**"
       - "scripts/readme/**"
+      - "fronteira-fx/**"
+      - ".github/workflows/fronteira-fx.yml"
+      - ".github/workflows/secret-scan.yml"
   workflow_dispatch:
 
 # Keyed by the calling workflow too, so a call from a release never shares

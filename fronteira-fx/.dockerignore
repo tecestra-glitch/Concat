@@ -1,0 +1,28 @@
+# Contexto de build do Dockerfile.web (frontend). O backend tem o seu próprio backend/.dockerignore.
+node_modules
+.next
+out
+build
+coverage
+playwright-report
+test-results
+blob-report
+backend
+dev
+design-system
+docs
+e2e
+.local
+.vercel
+.git
+.github
+.husky
+# Nunca embutir ambiente nem segredos na imagem.
+.env
+.env.*
+*.pem
+Dockerfile*
+docker-compose.yml
+.dockerignore
+README.md
+CLAUDE.md

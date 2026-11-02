@@ -46,17 +46,25 @@ def series_key(
     return key
 
 
+def is_reference(q: Quote) -> bool:
+    """Reference rates (BCP, PTAX...) are for valuation only: never an executable leg (B23)."""
+    return q.kind == "market_reference" or q.modality == "reference"
+
+
 def fees_to_json(fees: list[Any]) -> list[dict[str, Any]]:
+    """Stored fee rows: `label`/`amount`/`currency`, plus `pct` (share of the input) when the adapter gives one."""
     out = []
     for f in fees:
         amount = getattr(f, "amount", None) if not isinstance(f, dict) else f.get("amount")
-        out.append(
-            {
-                "label": f["label"] if isinstance(f, dict) else f.label,
-                "amount": fmt(Decimal(str(amount))) if amount is not None else None,
-                "currency": f["currency"] if isinstance(f, dict) else f.currency,
-            }
-        )
+        pct = getattr(f, "pct", None) if not isinstance(f, dict) else f.get("pct")
+        row: dict[str, Any] = {
+            "label": f["label"] if isinstance(f, dict) else f.label,
+            "amount": fmt(Decimal(str(amount))) if amount is not None else None,
+            "currency": f["currency"] if isinstance(f, dict) else f.currency,
+        }
+        if pct is not None:
+            row["pct"] = fmt(Decimal(str(pct)))
+        out.append(row)
     return out
 
 

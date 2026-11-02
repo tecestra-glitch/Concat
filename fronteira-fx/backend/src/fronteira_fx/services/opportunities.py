@@ -17,6 +17,7 @@ from typing import Any, Literal
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from ..config import SIMULATION_MODE
 from ..decimal_utils import ONE, fmt
 from ..engine.positions import Position
 from ..engine.ranking import Candidate, Ranked, rank_opportunities
@@ -24,7 +25,7 @@ from ..engine.routes import Fee, RouteError, RouteResult, StepSpec, simulate_rou
 from ..engine.search import DEFAULT_AMOUNTS, Evaluation, SearchResult, adaptive_amount_search
 from ..models import Opportunity, Quote, Simulation, utcnow
 from ..schemas import OpportunityOut, PositionIn, SearchOut, SimulationRequest, SimulationResponse
-from .quotes import latest_quotes
+from .quotes import is_reference, latest_quotes
 
 NAMESPACE = uuid.UUID("3f1c0d2e-7b4a-4e0f-9c8d-2a6b5e4d3c21")
 Objective = Literal["cycle", "remittance", "purchase"]
@@ -61,7 +62,7 @@ class Conversion:
 def conversions_from_quotes(quotes: Iterable[Quote]) -> list[Conversion]:
     out: list[Conversion] = []
     for q in quotes:
-        if q.kind == "market_reference":
+        if is_reference(q):  # BCP/PTAX style references are valuation only (B23)
             continue
         if q.buy is not None and q.buy > 0:
             out.append(Conversion(q, q.base, q.quote, q.buy, "buy"))
@@ -419,6 +420,8 @@ def run_simulation(
     capital = Decimal(req.capital_brl)
     ranked = cache.get(capital) or evaluate_amount(quotes, capital, opts)[0]
 
+    # D3: quotes come from the instance's mode, but everything a simulation produces is tagged
+    # `simulation` (persisted rows keep `simulation_id`), so the standing ranking never sees it.
     simulation_id: str | None = None
     if req.persist:
         sim = Simulation(
@@ -426,18 +429,18 @@ def run_simulation(
             capital_brl=capital,
             request=req.model_dump(mode="json"),
             result=search.to_dict(),
-            data_mode=data_mode,
+            data_mode=SIMULATION_MODE,
             created_at=now,
         )
         session.add(sim)
         session.flush()
         simulation_id = sim.id
         for r in ranked:
-            session.add(ranked_to_row(r, data_mode=data_mode, computed_at=now, simulation_id=simulation_id))
+            session.add(ranked_to_row(r, data_mode=SIMULATION_MODE, computed_at=now, simulation_id=simulation_id))
         session.flush()
 
     response = SimulationResponse(
-        opportunities=[ranked_to_out(r, data_mode=data_mode, computed_at=now) for r in ranked],
+        opportunities=[ranked_to_out(r, data_mode=SIMULATION_MODE, computed_at=now) for r in ranked],
         search=SearchOut.model_validate(search.to_dict()),
         simulation_id=simulation_id,
     )

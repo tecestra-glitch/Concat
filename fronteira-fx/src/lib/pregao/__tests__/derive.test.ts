@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Quote, Source } from "@/lib/api/types";
-import { demoSources, historyKey } from "@/lib/api/demo-data";
+import { demoSources, historyKey, seriesKey } from "@/lib/api/demo-data";
 import { AgioBadge, agioLabel } from "@/components/pregao/agio-badge";
 import { Delta, deltaText, directionOf } from "@/components/pregao/delta";
 import { ReferenceBadge } from "@/components/pregao/reference-badge";
@@ -28,7 +28,7 @@ const NOW = new Date(Date.UTC(2026, 10, 2, 12, 0));
 const ago = (s: number) => new Date(NOW.getTime() - s * 1000).toISOString();
 
 function mkQuote(p: Partial<Quote> & Pick<Quote, "id" | "source_id">): Quote {
-  return {
+  const q: Omit<Quote, "series_key"> = {
     branch_id: null,
     city: "CDE",
     base: "USD",
@@ -49,6 +49,7 @@ function mkQuote(p: Partial<Quote> & Pick<Quote, "id" | "source_id">): Quote {
     data_mode: "real",
     ...p,
   };
+  return { ...q, series_key: p.series_key ?? seriesKey(q) };
 }
 
 function mkSession(source_id: string, status: HouseSession["status"]): HouseSession {

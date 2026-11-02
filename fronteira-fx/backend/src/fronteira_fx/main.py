@@ -13,10 +13,11 @@ from fastapi.responses import JSONResponse
 from .api import v1_router
 from .api.deps import api_key_matches
 from .config import Settings, get_settings
-from .db import create_schema, make_engine, make_session_factory
+from .db import create_schema, make_engine, make_session_factory, session_scope
 from .mcp import mount_mcp
 from .services.collector import Collector
 from .services.demo import ensure_demo_seeded
+from .services.rag import default_knowledge_dir, seed_knowledge
 
 log = logging.getLogger("fronteira_fx")
 
@@ -38,6 +39,11 @@ def create_app(settings: Settings | None = None, *, mount_mcp_server: bool = Tru
         seeded = ensure_demo_seeded(session_factory, settings)
         if seeded:
             log.info("demo data seeded: %s", seeded)
+        if settings.seed_knowledge:
+            knowledge_dir = settings.knowledge_dir or default_knowledge_dir()
+            with session_scope(session_factory) as session:
+                stats = seed_knowledge(session, knowledge_dir, data_mode=settings.data_mode)
+            log.info("knowledge base (%s) from %s: %s", settings.data_mode, knowledge_dir, stats)
         yield
         engine.dispose()
 

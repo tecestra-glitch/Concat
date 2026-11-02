@@ -4,16 +4,17 @@
  * `now` é sempre parâmetro: este arquivo não lê o relógio. Todo registro leva `data_mode: "demo"`.
  */
 import type { Quote } from "@/lib/api/types";
-import { allDemoQuotes, demoSources, historyKey } from "@/lib/api/demo-data";
+import { allDemoQuotes, demoSources } from "@/lib/api/demo-data";
 import { toNumber } from "@/lib/format";
 import { bucketStart, pairKeyOf, pairOf, toDecStr } from "./candles";
 import { houseName, quoteToPrint, toBookLevels, toHeatCells, toTickerItems, toWatchlistRows } from "./derive";
 import { houseStatus, localParts, zonedToUtc } from "./hours";
+import { quoteKey } from "./keys";
 import { PAIRS, TF_SECONDS, type BookLevel, type Candle, type HeatCell, type HouseHours, type HouseSession, type PairKey, type Print, type SessionStats, type TickerItem, type Timeframe, type WatchlistRow } from "./types";
 
 export const DEMO_ANCHOR: Record<PairKey, number> = { "USD/PYG": 5940, "USD/BRL": 5.43, "BRL/PYG": 1100 };
 export const DEMO_VOL: Record<Timeframe, number> = { "15m": 0.0015, "1h": 0.003, "4h": 0.006, "1d": 0.012 };
-export const DEFAULT_SERIES_KEY = "chaco:CDE:USD/PYG:cash";
+export const DEFAULT_SERIES_KEY = "chaco:CDE:USD/PYG:cash:@chaco-cde-centro";
 
 export interface DemoHouse {
   id: string;
@@ -243,7 +244,7 @@ const demoHouseQuotes: readonly Quote[] = allDemoQuotes.filter((q) => DEMO_HOUSE
 export function demoSeriesKeys(pair: PairKey): string[] {
   const keys: string[] = [];
   for (const q of demoHouseQuotes) {
-    const key = historyKey(q);
+    const key = quoteKey(q);
     if (q.kind === "market_reference" || pairKeyOf(key) !== pair || keys.includes(key)) continue;
     keys.push(key);
   }
@@ -255,7 +256,7 @@ export function demoQuotesAt(now: Date): Quote[] {
   const base = bucketStart(now.getTime(), 60);
   return demoHouseQuotes.map((q) => ({
     ...q,
-    captured_at: new Date(base - ((fnv1a(historyKey(q)) % 540) + 30) * 1000).toISOString(),
+    captured_at: new Date(base - ((fnv1a(quoteKey(q)) % 540) + 30) * 1000).toISOString(),
     data_mode: "demo",
   }));
 }
@@ -272,7 +273,7 @@ export function demoBook(pair: PairKey, now: Date): BookLevel[] {
 
 export function demoTicker(now: Date): TickerItem[] {
   const quotes = demoQuotesAt(now);
-  return toTickerItems(quotes, demoSources, statsByKeyFor(quotes.map(historyKey), now));
+  return toTickerItems(quotes, demoSources, statsByKeyFor(quotes.map(quoteKey), now));
 }
 
 /** Atualizações demo: uma cotação recarimbada a cada 47 s, da mais nova para a mais antiga (§0.9). */
@@ -283,7 +284,7 @@ export function demoPrints(now: Date, limit = 20): Print[] {
   const stamped: Quote[] = [];
   for (let k = 0; k < limit; k++) {
     const q = houseQuotes[k % houseQuotes.length];
-    const key = historyKey(q);
+    const key = quoteKey(q);
     const t = base - k * 47_000;
     const minute = Math.floor(t / 60_000);
     const u = lcg(fnv1a(`${key}:print:${minute}`))();
@@ -298,8 +299,8 @@ export function demoPrints(now: Date, limit = 20): Print[] {
   const out: Print[] = [];
   for (let k = 0; k < stamped.length; k++) {
     const q = stamped[k];
-    const key = historyKey(q);
-    const prev = stamped.slice(k + 1).find((p) => historyKey(p) === key) ?? null;
+    const key = quoteKey(q);
+    const prev = stamped.slice(k + 1).find((p) => quoteKey(p) === key) ?? null;
     const print = quoteToPrint(q, prev, houseName(demoSources, q.source_id));
     if (print) out.push(print);
   }

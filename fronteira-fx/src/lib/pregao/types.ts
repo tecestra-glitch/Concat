@@ -1,4 +1,4 @@
-import type { City, Currency, DataMode, QuoteKind } from "@/lib/api/types";
+import type { Channel, City, Currency, DataMode, QuoteKind } from "@/lib/api/types";
 
 export type Timeframe = "15m" | "1h" | "4h" | "1d";
 export const TIMEFRAMES: readonly Timeframe[] = ["15m", "1h", "4h", "1d"];
@@ -130,7 +130,8 @@ export interface BookLevel {
   source_id: string;
   house: string;
   city: City;
-  channel: HouseChannel;
+  /** Canal da cotação (`aggregator` = dolarPy, sempre referência). */
+  channel: Channel;
   kind: QuoteKind;
   buy: string | null;
   sell: string | null;

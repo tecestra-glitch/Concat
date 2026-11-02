@@ -35,6 +35,7 @@ def make_settings(**overrides) -> Settings:
         event_retention=1000,
         event_retention_s=86400,
         quotes_lookback_s=10 * 365 * 86400,
+        seed_knowledge=False,  # tests seed their own corpus; see tests/services/test_knowledge_seed.py
     )
     base.update(overrides)
     return Settings(_env_file=None, **base)

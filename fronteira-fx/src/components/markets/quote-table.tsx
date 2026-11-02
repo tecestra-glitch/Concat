@@ -1,57 +1,87 @@
 "use client";
 import * as React from "react";
-import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type SortingState } from "@tanstack/react-table";
-import { ArrowUpDown } from "lucide-react";
+import { createColumnHelper, flexRender, getCoreRowModel, getSortedRowModel, useReactTable, type SortingState, type VisibilityState } from "@tanstack/react-table";
+import { ArrowUpDown, Landmark } from "lucide-react";
 import type { Quote, Source } from "@/lib/api/types";
 import { CITY_LABEL, MODALITY_LABEL } from "@/lib/api/types";
-import { formatAge, formatRate, ageSeconds } from "@/lib/format";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatAge, formatPercent, ageSeconds } from "@/lib/format";
+import { formatRateFixed } from "@/components/ui/rate";
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { useNow } from "@/lib/use-now";
 
 const col = createColumnHelper<Quote>();
+const RIGHT = new Set(["buy", "sell", "spread", "age"]);
+const COMPACT_HIDDEN: VisibilityState = { spread: false, modality: false, kind: false };
+const ALL_VISIBLE: VisibilityState = {};
 
-export function spreadPct(q: Quote): number | null {
+/** Spread relativo à média de compra e venda, como razão (0.0118 = 1,18 %). */
+export function spreadRatio(q: Quote): number | null {
   if (q.buy === null || q.sell === null) return null;
   const b = Number(q.buy);
   const s = Number(q.sell);
   if (!b || !s) return null;
-  return ((s - b) / ((s + b) / 2)) * 100;
+  return (s - b) / ((s + b) / 2);
 }
 
-export function QuoteTable({ quotes, sources, onSelect, selectedId, compact = false }: { quotes: Quote[]; sources: Source[]; onSelect?: (q: Quote) => void; selectedId?: string | null; compact?: boolean }) {
+function isReference(q: Quote): boolean {
+  return q.kind === "market_reference";
+}
+
+function RateCell({ q, value }: { q: Quote; value: string | null }) {
+  const ref = isReference(q);
+  return (
+    <span className={cn("tnum", ref && "text-muted")}>
+      {ref && value !== null && <span aria-hidden>≈ </span>}
+      {ref && value !== null && <span className="sr-only">aproximadamente </span>}
+      {formatRateFixed(value, q.quote, { reference: ref })}
+    </span>
+  );
+}
+
+export function QuoteTable({ quotes, sources, onSelect, selectedId, compact = false, caption, emptyKind = "no-match" }: { quotes: Quote[]; sources: Source[]; onSelect?: (q: Quote) => void; selectedId?: string | null; compact?: boolean; caption?: string; emptyKind?: "no-match" | "no-data" }) {
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "source", desc: false }]);
   const srcName = React.useCallback((id: string) => sources.find((s) => s.id === id)?.name ?? id, [sources]);
   const columns = React.useMemo(
     () => [
-      col.accessor((q) => srcName(q.source_id), { id: "source", header: "Fonte", cell: (c) => <span className="font-medium">{c.getValue()}</span> }),
-      col.accessor((q) => (q.city ? CITY_LABEL[q.city] : "Digital"), {
+      col.accessor((q) => srcName(q.source_id), {
+        id: "source",
+        header: "Fonte",
+        cell: (c) => (
+          <span className="inline-flex items-center gap-1 font-medium">
+            {isReference(c.row.original) && <Landmark className="size-3 text-muted" aria-hidden />}
+            {c.getValue()}
+          </span>
+        ),
+      }),
+      col.accessor((q) => (isReference(q) ? "—" : q.city ? CITY_LABEL[q.city] : "Digital"), {
         id: "city",
         header: "Local",
-        cell: (c) => <span className={cn(c.row.original.city ? "" : "text-accent")}>{c.getValue()}</span>,
+        cell: (c) => <span className={cn(!c.row.original.city && "text-muted")}>{c.getValue()}</span>,
       }),
       col.accessor((q) => `${q.base}/${q.quote}`, { id: "pair", header: "Par", cell: (c) => <span className="tnum">{c.getValue()}</span> }),
       col.accessor((q) => (q.buy === null ? null : Number(q.buy)), {
         id: "buy",
-        header: () => <span className="text-gain">Compra</span>,
-        cell: (c) => <span className="tnum text-gain">{formatRate(c.getValue(), c.row.original.quote)}</span>,
+        header: "Compra",
+        cell: (c) => <RateCell q={c.row.original} value={c.row.original.buy} />,
       }),
       col.accessor((q) => (q.sell === null ? null : Number(q.sell)), {
         id: "sell",
-        header: () => <span className="text-loss">Venda</span>,
-        cell: (c) => <span className="tnum text-loss">{formatRate(c.getValue(), c.row.original.quote)}</span>,
+        header: "Venda",
+        cell: (c) => <RateCell q={c.row.original} value={c.row.original.sell} />,
       }),
-      col.accessor((q) => spreadPct(q), {
+      col.accessor((q) => spreadRatio(q), {
         id: "spread",
         header: "Spread",
-        cell: (c) => <span className="tnum text-muted">{c.getValue() === null ? "—" : `${c.getValue()!.toFixed(2).replace(".", ",")} %`}</span>,
+        cell: (c) => <span className="tnum text-muted">{formatPercent(c.getValue())}</span>,
       }),
       col.accessor((q) => q.modality, { id: "modality", header: "Modalidade", cell: (c) => <Badge variant="outline">{MODALITY_LABEL[c.getValue()]}</Badge> }),
       col.accessor((q) => q.kind, {
         id: "kind",
         header: "Tipo",
-        cell: (c) => <Badge variant={c.getValue() === "executable" ? "gain" : c.getValue() === "market_reference" ? "accent" : "default"}>{c.getValue() === "executable" ? "Executável" : c.getValue() === "market_reference" ? "Referência" : "Indicativa"}</Badge>,
+        cell: (c) => (c.getValue() === "executable" ? <Badge variant="gain">Executável</Badge> : c.getValue() === "market_reference" ? <Badge variant="reference">Referência</Badge> : <Badge variant="default">Indicativa</Badge>),
       }),
       col.accessor((q) => Date.parse(q.captured_at), {
         id: "age",
@@ -61,16 +91,21 @@ export function QuoteTable({ quotes, sources, onSelect, selectedId, compact = fa
     ],
     [srcName],
   );
-  const table = useReactTable({ data: quotes, columns, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
-  const hidden = compact ? new Set(["spread", "modality", "kind"]) : new Set<string>();
+  const columnVisibility = compact ? COMPACT_HIDDEN : ALL_VISIBLE;
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table gerencia a própria memoização
+  const table = useReactTable({ data: quotes, columns, state: { sorting, columnVisibility }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(), getSortedRowModel: getSortedRowModel() });
+  const rows = table.getRowModel().rows;
+
+  if (rows.length === 0) return <EmptyState kind={emptyKind} compact title={emptyKind === "no-data" ? "Nenhuma cotação coletada ainda" : "Nenhuma cotação para os filtros atuais"} />;
 
   return (
-    <Table>
+    <Table scrollLabel="Tabela de cotações (rola para o lado)">
+      {caption && <TableCaption>{caption}</TableCaption>}
       <TableHeader>
         {table.getHeaderGroups().map((hg) => (
           <TableRow key={hg.id} className="hover:bg-transparent">
-            {hg.headers.filter((h) => !hidden.has(h.id)).map((h) => (
-              <TableHead key={h.id} className={cn(["buy", "sell", "spread", "age"].includes(h.id) && "text-right")} aria-sort={h.column.getIsSorted() === "asc" ? "ascending" : h.column.getIsSorted() === "desc" ? "descending" : "none"}>
+            {hg.headers.map((h) => (
+              <TableHead key={h.id} className={cn(RIGHT.has(h.id) && "text-right", h.id === "source" && "sticky left-0 z-10 bg-surface")} aria-sort={h.column.getIsSorted() === "asc" ? "ascending" : h.column.getIsSorted() === "desc" ? "descending" : "none"}>
                 <button type="button" className="inline-flex items-center gap-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring" onClick={h.column.getToggleSortingHandler()}>
                   {flexRender(h.column.columnDef.header, h.getContext())}
                   <ArrowUpDown className="size-3 opacity-50" aria-hidden />
@@ -81,21 +116,18 @@ export function QuoteTable({ quotes, sources, onSelect, selectedId, compact = fa
         ))}
       </TableHeader>
       <TableBody>
-        {table.getRowModel().rows.length === 0 && (
-          <TableRow><TableCell colSpan={9} className="py-6 text-center text-muted">Nenhuma cotação para os filtros atuais.</TableCell></TableRow>
-        )}
-        {table.getRowModel().rows.map((row) => (
+        {rows.map((row) => (
           <TableRow
             key={row.id}
             data-state={selectedId === row.original.id ? "selected" : undefined}
-            className={cn(onSelect && "cursor-pointer")}
+            className={cn(onSelect && "cursor-pointer", isReference(row.original) && "border-dashed")}
             onClick={() => onSelect?.(row.original)}
             onKeyDown={(e) => { if (onSelect && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect(row.original); } }}
             tabIndex={onSelect ? 0 : undefined}
             aria-selected={onSelect ? selectedId === row.original.id : undefined}
           >
-            {row.getVisibleCells().filter((c) => !hidden.has(c.column.id)).map((cell) => (
-              <TableCell key={cell.id} className={cn(["buy", "sell", "spread", "age"].includes(cell.column.id) && "text-right")}>
+            {row.getVisibleCells().map((cell) => (
+              <TableCell key={cell.id} className={cn(RIGHT.has(cell.column.id) && "text-right", cell.column.id === "source" && "sticky left-0 z-10 bg-surface")}>
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
             ))}
@@ -112,10 +144,10 @@ export function AgeCell({ iso, declared }: { iso: string; declared?: string | nu
   const s = ageSeconds(iso, now) ?? 0;
   const stale = s > 1800;
   return (
-    <span className={cn("tnum", stale ? "text-warn" : "text-muted")} title={declared ? `Atualização declarada pela fonte: ${new Date(declared).toLocaleString("pt-BR")}` : undefined}>
+    <time dateTime={iso} data-volatile className={cn("tnum", stale ? "text-warn" : "text-muted")} title={declared ? `Atualização declarada pela fonte: ${new Date(declared).toLocaleString("pt-BR")}` : undefined}>
       {stale && <span className="sr-only">cotação antiga: </span>}
       {formatAge(iso, now)}
       {stale && <span aria-hidden> ⚠</span>}
-    </span>
+    </time>
   );
 }

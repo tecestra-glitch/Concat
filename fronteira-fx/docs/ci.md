@@ -2,28 +2,40 @@
 
 Este documento explica as verificações automáticas (CI) do projeto: o que cada parte faz, como ler uma falha, como rodar as mesmas checagens no seu computador e como ligar o deploy na Vercel quando for o momento.
 
-O workflow fica em `.github/workflows/fronteira-fx.yml`, na **raiz** do repositório. Ele precisa estar ali porque o GitHub só lê workflows desse caminho, mesmo com o projeto numa subpasta.
+Dois workflows ficam em `.github/workflows/`, na **raiz** do repositório (o GitHub só lê workflows desse caminho, mesmo com o projeto numa subpasta):
+
+- `fronteira-fx.yml`: tudo do projeto (frontend, backend, migrações, OpenAPI, hooks, imagens Docker).
+- `secret-scan.yml`: varredura de segredos com TruffleHog em **todo** push e pull request do repositório, sem filtro de caminho. Antes ela era um job dentro do workflow do FX e um push só do app Rust não era varrido.
+
+Os workflows do app Rust (`ci.yml`, `mobile.yml`) ignoram `fronteira-fx/**` e os dois arquivos acima (`paths-ignore`), então uma mudança só no FX não dispara os jobs do Rust.
 
 ## Quando roda
 
-- Em todo `push` e todo `pull_request` que altere arquivos dentro de `fronteira-fx/` ou o próprio arquivo do workflow. Mudanças só no app Rust da raiz não disparam este workflow.
-- Em um pull request, um novo push cancela a execução anterior, porque o código antigo já foi substituído. Em push para uma branch, a execução não é cancelada: o resultado na `main` precisa ficar registrado.
-- O workflow só lê o código. Não publica nada, não faz deploy e não usa segredos.
+- `fronteira-fx.yml`: em todo `push` e todo `pull_request` que altere arquivos dentro de `fronteira-fx/` ou o próprio arquivo do workflow.
+- `secret-scan.yml`: em todo `push` (qualquer branch) e todo `pull_request`, sem filtro de caminho. Um PR aberto a partir de uma branch do mesmo repositório é varrido duas vezes (push e PR); isso é aceito em troca da cobertura.
+- Em um pull request, um novo push cancela a execução anterior. Em push para uma branch, a execução não é cancelada: o resultado precisa ficar registrado.
+- Os workflows só leem o código. Não publicam nada, não fazem deploy e não usam segredos.
 
-## Os quatro jobs
+## Os jobs
 
-| Job | O que verifica | Falha impede o merge? |
-|---|---|---|
-| `secrets` | Procura credenciais reais (verificadas) nos commits enviados | Sim, se marcado como obrigatório |
-| `frontend` | Instalação, tipos, lint, testes unitários, build e testes de navegador | Sim, se marcado como obrigatório |
-| `backend` | Lint (ruff) e testes (pytest) em Python 3.13 | Sim, se marcado como obrigatório |
-| `docker` | Constrói as duas imagens do backend, sem publicar | Não |
+| Workflow / job | Nome no GitHub | O que verifica | Falha impede o merge? |
+|---|---|---|---|
+| `secret-scan.yml` / `trufflehog` | Secret scan (TruffleHog) | Credenciais reais (verificadas) nos commits enviados | Sim, se marcado como obrigatório |
+| `frontend` | Frontend (Next.js, demo mode) | Instalação, tipos, lint, testes unitários, build e testes de navegador em modo demonstração | Sim, se marcado como obrigatório |
+| `e2e-real-mode` | End-to-end tests (real mode, mocked API) | `e2e/real-mode.spec.ts`: o terminal em modo real contra uma API simulada pelo próprio teste (`page.route`), sem backend | Sim, se marcado como obrigatório |
+| `backend` | Backend (Python 3.13) | Lint (ruff) e testes (pytest) | Sim, se marcado como obrigatório |
+| `alembic-check` | Migrations (Alembic on SQLite) | `alembic upgrade head` + `alembic check`: toda mudança em `models.py` precisa de migração | Sim, se marcado como obrigatório |
+| `openapi-parity` | OpenAPI parity (docs/openapi.json) | `docs/openapi.json` é exatamente o que `scripts/export_openapi.py` gera | Sim, se marcado como obrigatório |
+| `hooks` | Git hooks (husky) | Sintaxe, bit de execução e testes dos hooks em `fronteira-fx/.husky/` | Sim, se marcado como obrigatório |
+| `docker` | Docker images (build only) | Constrói as duas imagens do backend, sem publicar | Não (`continue-on-error`) |
 
-O workflow não bloqueia nada sozinho. Para que uma falha impeça o merge, marque o job como checagem obrigatória na proteção da branch (Settings, Branches, no GitHub).
+O workflow não bloqueia nada sozinho. Para que uma falha impeça o merge, marque o job como checagem obrigatória na proteção da branch (Settings, Branches, no GitHub). Atenção: com o `paths-ignore` dos workflows do Rust, um PR que toque só `fronteira-fx/` não gera os checks do Rust; se algum deles for obrigatório, o PR fica em "Expected — Waiting for status". Use os jobs do FX como obrigatórios ou um job-gate.
 
-### `secrets`
+### `secret-scan.yml` (TruffleHog)
 
-Roda o TruffleHog sobre os commits do push ou do pull request. Com `--only-verified`, só aparecem segredos que o TruffleHog confirmou estarem ativos, o que reduz falsos positivos.
+Roda o TruffleHog sobre os commits do push (de `github.event.before` a `github.event.after`) ou do pull request (da base ao head). Com `--only-verified`, só aparecem segredos que o TruffleHog confirmou estarem ativos, o que reduz falsos positivos.
+
+A action está fixada por commit e o input `version` fixa o binário (`3.99.7`). O mesmo número está em `TRUFFLEHOG_VERSION` de `fronteira-fx/.husky/scan-secrets.sh`; o job `hooks` falha se os dois divergirem. Esse bump é manual: o Dependabot só move o commit da action.
 
 Se algo aparecer, trate a credencial como vazada: revogue ou troque no provedor primeiro. Apagar o arquivo num commit novo não basta, porque o segredo continua no histórico.
 
@@ -35,26 +47,42 @@ Passos, na ordem:
 2. `pnpm typecheck`: checa os tipos TypeScript.
 3. `pnpm lint`: ESLint em `src` e `e2e`.
 4. `pnpm test`: testes unitários com Vitest, em `src/**/*.test.ts(x)`.
-5. `pnpm build`: build de produção do Next.js.
+5. `pnpm build`: build de produção do Next.js. O cache `.next/cache` é restaurado por uma chave com sistema, versão do Next e hash do `pnpm-lock.yaml`, sem chave de fallback: o conteúdo congela no primeiro build de cada lockfile + versão do Next.
 6. Instala o Chromium do Playwright.
-7. `pnpm test:e2e`: testes de navegador nos três perfis de tela (desktop 1440, tablet 1024 e celular 390). O próprio Playwright sobe o servidor (`next start`) usando o build do passo anterior.
+7. `pnpm test:e2e --grep-invert real-mode`: testes de navegador nos três perfis de tela (desktop 1440, tablet 1024 e celular 390), menos a spec do modo real, que tem job próprio. O próprio Playwright sobe o servidor (`next start`) usando o build do passo anterior.
 
-Na CI o frontend roda em **modo demonstração**, porque `NEXT_PUBLIC_API_URL` fica vazia. Por isso os testes de navegador não precisam do backend nem de banco.
+Na CI o frontend roda em **modo demonstração**, porque nem `FX_API_URL` (proxy server-side) nem `NEXT_PUBLIC_API_URL` estão definidas. Por isso os testes de navegador não precisam do backend nem de banco.
+
+### `e2e-real-mode`
+
+Mesma instalação e build, depois `pnpm test:e2e e2e/real-mode.spec.ts`: a spec intercepta `**/api/fx/**` com `page.route` e simula a API (snapshot, stream, `410 Gone`), então o proxy real nunca é alcançado e não há backend. Os passos só rodam se a spec existir (`hashFiles`); o nome do arquivo precisa continuar contendo `real-mode`, porque o job `frontend` a exclui por esse texto. Relatório no artefato `playwright-report-real-mode`.
 
 ### `backend` (Python 3.13, uv)
 
 1. `uv sync --locked --all-extras --dev`: instala as dependências a partir de `uv.lock`. O `--locked` faz o job falhar se `pyproject.toml` e `uv.lock` estiverem fora de sincronia, em vez de atualizar o lock sem ninguém perceber.
 2. `uv run ruff check src tests`: lint e ordem dos imports.
-3. `uv run pytest -q`: testes. Usam SQLite, então a CI não sobe banco. Um relatório JUnit é guardado como artefato.
+3. `uv run pytest -q --junitxml=junit.xml`: testes. Usam SQLite, então a CI não sobe banco. O relatório JUnit é guardado como artefato.
+
+### `alembic-check`
+
+Com `DATABASE_URL` apontando para um SQLite vazio no diretório temporário do runner, roda `uv run alembic upgrade head` (aplica todas as migrações) e `uv run alembic check` (compara o resultado com os modelos do ORM). Falha quando `models.py` mudou sem migração correspondente. Os stores SQL dos módulos não montados (`watch/`, `notify/`, `rag/`, `memory/`) ficam fora do Alembic de propósito (ver `docs/backend.md`).
+
+### `openapi-parity`
+
+Roda `uv run python scripts/export_openapi.py` e falha se `git diff --exit-code -- docs/openapi.json` apontar diferença. Toda mudança de rota ou de schema no backend precisa vir com o arquivo regenerado no mesmo commit.
+
+### `hooks`
+
+`sh -n` nos três scripts de `fronteira-fx/.husky/`, bit de execução em `pre-commit` e `pre-push`, e `python3 -I fronteira-fx/.husky/tests/test_hooks.py` (repositório temporário e ferramentas falsas; também confere a versão do TruffleHog contra `secret-scan.yml`). Localmente: `pnpm test:hooks`.
 
 ### `docker` (não bloqueia)
 
-Constrói duas imagens, sem enviar para registro nenhum:
+Constrói duas imagens com BuildKit (os Dockerfiles usam `RUN --mount=type=cache`), sem enviar para registro nenhum:
 
 - `backend/Dockerfile`: a API.
 - `backend/Dockerfile.worker`: o coletor, com Playwright e Chromium.
 
-O job tem `continue-on-error: true` porque os Dockerfiles ainda estão em andamento. Ele aparece com X vermelho, mas a execução continua verde. Quando os dois builds estiverem estáveis, remova essa linha, em um pull request próprio.
+O job tem `continue-on-error: true` porque as imagens ainda não foram construídas num ambiente com daemon Docker. Ele aparece com X vermelho, mas a execução continua verde. Quando os dois builds estiverem estáveis, remova essa linha, em um pull request próprio. Uma verificação barata que pode entrar antes disso: `docker compose -f fronteira-fx/docker-compose.yml --env-file fronteira-fx/.env.example config -q`.
 
 ## Como ler uma falha
 
@@ -69,10 +97,13 @@ O job tem `continue-on-error: true` porque os Dockerfiles ainda estão em andame
 | `typecheck`, `lint` ou `ruff` apontam arquivo e linha | Erro de código | Corrija no ponto indicado e rode o mesmo comando local. |
 | Um teste aparece como FAIL (Vitest ou pytest) | Regressão, ou teste instável | Rode só esse teste localmente. Se passa às vezes, é instabilidade: investigue antes de reexecutar. |
 | `pnpm build` falha | Erro de compilação ou de tipos em uma página | Rode `pnpm build` localmente e leia a primeira mensagem de erro. |
-| `test:e2e` falha | Layout ou comportamento diferente do esperado, em algum perfil de tela | Baixe o artefato `playwright-report` (ver abaixo). |
+| `test:e2e` falha | Layout ou comportamento diferente do esperado, em algum perfil de tela | Baixe o artefato `playwright-report` (ou `playwright-report-real-mode`). |
 | Instalação do Chromium falha | Queda de rede momentânea | Reexecute o job. |
+| `alembic check` reclama de diferença | `models.py` mudou sem migração | Em `fronteira-fx/backend/`, `uv run alembic revision --autogenerate -m "..."`, revise o arquivo gerado e commite. |
+| `openapi-parity` acusa `docs/openapi.json` desatualizado | Rota ou schema mudou sem regenerar o arquivo | Em `fronteira-fx/backend/`, `uv run python scripts/export_openapi.py` e commite o resultado. |
+| Job `hooks` falha | Hook sem `chmod +x`, erro de sintaxe, teste dos hooks quebrado ou versão do TruffleHog divergente | Rode `pnpm test:hooks` em `fronteira-fx/` e alinhe `TRUFFLEHOG_VERSION` com `secret-scan.yml`. |
 | Job `docker` com X | Um dos Dockerfiles quebrou | Veja o passo de build no log. Não bloqueia a execução. |
-| Job `secrets` falha | O TruffleHog achou uma credencial verificada | Trate como vazada (ver a seção do job `secrets`). |
+| Job `Secret scan (TruffleHog)` falha | O TruffleHog achou uma credencial verificada | Trate como vazada (ver a seção do `secret-scan.yml`). |
 
 Regra prática: uma falha que se repete quase sempre é erro real. Uma que muda de uma execução para outra é instabilidade, e vale a pena registrar qual teste é.
 
@@ -80,8 +111,8 @@ Regra prática: uma falha que se repete quase sempre é erro real. Uma que muda 
 
 No fim da página da execução, em "Artifacts", ficam os arquivos para baixar. Todos ficam disponíveis por 7 dias.
 
-- `playwright-report`: relatório HTML dos testes de navegador. Baixe, descompacte e abra o `index.html`, ou rode `pnpm exec playwright show-report caminho/da/pasta` no seu computador. Testes que falharam trazem um *trace*: uma linha do tempo com ações, requisições e capturas, que mostra o que aconteceu no momento da falha.
-- `playwright-screenshots`: as capturas de tela que os testes salvam, uma da página inicial e uma do simulador por perfil de tela.
+- `playwright-report` e `playwright-report-real-mode`: relatórios HTML dos testes de navegador. Baixe, descompacte e abra o `index.html`, ou rode `pnpm exec playwright show-report caminho/da/pasta` no seu computador. Testes que falharam trazem um *trace*: uma linha do tempo com ações, requisições e capturas, que mostra o que aconteceu no momento da falha.
+- `playwright-screenshots`: as capturas de tela que os testes salvam por perfil de tela.
 - `backend-junit`: resultado do pytest em XML. Útil para ver de uma vez todos os testes que falharam.
 
 ## Como rodar as mesmas verificações localmente
@@ -97,7 +128,8 @@ pnpm lint
 pnpm test
 pnpm build
 pnpm exec playwright install --with-deps chromium   # só na primeira vez
-pnpm test:e2e
+pnpm test:e2e                                        # inclui a spec do modo real
+pnpm test:hooks                                      # testes dos hooks do husky
 ```
 
 `pnpm test:all` roda typecheck, lint, test, build e test:e2e em sequência. Ele não instala o Chromium nem usa `--frozen-lockfile`, então rode o `playwright install` antes. Localmente, o Playwright reaproveita um servidor que já esteja na porta 3100. Na CI isso não acontece, porque a CI sempre sobe o seu.
@@ -108,6 +140,8 @@ Backend, dentro de `fronteira-fx/backend/`:
 uv sync --locked --all-extras --dev
 uv run ruff check src tests
 uv run pytest -q
+DATABASE_URL=sqlite:////tmp/fx-alembic-check.db uv run alembic upgrade head && DATABASE_URL=sqlite:////tmp/fx-alembic-check.db uv run alembic check
+uv run python scripts/export_openapi.py && git diff --exit-code -- ../docs/openapi.json
 ```
 
 Docker, dentro de `fronteira-fx/backend/` (é o mesmo contexto que a CI usa):
@@ -123,11 +157,13 @@ Varredura de segredos, na raiz do repositório, para o que ainda não foi enviad
 trufflehog git file://$PWD --since-commit origin/main --only-verified
 ```
 
-## Varredura de segredos: complemento ao hook local
+## Hooks locais: a primeira barreira
 
-- O hook `fronteira-fx/.husky/pre-commit` roda o TruffleHog na sua máquina antes de cada commit e bloqueia o commit se achar um segredo verificado. Mas ele só funciona se o hook estiver instalado (o `pnpm install` cuida disso) e se o TruffleHog estiver disponível, como binário ou via Docker. Sem isso, o hook avisa e pula a varredura. E `git commit --no-verify` pula o hook inteiro.
-- O job `secrets` roda no servidor do GitHub, em cada push e pull request, sem depender da sua máquina. É a segunda barreira, não a única.
-- Limitação: o workflow só roda quando há mudança em `fronteira-fx/**` ou no próprio arquivo. Um push que altere apenas o app Rust da raiz não passa por essa varredura. Cobrir esse caso exigiria outro workflow, sem filtro de caminho.
+Os hooks ficam em `fronteira-fx/.husky/` e são instalados pelo `pnpm install` (script `prepare`). Testes em `fronteira-fx/.husky/tests/test_hooks.py` (`pnpm test:hooks`).
+
+- `pre-commit`: TruffleHog sobre o que está em stage (`--since-commit HEAD`), com o binário local ou, sem ele, com a imagem Docker da mesma versão (`TRUFFLEHOG_VERSION` em `scan-secrets.sh`). Sem binário e sem daemon, avisa e segue; com `FX_REQUIRE_SECRET_SCAN=1`, bloqueia. Se o commit toca `fronteira-fx/`, roda `lint-staged` (ESLint nos `.ts`/`.tsx` em stage; `ruff check` via `uv run --project backend` nos `.py` em stage; configuração em `fronteira-fx/package.json`) e `vitest run --changed`. Commits só do app Rust passam sem pnpm.
+- `pre-push`: TruffleHog só nos commits novos de cada ref (`--since-commit <sha remota>`; ref nova varre o histórico inteiro). Se algum commit enviado toca `fronteira-fx/`, roda o Vitest completo e/ou o pytest completo, conforme o que mudou (frontend/backend).
+- `git commit --no-verify` e `git push --no-verify` pulam os hooks. O `secret-scan.yml` roda no servidor do GitHub, em cada push e pull request, sem depender da sua máquina: é a segunda barreira, não a única.
 
 ## Deploy na Vercel (ainda não configurado)
 
@@ -150,6 +186,7 @@ Hoje não há deploy automático. O `package.json` tem os scripts `deploy` e `de
 
 ## Ajustes possíveis
 
-- O TruffleHog segue `@main`, como a política do projeto pede. Se quiser uma versão fixa, troque para uma tag (por exemplo `@v3`).
-- As demais actions estão fixadas em tags principais (`@v7`, `@v10` e assim por diante). Uma tag principal pode receber versões novas sem aviso. Para reprodutibilidade total, fixe o commit, como o restante do repositório faz.
-- O `continue-on-error` do job `docker` deve sair assim que os Dockerfiles estiverem estáveis.
+- Todas as actions de `fronteira-fx.yml` e `secret-scan.yml` estão fixadas por commit (SHA de 40 caracteres) com a versão em comentário; o Dependabot (`.github/dependabot.yml`) move esses SHAs. O input `version` do TruffleHog em `secret-scan.yml` e `TRUFFLEHOG_VERSION` nos hooks são bumps manuais, sempre juntos.
+- O `.github/dependabot.yml` cobre só `github-actions` (/) e `cargo` (/src); ecossistemas `npm` em `/fronteira-fx`, `uv` em `/fronteira-fx/backend` e `docker` em `/fronteira-fx/backend` ainda não entram.
+- A chave do cache do Next não tem `restore-keys`: o conteúdo congela no primeiro build de cada lockfile + versão do Next. Para cache incremental por fonte, acrescente um hash de `src/**` à chave e use a chave atual como `restore-keys`.
+- O `continue-on-error` do job `docker` deve sair assim que as imagens forem construídas com sucesso num ambiente com daemon.

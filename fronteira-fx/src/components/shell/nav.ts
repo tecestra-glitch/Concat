@@ -1,4 +1,4 @@
-import { Activity, BellRing, BookOpenText, Building2, CandlestickChart, Database, LayoutDashboard, Settings, Sparkles, Calculator, type LucideIcon } from "lucide-react";
+import { Activity, BellRing, BookOpenText, Brain, Building2, Calculator, CandlestickChart, Database, LayoutDashboard, Library, Settings, Sparkles, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -17,5 +17,18 @@ export const NAV: NavItem[] = [
   { href: "/monitor", label: "Monitor ao vivo", short: "Monitor", icon: Activity },
   { href: "/alertas", label: "Alertas", short: "Alertas", icon: BellRing },
   { href: "/diario", label: "Diário", short: "Diário", icon: BookOpenText },
+  { href: "/conhecimento", label: "Conhecimento", short: "Saber", icon: Library },
+  { href: "/memoria", label: "Memória", short: "Memória", icon: Brain },
   { href: "/configuracoes", label: "Configurações", short: "Config.", icon: Settings },
 ];
+
+/** Barra inferior do celular: 4 itens fixos; todos os outros ficam no menu «Mais». */
+export const MOBILE_PRIMARY = 4;
+
+export function splitNav(nav: NavItem[] = NAV): { primary: NavItem[]; more: NavItem[] } {
+  return { primary: nav.slice(0, MOBILE_PRIMARY), more: nav.slice(MOBILE_PRIMARY) };
+}
+
+export function isActive(href: string, pathname: string): boolean {
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}

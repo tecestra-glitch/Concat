@@ -1,38 +1,99 @@
-# Fronteira FX: Postgres (+pgvector), API, collector worker.
-# Usage: docker compose up -d --build   (frontend: set NEXT_PUBLIC_API_URL=http://localhost:8000)
+# Fronteira FX — Postgres (+pgvector), API, worker coletor e, opcionalmente, o frontend Next.js.
+#
+# Uso:
+#   cp .env.example .env                           # preencha POSTGRES_PASSWORD e API_KEY (obrigatórias)
+#   docker compose config -q                       # valida a configuração
+#   docker compose up -d --build                   # postgres + api + worker
+#   docker compose --profile web up -d --build     # idem + frontend em http://127.0.0.1:3000
+#
+# Segredos vêm só do .env (nunca deste arquivo, nunca do Git). Sem POSTGRES_PASSWORD ou API_KEY o
+# compose recusa subir, em vez de partir com padrões fracos. Por padrão só o loopback do host é
+# publicado (127.0.0.1); um proxy TLS no host expõe a API para fora.
+name: fronteira-fx
+
+# Variáveis comuns a api e worker (ver backend/src/fronteira_fx/config.py e .env.example).
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fx}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@postgres:5432/${POSTGRES_DB:-fx}
+  # Modo de dados desta instância: real | simulation | demo. Nunca se misturam.
+  DATA_MODE: ${DATA_MODE:-real}
+  # Esquema gerido pelo alembic (executado no CMD da api antes do uvicorn).
+  AUTO_CREATE_SCHEMA: "false"
+  # Protege /mcp e as rotas de escrita. O frontend nunca a recebe: o proxy server-side a injeta.
+  API_KEY: ${API_KEY:?defina API_KEY no .env (protege /mcp e as rotas de escrita)}
+  # Evidências dos adaptadores (volume `evidence`). FX_EVIDENCE_DIR é o alias legado que alguns
+  # adaptadores ainda leem; recebe o mesmo valor para nunca gravar fora do volume.
+  EVIDENCE_DIR: /app/var/evidence
+  FX_EVIDENCE_DIR: /app/var/evidence
+  POLL_INTERVAL_S: ${POLL_INTERVAL_S:-300}
+  BACKOFF_MAX_S: ${BACKOFF_MAX_S:-3600}
+  QUOTES_LOOKBACK_S: ${QUOTES_LOOKBACK_S:-604800}
+  # Sondagem adaptativa: piso de 60 s por fonte (nunca martelar) e teto.
+  WATCH_MIN_INTERVAL_S: ${WATCH_MIN_INTERVAL_S:-60}
+  WATCH_MAX_INTERVAL_S: ${WATCH_MAX_INTERVAL_S:-900}
+  # Notificações (opcionais). Vazio = canal desligado. Portas e booleanos sempre com valor.
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_FROM: ${SMTP_FROM:-}
+  SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+  ALERT_HTTP_TIMEOUT_S: ${ALERT_HTTP_TIMEOUT_S:-10}
+
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    # pgvector 0.8.7 sobre PostgreSQL 16, pinada por digest (ver docs/deploy.md para atualizar).
+    image: pgvector/pgvector:0.8.7-pg16@sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-fx}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
       POSTGRES_DB: ${POSTGRES_DB:-fx}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:5432:5432"
+      # Só loopback: útil para backup.sh/restore.sh e para rodar o backend fora do compose.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fx} -d ${POSTGRES_DB:-fx}"]
       interval: 5s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
 
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fx}:${POSTGRES_PASSWORD:-fx}@postgres:5432/${POSTGRES_DB:-fx}
-      DATA_MODE: ${DATA_MODE:-real}
+      <<: *backend-env
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       FX_SEED_DEMO: ${FX_SEED_DEMO:-0}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      API_KEY: ${API_KEY:-}
-      AUTO_CREATE_SCHEMA: "false"   # schema is managed by alembic (run in the container CMD)
+      # Base de conhecimento do RAG semeada no arranque da api; a imagem copia backend/knowledge para /app/knowledge.
+      SEED_KNOWLEDGE: ${SEED_KNOWLEDGE:-true}
+      KNOWLEDGE_DIR: /app/knowledge
       EVENT_RETENTION: ${EVENT_RETENTION:-20000}
       EVENT_RETENTION_S: ${EVENT_RETENTION_S:-86400}
       STREAM_MAX_DURATION_S: ${STREAM_MAX_DURATION_S:-55}
+      STREAM_HEARTBEAT_S: ${STREAM_HEARTBEAT_S:-15}
+      STREAM_POLL_S: ${STREAM_POLL_S:-1}
+      STREAM_BATCH: ${STREAM_BATCH:-500}
+      HISTORY_DEFAULT_GRID_S: ${HISTORY_DEFAULT_GRID_S:-300}
+      # IPs de proxy reverso cujos X-Forwarded-* o uvicorn aceita. Um proxy TLS no host chega ao container
+      # pelo gateway da bridge do Docker (ex.: 172.18.0.1), nunca por 127.0.0.1: ajuste no .env (docs/deploy.md).
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
     ports:
-      - "8000:8000"
+      - "${API_BIND:-127.0.0.1}:${API_PORT:-8000}:8000"
+    volumes:
+      # A api também executa adaptadores sob demanda (poll_now, request_quote) e grava evidências:
+      # mesmo volume do worker. Os dois containers correm com o mesmo UID (10001) para partilhá-lo.
+      - evidence:/app/var/evidence
+    healthcheck:
+      # Só fica saudável depois de `alembic upgrade head` e do uvicorn responderem em /v1/health.
+      test: ["CMD", "/app/.venv/bin/python", "-c", "import httpx,sys; sys.exit(0 if httpx.get('http://127.0.0.1:8000/v1/health', timeout=4).status_code == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,21 +104,36 @@ services:
       context: ./backend
       dockerfile: Dockerfile.worker
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fx}:${POSTGRES_PASSWORD:-fx}@postgres:5432/${POSTGRES_DB:-fx}
-      DATA_MODE: ${DATA_MODE:-real}
-      AUTO_CREATE_SCHEMA: "false"
-      POLL_INTERVAL_S: ${POLL_INTERVAL_S:-300}
+      <<: *backend-env
       WORKER_TICK_S: ${WORKER_TICK_S:-30}
-      EVIDENCE_DIR: /app/var/evidence
     volumes:
       - evidence:/app/var/evidence
     depends_on:
       postgres:
         condition: service_healthy
+      # Espera a api saudável: as migrações do alembic já rodaram e o esquema está pronto.
       api:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
     shm_size: "1gb"   # Chromium
+
+  # Frontend Next.js (saída standalone). Opcional: `docker compose --profile web up -d --build`.
+  # Requer `output: "standalone"` em next.config.ts (ver Dockerfile.web).
+  web:
+    profiles: ["web"]
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      # Proxy server-side (src/app/api/fx): o navegador nunca vê a API nem a chave. Nada em NEXT_PUBLIC_.
+      FX_API_URL: http://api:8000
+      FX_API_KEY: ${FX_API_KEY:-${API_KEY}}
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:

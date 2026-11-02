@@ -4,9 +4,9 @@
  * (`kind: market_reference`): ficam fora dos lados Compra/Venda e nunca recebem ágio.
  */
 import type { Quote, Source } from "@/lib/api/types";
-import { historyKey } from "@/lib/api/demo-data";
 import { toNumber } from "@/lib/format";
 import { midOf, pairKeyOf } from "./candles";
+import { quoteKey } from "./keys";
 import { PAIRS, type BookLevel, type HeatCell, type HouseSession, type PairKey, type Print, type SessionStats, type SessionStatus, type TickerItem, type WatchlistRow } from "./types";
 
 const REF_MAX_AGE_MS = 24 * 3600 * 1000;
@@ -65,7 +65,7 @@ export function refMidFor(quotes: Quote[], pair: PairKey, now: Date): number | n
   let bestAt = Number.NaN;
   let bestRank = Number.POSITIVE_INFINITY;
   for (const q of quotes) {
-    if (q.kind !== "market_reference" || pairKeyOf(historyKey(q)) !== pair) continue;
+    if (q.kind !== "market_reference" || pairKeyOf(quoteKey(q)) !== pair) continue;
     const at = Date.parse(q.captured_at);
     // Referência velha não conta: uma `bcp` de ontem não esconde uma `dolarpy` de agora.
     if (Number.isNaN(at) || at < freshAfter) continue;
@@ -83,7 +83,7 @@ export function refMidFor(quotes: Quote[], pair: PairKey, now: Date): number | n
 function latestByKey(quotes: Quote[], pair?: PairKey): Map<string, { q: Quote; pair: PairKey }> {
   const out = new Map<string, { q: Quote; pair: PairKey }>();
   for (const q of quotes) {
-    const key = historyKey(q);
+    const key = quoteKey(q);
     const p = pairKeyOf(key);
     if (p === null || (pair !== undefined && p !== pair)) continue;
     const cur = out.get(key);
@@ -164,7 +164,7 @@ export function toHeatCells(levels: BookLevel[]): HeatCell[] {
 
 /** `null` quando o par da cotação não está em `PAIRS`. */
 export function quoteToPrint(q: Quote, prev: Quote | null, house: string): Print | null {
-  const key = historyKey(q);
+  const key = quoteKey(q);
   const pair = pairKeyOf(key);
   if (pair === null) return null;
   const mid = midOf(q.buy, q.sell);

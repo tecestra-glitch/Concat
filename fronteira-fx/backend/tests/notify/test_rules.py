@@ -8,8 +8,8 @@ from pydantic import ValidationError
 
 from fronteira_fx.notify.rules import AlertRulePatch, AlertState, evaluate, merge_rule, quote_value
 from tests.notify.support import (
-    D,
     NOW,
+    D,
     change_payload,
     cycle_payload,
     make_rule,

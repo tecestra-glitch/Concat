@@ -8,7 +8,7 @@ from fastapi import APIRouter, Query
 from ..schemas import Channel, City, CycleOut, OpportunityKind, OpportunityOut
 from ..services.cycles import find_cycles_for
 from ..services.opportunities import list_opportunities, row_to_out
-from .deps import DataModeDep, DbDep
+from .deps import DataModeDep, DbDep, SettingsDep
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
@@ -34,12 +34,21 @@ def get_opportunities(
 def get_cycles(
     db: DbDep,
     data_mode: DataModeDep,
-    max_len: Annotated[int, Query(ge=2, le=6)] = 4,
-    min_roi: Annotated[Decimal | None, Query()] = None,
-    start: Annotated[str | None, Query(description="node, e.g. BRL@nubank", max_length=120)] = None,
-    limit: Annotated[int, Query(ge=1, le=1000)] = 200,
+    settings: SettingsDep,
+    max_len: Annotated[int, Query(ge=2, le=6, description="máximo de arestas por ciclo")] = 4,
+    min_roi: Annotated[Decimal | None, Query(description="ROI mínimo como string decimal, ex. 0.001")] = None,
+    start: Annotated[str | None, Query(description="nó de partida, ex. BRL@nubank", max_length=120)] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> list[CycleOut]:
     return [
         CycleOut.model_validate(c)
-        for c in find_cycles_for(db, data_mode=data_mode, max_len=max_len, min_roi=min_roi, start=start, limit=limit)
+        for c in find_cycles_for(
+            db,
+            data_mode=data_mode,
+            max_len=max_len,
+            min_roi=min_roi,
+            start=start,
+            limit=limit,
+            lookback_s=settings.quotes_lookback_s,
+        )
     ]

@@ -114,6 +114,42 @@ test.describe("Alertas", () => {
     await expect(row).toContainText("10 min");
   });
 
+  test("editing a rule saves through the client and closes after the result", async ({ page }) => {
+    await page.goto("/alertas");
+    const row = page.getByTestId("alert-rule").filter({ visible: true }).filter({ hasText: "Ciclo acima de 0,2 %" });
+    await expect(row).toBeVisible();
+    await row.getByRole("button", { name: /^Editar: / }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("Limite (%)")).toHaveValue("0,2");
+    await dialog.getByLabel("Nome").fill("Ciclo acima de 0,2 % (editada)");
+    await dialog.getByLabel("Limite (%)").fill("0,35");
+    await dialog.getByRole("button", { name: "Salvar alterações" }).click();
+    await expect(dialog).toBeHidden();
+    const edited = page.getByTestId("alert-rule").filter({ visible: true }).filter({ hasText: "(editada)" });
+    await expect(edited).toBeVisible();
+    await expect(edited).toContainText("0,35 %");
+  });
+
+  test("deleting a rule asks for confirmation and removes the row", async ({ page }) => {
+    await page.goto("/alertas");
+    const rows = page.getByTestId("alert-rule").filter({ visible: true });
+    await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(4);
+    const before = await rows.count();
+    const row = rows.filter({ hasText: "Nova oportunidade ≥ 0,1 %" });
+    await row.getByRole("button", { name: /^Excluir: / }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Excluir a regra");
+    await dialog.getByRole("button", { name: "Excluir regra" }).click();
+    await expect(dialog).toBeHidden();
+    await expect.poll(() => rows.count()).toBe(before - 1);
+    await expect(page.getByTestId("alert-rule").filter({ hasText: "Nova oportunidade ≥ 0,1 %" })).toHaveCount(0);
+  });
+
+  test("stat row counts changes within 24 h", async ({ page }) => {
+    await page.goto("/monitor");
+    await expect(page.getByTestId("changes-24h")).toHaveText(/de \d+ nas últimas 24 h/);
+  });
+
   test("Testar records a not-sent event in demo mode", async ({ page }) => {
     await page.goto("/alertas");
     const rows = page.getByTestId("alert-rule").filter({ visible: true });

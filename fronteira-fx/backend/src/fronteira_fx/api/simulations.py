@@ -8,9 +8,11 @@ from ..engine.positions import Position
 from ..engine.routes import Fee, RouteError, StepSpec, simulate_route
 from ..schemas import CycleSimulationRequest, RouteResultOut, SimulationRequest, SimulationResponse
 from ..services.opportunities import run_simulation
-from .deps import DataModeDep, DbDep
+from .deps import ApiKey, DataModeDep, DbDep
 
-router = APIRouter(prefix="/simulations", tags=["simulations"])
+# Simulations compute (and may persist) results: they are write-like and honour API_KEY like the other
+# write endpoints (B7). The dependency is a no-op when API_KEY is not configured.
+router = APIRouter(prefix="/simulations", tags=["simulations"], dependencies=[ApiKey])
 
 
 @router.post(

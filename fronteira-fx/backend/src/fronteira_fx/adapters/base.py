@@ -14,9 +14,11 @@ from typing import Any, Literal, Protocol
 
 Currency = Literal["BRL", "USD", "PYG"]
 City = Literal["CDE", "ASU", "PJC"] | None
-Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual"]
+# "reference" marks third-party aggregator quotes (e.g. dolarPy): never executable, never a counter price.
+Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]
 QuoteKind = Literal["market_reference", "indicative", "executable"]
-Channel = Literal["digital", "physical"]
+# "aggregator" is the channel of a third-party aggregator: neither a counter nor an app you can transact in.
+Channel = Literal["digital", "physical", "aggregator"]
 
 
 class AdapterStatus(StrEnum):

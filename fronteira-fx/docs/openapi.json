@@ -199,7 +199,8 @@
                     "account",
                     "card_debit",
                     "card_credit",
-                    "card_virtual"
+                    "card_virtual",
+                    "reference"
                   ],
                   "type": "string"
                 },
@@ -320,6 +321,9 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "fonte sondada há menos de 60 s; `Retry-After` em segundos"
           },
           "422": {
             "description": "Validation Error",
@@ -852,15 +856,49 @@
         ],
         "summary": "Compare routes for a capital/objective; ranked opportunities + amount search",
         "operationId": "compare_routes",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SimulationRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -893,15 +931,49 @@
         ],
         "summary": "Simulate an explicit multi-step route (each step consumes the previous output)",
         "operationId": "simulate_cycle",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CycleSimulationRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -963,8 +1035,9 @@
               "anyOf": [
                 {
                   "enum": [
+                    "digital",
                     "physical",
-                    "digital"
+                    "aggregator"
                   ],
                   "type": "string"
                 },
@@ -1062,9 +1135,11 @@
               "type": "integer",
               "maximum": 6,
               "minimum": 2,
+              "description": "máximo de arestas por ciclo",
               "default": 4,
               "title": "Max Len"
-            }
+            },
+            "description": "máximo de arestas por ciclo"
           },
           {
             "name": "min_roi",
@@ -1082,8 +1157,10 @@
                   "type": "null"
                 }
               ],
+              "description": "ROI mínimo como string decimal, ex. 0.001",
               "title": "Min Roi"
-            }
+            },
+            "description": "ROI mínimo como string decimal, ex. 0.001"
           },
           {
             "name": "start",
@@ -1099,10 +1176,10 @@
                   "type": "null"
                 }
               ],
-              "description": "node, e.g. BRL@nubank",
+              "description": "nó de partida, ex. BRL@nubank",
               "title": "Start"
             },
-            "description": "node, e.g. BRL@nubank"
+            "description": "nó de partida, ex. BRL@nubank"
           },
           {
             "name": "limit",
@@ -1110,7 +1187,7 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 1000,
+              "maximum": 500,
               "minimum": 1,
               "default": 200,
               "title": "Limit"
@@ -1670,6 +1747,15 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "fonte sem adaptador registrado"
+          },
+          "409": {
+            "description": "instância fora do modo real (simulation/demo não consultam provedores)"
+          },
+          "429": {
+            "description": "fonte sondada há menos de 60 s; `Retry-After` em segundos"
           },
           "422": {
             "description": "Validation Error",
@@ -2509,9 +2595,9 @@
             "required": false,
             "schema": {
               "type": "integer",
-              "maximum": 500,
+              "maximum": 100,
               "minimum": 1,
-              "default": 50,
+              "default": 20,
               "title": "Limit"
             }
           }
@@ -2527,6 +2613,53 @@
                     "$ref": "#/components/schemas/MemoryOut"
                   },
                   "title": "Response Recall"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memory/summary": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Compact digest of the active memories, by kind",
+        "operationId": "memory_summary",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "items per kind",
+              "default": 5,
+              "title": "Limit"
+            },
+            "description": "items per kind"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemorySummary"
                 }
               }
             }
@@ -3491,20 +3624,20 @@
             "type": "array",
             "title": "Edges"
           },
-          "amountIn": {
-            "type": "number",
-            "title": "Amountin"
+          "amount_in": {
+            "type": "string",
+            "title": "Amount In"
           },
-          "amountOut": {
-            "type": "number",
-            "title": "Amountout"
+          "amount_out": {
+            "type": "string",
+            "title": "Amount Out"
           },
           "gain": {
-            "type": "number",
+            "type": "string",
             "title": "Gain"
           },
           "roi": {
-            "type": "number",
+            "type": "string",
             "title": "Roi"
           },
           "minutes": {
@@ -3519,6 +3652,15 @@
               "incomplete"
             ],
             "title": "Confidence"
+          },
+          "data_mode": {
+            "type": "string",
+            "enum": [
+              "real",
+              "simulation",
+              "demo"
+            ],
+            "title": "Data Mode"
           }
         },
         "type": "object",
@@ -3526,12 +3668,13 @@
           "start",
           "path",
           "edges",
-          "amountIn",
-          "amountOut",
+          "amount_in",
+          "amount_out",
           "gain",
           "roi",
           "minutes",
-          "confidence"
+          "confidence",
+          "data_mode"
         ],
         "title": "CycleOut"
       },
@@ -3601,21 +3744,27 @@
           },
           "kind": {
             "type": "string",
+            "enum": [
+              "quote",
+              "transfer",
+              "deposit",
+              "withdraw"
+            ],
             "title": "Kind"
           },
           "rate": {
-            "type": "number",
+            "type": "string",
             "title": "Rate"
           },
-          "feePct": {
-            "type": "number",
-            "title": "Feepct",
-            "default": 0.0
+          "fee_pct": {
+            "type": "string",
+            "title": "Fee Pct",
+            "default": "0"
           },
-          "feeFixed": {
-            "type": "number",
-            "title": "Feefixed",
-            "default": 0.0
+          "fee_fixed": {
+            "type": "string",
+            "title": "Fee Fixed",
+            "default": "0"
           },
           "minutes": {
             "type": "integer",
@@ -3635,7 +3784,7 @@
             ],
             "title": "Confidence"
           },
-          "evidenceId": {
+          "evidence_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -3644,7 +3793,7 @@
                 "type": "null"
               }
             ],
-            "title": "Evidenceid"
+            "title": "Evidence Id"
           }
         },
         "type": "object",
@@ -3783,6 +3932,20 @@
           "currency": {
             "type": "string",
             "title": "Currency"
+          },
+          "pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pct"
           }
         },
         "type": "object",
@@ -3812,6 +3975,17 @@
           "currency": {
             "type": "string",
             "title": "Currency"
+          },
+          "pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pct"
           }
         },
         "type": "object",
@@ -4261,6 +4435,20 @@
         ],
         "title": "MemoryOut"
       },
+      "MemorySummary": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary"
+        ],
+        "title": "MemorySummary",
+        "description": "One line per kind (`Preferências`, `Decisões`, `Fatos`, `Resultados`), newest first; `\"\"` when empty."
+      },
       "OpportunityOut": {
         "properties": {
           "id": {
@@ -4438,7 +4626,8 @@
               "account",
               "card_debit",
               "card_credit",
-              "card_virtual"
+              "card_virtual",
+              "reference"
             ],
             "title": "Modality",
             "default": "account"
@@ -4675,15 +4864,9 @@
             "default": "real"
           },
           "series_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Series Key"
+            "type": "string",
+            "title": "Series Key",
+            "description": "chave comparável da série (D2), aceita em GET /v1/history?key="
           }
         },
         "type": "object",
@@ -4695,7 +4878,8 @@
           "modality",
           "kind",
           "channel",
-          "captured_at"
+          "captured_at",
+          "series_key"
         ],
         "title": "QuoteOut"
       },
@@ -5363,7 +5547,8 @@
               "type": "string",
               "enum": [
                 "digital",
-                "physical"
+                "physical",
+                "aggregator"
               ]
             },
             "type": "array",
@@ -5894,6 +6079,17 @@
               }
             ],
             "title": "Etag"
+          },
+          "last_modified": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Modified"
           },
           "content_hash": {
             "anyOf": [

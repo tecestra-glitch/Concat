@@ -1,6 +1,6 @@
 """Módulo RAG do Fronteira FX: documentação, tarifas (texto), horários e evidências. Nunca cotações.
 
-Ver docs/rag.md. Pontos de entrada: `RagService`, `get_embedder`, `InMemoryStore` / `SqlStore`
+Ver docs/backend.md. Pontos de entrada: `RagService`, `get_embedder`, `InMemoryStore` / `SqlStore`
 e o roteador `fronteira_fx.rag.router.router`.
 """
 

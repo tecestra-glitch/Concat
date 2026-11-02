@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Dockerfile.web copia .next/standalone (infra-docker I3); sem efeito na Vercel.
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

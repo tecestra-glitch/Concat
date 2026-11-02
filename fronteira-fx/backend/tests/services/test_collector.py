@@ -1,87 +1,45 @@
-from datetime import UTC, datetime, timedelta
+import hashlib
+from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 
+import httpx
 import pytest
+import respx
 from sqlalchemy import func, select
 
-from fronteira_fx.adapters.base import AdapterInfo, AdapterResult, AdapterStatus, EvidenceDraft, Fee, QuoteDraft
-from fronteira_fx.models import Evidence, Opportunity, Quote, QuoteEvent, Source, Task
-from fronteira_fx.services.collector import Collector, backoff_delay
+from fronteira_fx.adapters.base import AdapterResult, AdapterStatus, EvidenceDraft
+from fronteira_fx.models import Evidence, Opportunity, Quote, QuoteEvent, Source, Task, WatchState
+from fronteira_fx.services.collector import Collector, RateLimited, UnknownSource, WrongDataMode, backoff_delay
 from tests.conftest import NOW, make_settings
+from tests.fakes import Clock, FakeAdapter
 
 D = Decimal
+LAST_MODIFIED = "Mon, 02 Nov 2026 11:00:00 GMT"
 
 
-class FakeAdapter:
-    def __init__(
-        self, source_id="chaco", *, status=AdapterStatus.OK, sha="abc", method="html", quotes=None, raise_exc=False
-    ):
-        self.info = AdapterInfo(
-            id=source_id,
-            name=source_id.title(),
-            kind="exchange_house",
-            method=method,
-            url=f"https://{source_id}.example",
-            capabilities=["buy_sell"],
-            limitations=[],
-            cities=["CDE"],
-            currencies=["USD", "PYG"],
-            poll_interval_s=300,
-        )
-        self.status = status
-        self.sha = sha
-        self.calls = 0
-        self.raise_exc = raise_exc
-        self.quotes = quotes
+class ConditionalAdapter(FakeAdapter):
+    """An html adapter that lets the collector do the (conditional) GET and only parses the body."""
 
-    def _quotes(self):
-        if self.quotes is not None:
-            return self.quotes
-        return [
-            QuoteDraft(
-                source_id=self.info.id,
-                base="USD",
-                quote="PYG",
-                buy=D("7300"),
-                sell=D("7350"),
-                unit_note="PYG por 1 USD",
-                modality="cash",
-                kind="indicative",
-                channel="physical",
-                city="CDE",
-                branch_id=f"{self.info.id}-cde",
-                fees=[Fee("tarifa", D("0"), "PYG")],
-                declared_updated_at=datetime(2026, 11, 2, 11, 0, tzinfo=UTC),
-            )
-        ]
+    conditional_get = True
 
-    async def fetch(self, **params):
-        self.calls += 1
-        if self.raise_exc:
-            raise RuntimeError("boom")
-        if self.status in (AdapterStatus.BLOCKED, AdapterStatus.ERROR):
-            return AdapterResult(status=self.status, quotes=[], evidence=None, message="403 anti-bot")
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.parsed = 0
+
+    def parse(self, raw, *, captured_at, url, **params):
+        self.parsed += 1
+        text = raw.decode() if isinstance(raw, bytes) else raw
         ev = EvidenceDraft(
             source_id=self.info.id,
             kind="html",
-            url=self.info.url,
-            captured_at=NOW,
-            sha256=self.sha,
-            excerpt="<table>...</table>",
+            url=url,
+            captured_at=captured_at,
+            sha256=hashlib.sha256(text.encode()).hexdigest(),
+            excerpt=text[:200],
             rules=["parser v1"],
         )
-        return AdapterResult(status=self.status, quotes=self._quotes(), evidence=ev)
-
-    def parse(self, raw, *, captured_at, url, **params):
-        raise NotImplementedError
-
-
-class Clock:
-    def __init__(self, t=NOW):
-        self.t = t
-
-    def __call__(self):
-        return self.t
+        return AdapterResult(status=AdapterStatus.OK, quotes=self._quotes(), evidence=ev)
 
 
 @pytest.fixture
@@ -199,3 +157,124 @@ async def test_demo_mode_never_runs_adapters(session_factory):
     assert adapter.calls == 0
     res = await collector.request_quote("chaco", {})
     assert res["status"] == "blocked"
+
+
+async def test_force_within_floor_returns_last_result_without_fetch(collector_env):
+    """D6: a forced collection less than 60 s after the previous run never hits the provider; it returns
+    the previous outcome flagged with `retry_after_s`."""
+    collector, adapter, clock, sf = collector_env
+    first = (await collector.run_once())[0]
+    assert adapter.calls == 1
+    clock.t = NOW + timedelta(seconds=30)
+    out = await collector.collect(adapter, force=True)
+    assert adapter.calls == 1
+    assert out.skipped and out.retry_after_s == 30
+    assert out.health == first.health == "ok" and out.quotes_stored == first.quotes_stored == 1
+    clock.t = NOW + timedelta(seconds=61)
+    out = await collector.collect(adapter, force=True)
+    assert adapter.calls == 2 and not out.skipped and out.retry_after_s is None
+    with sf() as s:
+        assert s.scalar(select(func.count(Quote.id))) == 2
+
+
+async def test_poll_now_distinguishes_unknown_mode_and_rate_limit(session_factory):
+    """D4/D6: unknown adapter, wrong data mode and the 60 s floor are typed errors; no change => None."""
+    clock = Clock()
+    adapter = FakeAdapter()
+    collector = Collector(session_factory, make_settings(), adapters={"chaco": adapter}, now_fn=clock)
+    with pytest.raises(UnknownSource):
+        await collector.poll_now("nope")
+    first = await collector.poll_now("chaco")
+    assert first is not None and first.kind == "quote_change" and adapter.calls == 1
+    with pytest.raises(RateLimited) as exc:
+        await collector.poll_now("chaco")
+    assert exc.value.retry_after_s == 60 and adapter.calls == 1
+    clock.t = NOW + timedelta(seconds=61)
+    assert await collector.poll_now("chaco") is None and adapter.calls == 2  # same sha: nothing changed
+    with pytest.raises(RateLimited):
+        await collector.request_quote("chaco", {"base": "USD"})
+    assert adapter.calls == 2
+    demo = Collector(session_factory, make_settings(data_mode="demo"), adapters={"chaco": FakeAdapter()}, now_fn=clock)
+    with pytest.raises(WrongDataMode):
+        await demo.poll_now("chaco")
+
+
+async def test_rate_limited_task_is_requeued(session_factory):
+    clock = Clock()
+    browser = FakeAdapter("wu", method="browser")
+    collector = Collector(session_factory, make_settings(), adapters={"wu": browser}, now_fn=clock)
+    await collector.collect(browser, force=True)  # the scheduler just ran this source
+    queued = await collector.request_quote("wu", {"amount": "5000"})
+    assert queued["status"] == "queued"
+    assert await collector.process_tasks() == 0 and browser.calls == 1
+    with session_factory() as s:
+        task = s.get(Task, queued["job_id"])
+        assert task.status == "queued" and task.started_at is None  # back in the queue, not "running since"
+    clock.t = NOW + timedelta(seconds=61)
+    assert await collector.process_tasks() == 1 and browser.calls == 2
+    with session_factory() as s:
+        assert s.get(Task, queued["job_id"]).status == "done"
+
+
+@respx.mock
+async def test_conditional_get_skips_parse_on_304_and_stores_validators(session_factory, tmp_path):
+    """B8/B9: the collector GETs with the stored validators, keeps ETag/Last-Modified in watch_states,
+    writes the raw payload under EVIDENCE_DIR and treats a 304 as "unchanged" without parsing."""
+    settings = make_settings(evidence_dir=str(tmp_path))
+    clock = Clock()
+    adapter = ConditionalAdapter()
+    collector = Collector(session_factory, settings, adapters={"chaco": adapter}, now_fn=clock)
+    body = "<table>USD 7300 7350</table>"
+    route = respx.get(adapter.info.url).mock(
+        return_value=httpx.Response(200, text=body, headers={"ETag": '"v1"', "Last-Modified": LAST_MODIFIED})
+    )
+
+    out = (await collector.run_once())[0]
+    assert adapter.calls == 0 and adapter.parsed == 1 and route.call_count == 1
+    assert out.quotes_stored == 1 and out.health == "ok" and out.new_capture and not out.skipped
+    sent = route.calls.last.request.headers
+    assert "If-None-Match" not in sent and "If-Modified-Since" not in sent
+    with session_factory() as s:
+        ws = s.get(WatchState, "chaco")
+        assert ws.etag == '"v1"' and ws.last_modified == LAST_MODIFIED
+        ev = s.scalars(select(Evidence)).one()
+        assert ev.raw_path is not None
+        raw = Path(ev.raw_path)
+        assert raw.is_relative_to(tmp_path) and raw.read_text() == body
+        assert ev.sha256 == hashlib.sha256(body.encode()).hexdigest()
+
+    clock.t = NOW + timedelta(seconds=301)
+    route.mock(return_value=httpx.Response(304))
+    out = (await collector.run_once())[0]
+    sent = route.calls.last.request.headers
+    assert sent["If-None-Match"] == '"v1"' and sent["If-Modified-Since"] == LAST_MODIFIED
+    assert out.status == "not_modified" and out.new_capture is False and out.quotes_stored == 0
+    assert not out.skipped and out.health == "ok"
+    assert adapter.parsed == 1 and adapter.calls == 0
+    with session_factory() as s:
+        ws = s.get(WatchState, "chaco")
+        assert ws.last_run_at == clock.t and ws.interval_s == 450  # unchanged => interval grows
+        assert ws.etag == '"v1"' and ws.last_modified == LAST_MODIFIED
+        assert s.scalar(select(func.count(Quote.id))) == 1
+        assert s.scalar(select(func.count(Evidence.id))) == 1
+
+
+@respx.mock
+async def test_conditional_get_blocked_is_recorded_without_second_request(session_factory):
+    adapter = ConditionalAdapter()
+    collector = Collector(session_factory, make_settings(), adapters={"chaco": adapter}, now_fn=Clock())
+    route = respx.get(adapter.info.url).mock(return_value=httpx.Response(403, text="Access denied"))
+    out = (await collector.run_once())[0]
+    assert out.health == "blocked" and "403" in (out.message or "")
+    assert adapter.calls == 0 and adapter.parsed == 0 and route.call_count == 1
+    with session_factory() as s:
+        src = s.get(Source, "chaco")
+        assert src.health == "blocked" and src.consecutive_failures == 1
+
+
+async def test_on_demand_request_uses_adapter_fetch(session_factory):
+    """Requests with parameters go through the adapter's own `fetch` (forms, amounts); no collector GET."""
+    adapter = ConditionalAdapter()
+    collector = Collector(session_factory, make_settings(), adapters={"chaco": adapter}, now_fn=Clock())
+    done = await collector.request_quote("chaco", {"base": "USD", "quote": "PYG"})
+    assert done["status"] == "done" and adapter.calls == 1 and adapter.parsed == 0

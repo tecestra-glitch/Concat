@@ -34,11 +34,17 @@ LocaleHint = Literal["auto", "es_PY", "pt_BR", "en_US"]
 ACCEPT_HTML = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 ACCEPT_JSON = "application/json, text/plain, */*"
 
+# Phrases a WAF/anti-bot challenge page says. The bare word "captcha" is deliberately absent: legit pages
+# embed reCAPTCHA (badge CSS, api.js loader, the v2 checkbox widget, gstatic styles) without being a challenge.
 _BLOCK_MARKERS = (
     "cf-chl",
     "just a moment",
     "attention required",
-    "captcha",
+    "checking your browser",
+    "verify you are human",
+    "verify that you are human",
+    "complete the captcha",
+    "solve the captcha",
     "access denied",
     "request unsuccessful. incapsula",
     "pardon our interruption",

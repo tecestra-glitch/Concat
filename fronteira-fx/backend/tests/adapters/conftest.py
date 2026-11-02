@@ -9,6 +9,8 @@ from typing import Any
 import pytest
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+# Captures that belong only to the adapter tests (maxicambios.html, myd.html, dolarpy.json) live next to them.
+LOCAL_FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 # All HTML/JSON fixtures were captured 2026-10-30 .. 2026-11-02; this instant is "fresh" for all of them.
 CAPTURED_AT = datetime(2026, 11, 2, 6, 0, tzinfo=UTC)
@@ -17,7 +19,14 @@ MUCH_LATER = datetime(2026, 12, 1, 12, 0, tzinfo=UTC)
 
 
 def load(name: str) -> str:
-    return (FIXTURES / name).read_text(encoding="utf-8")
+    """Read a fixture as text. Real pages are not always valid UTF-8 (myd.html declares UTF-8 but
+    carries legacy bytes), so undecodable bytes are replaced instead of failing the test run."""
+    hits = [base / name for base in (LOCAL_FIXTURES, FIXTURES) if (base / name).exists()]
+    if not hits:
+        raise FileNotFoundError(f"fixture {name!r} not found in {LOCAL_FIXTURES} or {FIXTURES}")
+    if len(hits) > 1:
+        raise RuntimeError(f"fixture {name!r} exists in both {LOCAL_FIXTURES} and {FIXTURES}; keep exactly one")
+    return hits[0].read_bytes().decode("utf-8", errors="replace")
 
 
 def load_json(name: str) -> Any:

@@ -1,18 +1,32 @@
 #!/usr/bin/env sh
-# Secret scan with TruffleHog (binary, or Docker when a daemon is available) + lint of the frontend.
-# TruffleHog exits 183 when --fail finds a verified secret; any other failure is reported, not blocking.
-cd "$(git rev-parse --show-toplevel)" || exit 1
-scan() {
-  if command -v trufflehog >/dev/null 2>&1; then
-    trufflehog git "file://$PWD" --since-commit HEAD --only-verified --fail --no-update >/dev/null 2>&1
-  elif docker info >/dev/null 2>&1; then
-    docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:latest git file:///repo --since-commit HEAD --only-verified --fail --no-update >/dev/null 2>&1
-  else
-    echo "aviso: trufflehog indisponível (sem binário e sem daemon Docker); varredura de segredos pulada."
-    return 0
-  fi
-}
-scan; rc=$?
-if [ "$rc" -eq 183 ]; then echo "trufflehog: segredo verificado encontrado nas alterações. Commit bloqueado."; exit 1; fi
-[ "$rc" -ne 0 ] && echo "aviso: trufflehog terminou com código $rc (não bloqueante)."
-cd fronteira-fx && pnpm exec eslint src e2e
+# pre-commit do Fronteira FX (husky 9). O hooksPath vale para o repositório inteiro, então:
+# 1. TruffleHog nas alterações em stage, sempre (inclusive em commits só do app Rust).
+# 2. Se o commit toca fronteira-fx/: lint-staged (eslint nos .ts/.tsx e ruff nos .py em stage; config
+#    em fronteira-fx/package.json) e vitest só dos testes ligados aos arquivos alterados.
+# Testes destes hooks: fronteira-fx/.husky/tests/test_hooks.py (`pnpm test:hooks`).
+# Pular de propósito: git commit --no-verify.
+set -eu
+
+cd "$(git rev-parse --show-toplevel)"
+. ./fronteira-fx/.husky/scan-secrets.sh
+
+check_secrets "Commit" --since-commit HEAD
+
+if [ -z "$(git diff --cached --name-only -- fronteira-fx)" ]; then
+  echo "pre-commit: nada de fronteira-fx/ em stage; lint e testes do FX pulados."
+  exit 0
+fi
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "erro: o commit toca fronteira-fx/, mas pnpm não está no PATH (corepack enable). Commit bloqueado." >&2
+  exit 1
+fi
+# O ruff do lint-staged roda com `uv run --project backend`; sem uv, a falha dele seria só "spawn uv ENOENT".
+if [ -n "$(git diff --cached --name-only -- 'fronteira-fx/backend/*.py')" ] && ! command -v uv >/dev/null 2>&1; then
+  echo "erro: há arquivos .py de fronteira-fx/backend em stage, mas uv não está no PATH. Commit bloqueado." >&2
+  exit 1
+fi
+
+cd fronteira-fx
+pnpm exec lint-staged
+pnpm exec vitest run --changed --passWithNoTests

@@ -66,7 +66,11 @@ export function formatDateTime(iso: string | null | undefined): string {
   return new Intl.DateTimeFormat(LOCALE, { dateStyle: "short", timeStyle: "short" }).format(d);
 }
 
-export function formatAge(iso: string | null | undefined, now: number = Date.now()): string {
+/**
+ * Relative age against an explicit clock (`now` in ms). The clock is mandatory so that
+ * components take it from `useNow()` and never read `Date.now()` during render.
+ */
+export function formatAge(iso: string | null | undefined, now: number): string {
   if (!iso) return "sem dados";
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return "sem dados";
@@ -79,8 +83,61 @@ export function formatAge(iso: string | null | undefined, now: number = Date.now
   return `há ${Math.round(h / 24)} d`;
 }
 
-export function ageSeconds(iso: string | null | undefined, now: number = Date.now()): number | null {
+export function ageSeconds(iso: string | null | undefined, now: number): number | null {
   if (!iso) return null;
   const t = new Date(iso).getTime();
   return Number.isNaN(t) ? null : Math.max(0, (now - t) / 1000);
+}
+
+const THOUSANDS_GROUPS = /^\d{1,3}(\.\d{3})+$/;
+const PLAIN_DIGITS = /^\d+$/;
+
+/**
+ * Reads a number typed in pt-BR ("5.000", "5.000,50", "0,25") or with a plain dot
+ * decimal ("0.25", "5.4187") and returns a canonical decimal string ("5000", "5000.5").
+ * Never goes through a float, so every digit survives. Returns null when ambiguous
+ * or not a number ("1.0000", "1,2,3", "abc", "").
+ */
+export function parseDecimalPtBR(raw: string): string | null {
+  let s = raw.replace(/\s+/g, "");
+  if (!s) return null;
+  let sign = "";
+  if (s.startsWith("-") || s.startsWith("+")) {
+    sign = s[0] === "-" ? "-" : "";
+    s = s.slice(1);
+  }
+  if (!s) return null;
+
+  let intPart: string;
+  let fracPart = "";
+  const commas = s.split(",").length - 1;
+  if (commas > 1) return null;
+  if (commas === 1) {
+    const [left, right] = s.split(",");
+    if (!/^\d+$/.test(right)) return null;
+    if (left === "") intPart = "0";
+    else if (PLAIN_DIGITS.test(left) || THOUSANDS_GROUPS.test(left)) intPart = left.replace(/\./g, "");
+    else return null;
+    fracPart = right;
+  } else if (THOUSANDS_GROUPS.test(s)) {
+    intPart = s.replace(/\./g, "");
+  } else if (PLAIN_DIGITS.test(s)) {
+    intPart = s;
+  } else {
+    const dots = s.split(".").length - 1;
+    if (dots !== 1) return null;
+    const [left, right] = s.split(".");
+    if (!/^\d+$/.test(right)) return null;
+    if (left !== "" && !PLAIN_DIGITS.test(left)) return null;
+    // "1.0000": a dot followed by 3+ zeros only is a mistyped thousands group, not a decimal.
+    if (right.length >= 3 && /^0+$/.test(right)) return null;
+    intPart = left === "" ? "0" : left;
+    fracPart = right;
+  }
+
+  intPart = intPart.replace(/^0+(?=\d)/, "");
+  fracPart = fracPart.replace(/0+$/, "");
+  const body = fracPart ? `${intPart}.${fracPart}` : intPart;
+  if (body === "0") return "0";
+  return `${sign}${body}`;
 }

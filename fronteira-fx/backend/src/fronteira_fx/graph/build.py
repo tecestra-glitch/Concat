@@ -26,13 +26,13 @@ def _dec(v: Any) -> Decimal | None:
 def edges_from_quotes(quotes: Iterable[dict[str, Any]], venue_of: VenueOf = default_venue) -> list[Edge]:
     """Compra da fonte: base→quote a `buy`. Venda da fonte: quote→base a 1/`sell`.
 
-    Referências de mercado (BCP) não são executáveis e são ignoradas. Cotações que dependem
-    do montante (`amount_base`) viram arestas com min_in = max_in = amount_base, para que o
-    valor só seja usado no montante cotado.
+    Referências de mercado (BCP, PTAX: `kind=market_reference` ou `modality=reference`) não são
+    executáveis e são ignoradas (B23). Cotações que dependem do montante (`amount_base`) viram
+    arestas com min_in = max_in = amount_base, para que o valor só seja usado no montante cotado.
     """
     out: list[Edge] = []
     for q in quotes:
-        if q.get("kind") == "market_reference":
+        if q.get("kind") == "market_reference" or q.get("modality") == "reference":
             continue
         venue = venue_of(q)
         base, quote = str(q["base"]), str(q["quote"])

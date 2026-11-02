@@ -7,11 +7,15 @@ import pytest
 from fronteira_fx.adapters import registry
 from fronteira_fx.adapters.base import AdapterInfo
 
-EXPECTED = {"chaco", "alberdi", "bonanza", "norte", "bcp", "ueno", "nomad", "revolut", "westernunion"}
+EXPECTED = {
+    "chaco", "alberdi", "bonanza", "norte", "bcp", "ueno", "nomad", "revolut", "westernunion",
+    "maxicambios", "myd", "dolarpy",
+}
 
 
 def test_registry_has_all_adapters() -> None:
-    assert set(registry.ADAPTERS) == EXPECTED
+    assert set(registry.ADAPTERS) == EXPECTED and len(registry.ADAPTERS) == 12
+    assert list(registry.ADAPTERS) == sorted(EXPECTED)  # deterministic order for the API/collector
     for aid, adapter in registry.ADAPTERS.items():
         assert isinstance(adapter.info, AdapterInfo) and adapter.info.id == aid
         assert inspect.iscoroutinefunction(adapter.fetch)
@@ -26,3 +30,4 @@ def test_get_adapter() -> None:
     with pytest.raises(KeyError, match="unknown adapter"):
         registry.get_adapter("nope")
     assert len(registry.list_adapters()) == len(EXPECTED)
+    assert [a.info.id for a in registry.list_adapters()] == sorted(EXPECTED)

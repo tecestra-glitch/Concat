@@ -93,11 +93,14 @@ Gere os seguintes arquivos a partir dos templates desta skill:
 Para cada MCP descoberto na Fase 1:
 
 ```bash
-# npm MCPs
-claude mcp add <nome> -- npx -y <pacote> [args]
+# npm MCPs — sempre no escopo do projeto (grava em .mcp.json) e com versão fixada
+claude mcp add --scope project <nome> -- npx -y <pacote>@<versão> [args]
 
-# Ou adicionar manualmente ao .mcp.json do projeto
+# Ou adicionar manualmente ao .mcp.json do projeto (segredos só como ${VARIAVEL}, nunca literais)
 ```
+
+Antes de adicionar, confira `npm view <pacote> version deprecated`: pacotes *deprecated* ou em quarentena de
+segurança (`0.0.1-security`) ficam de fora. Nunca instale servidores que executam transações financeiras.
 
 Para cada skill relevante não instalada:
 - Verifique se já existe em `.claude/skills/`.
@@ -117,14 +120,17 @@ pnpm add -D husky 2>/dev/null || pip install pre-commit 2>/dev/null || true
 cat > .husky/pre-commit << 'EOF'
 #!/bin/sh
 set -e
-# TruffleHog: bloqueia em segredos encontrados (exit 183)
+# TruffleHog: 183 = segredo verificado; qualquer outra falha também bloqueia (fail-closed), com mensagem própria
 if command -v trufflehog >/dev/null 2>&1; then
-  trufflehog git file://. --since-commit HEAD --only-verified --fail
-  TH=$?
-  [ $TH -eq 183 ] && echo "❌ Segredo detectado pelo TruffleHog" && exit 1
+  trufflehog git file://. --since-commit HEAD --only-verified --fail && TH=0 || TH=$?
+  if [ "$TH" -eq 183 ]; then echo "Segredo detectado pelo TruffleHog"; exit 1
+  elif [ "$TH" -ne 0 ]; then echo "TruffleHog falhou (saída $TH); commit bloqueado por precaução"; exit 1
+  fi
 fi
-# Testes rápidos
-pnpm test --run 2>/dev/null || pytest -q --timeout=30 2>/dev/null || true
+# Testes rápidos: uma falha bloqueia o commit; pulados enquanto o projeto não tem script/suite de testes
+if [ -f package.json ] && grep -q '"test":' package.json; then pnpm test
+elif [ -f pyproject.toml ] && command -v pytest >/dev/null 2>&1; then pytest -q
+fi
 EOF
 chmod +x .husky/pre-commit
 
@@ -133,9 +139,10 @@ cat > .husky/pre-push << 'EOF'
 #!/bin/sh
 set -e
 if command -v trufflehog >/dev/null 2>&1; then
-  trufflehog git file://. --only-verified --fail
-  TH=$?
-  [ $TH -eq 183 ] && echo "❌ Segredo no histórico detectado" && exit 1
+  trufflehog git file://. --only-verified --fail && TH=0 || TH=$?
+  if [ "$TH" -eq 183 ]; then echo "Segredo no histórico detectado pelo TruffleHog"; exit 1
+  elif [ "$TH" -ne 0 ]; then echo "TruffleHog falhou (saída $TH); push bloqueado por precaução"; exit 1
+  fi
 fi
 EOF
 chmod +x .husky/pre-push
@@ -195,9 +202,7 @@ git commit -m "feat: project scaffolding — <nome do projeto>
 
 Stack: <lista>
 MCPs: <lista>
-Skills: <lista>
-
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+Skills: <lista>"
 
 # GitHub Actions CI básico
 mkdir -p .github/workflows
@@ -231,7 +236,7 @@ Próximo:    <próxima ação recomendada>
   ficam em `.env` (gitignored) ou em variáveis de ambiente do CI.
 - **pnpm sobre npm/yarn** para projetos JS/TS (preferência do usuário).
 - **TypeScript sobre JavaScript** para projetos JS novos.
-- **Ao usar o Workflow tool**, invoque `superpowers:workflow-authoring` primeiro
+- **Ao usar o Workflow tool**, invoque a skill nativa `workflow-authoring` primeiro
   para escrever o script corretamente.
 
 ## Referências

@@ -357,6 +357,7 @@ class WatchState(Base):
     last_change_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     errors_in_row: Mapped[int] = mapped_column(Integer, default=0)
     etag: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    last_modified: Mapped[str | None] = mapped_column(String(128), nullable=True)  # HTTP Last-Modified validator
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="ok")
     data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)

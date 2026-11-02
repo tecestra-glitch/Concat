@@ -19,20 +19,25 @@ echo ""
 
 # ── Skills já instaladas ───────────────────────────────────────────────
 echo "## Skills instaladas" > "$OUT/skills.md"
-if [ -d "$HOME/.claude/skills" ]; then
-  find "$HOME/.claude/skills" -name "SKILL.md" | while read -r f; do
-    dir=$(dirname "$f")
-    name=$(grep '^name:' "$f" 2>/dev/null | head -1 | cut -d: -f2 | xargs)
-    desc=$(grep '^description:' "$f" 2>/dev/null | head -1 | cut -d: -f2- | xargs)
-    echo "- **$name**: $desc" >> "$OUT/skills.md"
+# Skills do usuário, do projeto atual e da raiz do repositório (o projeto pode ser uma subpasta).
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+{ for b in "$HOME/.claude/skills" ".claude/skills" ${ROOT:+"$ROOT/.claude/skills"}; do
+    if [ -d "$b" ]; then realpath "$b"; fi
+  done; } | sort -u | while read -r base; do
+  find "$base" -name "SKILL.md" | while read -r f; do
+    # `|| true`: um SKILL.md sem frontmatter não pode derrubar o script (set -euo pipefail)
+    name=$(grep '^name:' "$f" 2>/dev/null | head -1 | cut -d: -f2 | xargs || true)
+    desc=$(grep '^description:' "$f" 2>/dev/null | head -1 | cut -d: -f2- | xargs || true)
+    echo "- **$name**: $desc ($(dirname "$f"))" >> "$OUT/skills.md"
   done
-fi
+done
 echo "Skills salvas em $OUT/skills.md"
 
 # ── MCPs do projeto atual ─────────────────────────────────────────────
 echo "## MCPs configurados" > "$OUT/mcps-atuais.md"
 if [ -f ".mcp.json" ]; then
-  jq -r '.mcpServers | to_entries[] | "- **\(.key)**: \(.value.command // "") \(.value.args // [] | join(" "))"' .mcp.json >> "$OUT/mcps-atuais.md" 2>/dev/null || echo "(nenhum)" >> "$OUT/mcps-atuais.md"
+  # servidores stdio mostram command + args; servidores http/sse mostram .url
+  jq -r '.mcpServers | to_entries[] | "- **\(.key)**: \(if .value.url then (.value.type // "http") + " " + .value.url else ((.value.command // "") + " " + ((.value.args // []) | join(" "))) end)"' .mcp.json >> "$OUT/mcps-atuais.md" 2>/dev/null || echo "(nenhum)" >> "$OUT/mcps-atuais.md"
 else
   echo "(sem .mcp.json)" >> "$OUT/mcps-atuais.md"
 fi

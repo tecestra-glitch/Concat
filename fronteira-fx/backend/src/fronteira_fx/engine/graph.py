@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Literal
 
-from ..decimal_utils import ONE, ZERO
+from ..decimal_utils import ONE, ZERO, fmt
 from .routes import Confidence, combine_confidence
 
 EdgeKind = Literal["quote", "transfer", "deposit", "withdraw"]
@@ -37,22 +37,34 @@ class Edge:
     via: str = ""
     confidence: Confidence = "estimated"
     evidence_id: str | None = None
+    # amount window (in the source currency) the quote is valid for; None = unbounded
+    min_in: Decimal | None = None
+    max_in: Decimal | None = None
 
     def apply(self, amount: Decimal) -> Decimal:
         return amount * (ONE - self.fee_pct) * self.rate - self.fee_fixed
 
+    def accepts(self, amount: Decimal) -> bool:
+        """True when `amount` (in the source currency) is inside the edge's amount window."""
+        if self.min_in is not None and amount < self.min_in:
+            return False
+        if self.max_in is not None and amount > self.max_in:
+            return False
+        return True
+
     def to_dict(self) -> dict[str, Any]:
+        """Contract shape (D1): snake_case, money as decimal strings."""
         return {
             "from": self.src,
             "to": self.dst,
             "kind": self.kind,
-            "rate": float(self.rate),
-            "feePct": float(self.fee_pct),
-            "feeFixed": float(self.fee_fixed),
+            "rate": fmt(self.rate),
+            "fee_pct": fmt(self.fee_pct),
+            "fee_fixed": fmt(self.fee_fixed),
             "minutes": self.minutes,
             "via": self.via,
             "confidence": self.confidence,
-            "evidenceId": self.evidence_id,
+            "evidence_id": self.evidence_id,
         }
 
 
@@ -75,14 +87,15 @@ class Cycle:
         return self.gain / self.amount_in if self.amount_in else ZERO
 
     def to_dict(self) -> dict[str, Any]:
+        """Contract shape (D1): snake_case, money as decimal strings. `data_mode` is added by the API layer."""
         return {
             "start": self.start,
             "path": list(self.path),
             "edges": [e.to_dict() for e in self.edges],
-            "amountIn": float(self.amount_in),
-            "amountOut": float(self.amount_out),
-            "gain": float(self.gain),
-            "roi": float(self.roi),
+            "amount_in": fmt(self.amount_in),
+            "amount_out": fmt(self.amount_out),
+            "gain": fmt(self.gain),
+            "roi": fmt(self.roi),
             "minutes": self.minutes,
             "confidence": self.confidence,
         }
@@ -129,12 +142,20 @@ class Graph:
             confidence=combine_confidence(*(e.confidence for e in edges)),
         )
 
-    def simple_cycles_from(self, start: str, *, max_len: int = 4, min_len: int = 2) -> list[tuple[Edge, ...]]:
-        """All simple cycles (no repeated node) of min_len..max_len edges that return to `start`."""
+    def simple_cycles_from(
+        self, start: str, *, max_len: int = 4, min_len: int = 2, amount_in: Decimal | None = None
+    ) -> list[tuple[Edge, ...]]:
+        """All simple cycles (no repeated node) of min_len..max_len edges that return to `start`.
+
+        With `amount_in`, the amount is folded along the trail and an edge whose `min_in`/`max_in`
+        window does not accept the amount reaching it is discarded (a quote for 25 000 BRL is not
+        valid for 5 000 BRL)."""
         found: list[tuple[Edge, ...]] = []
 
-        def dfs(current: str, visited: set[str], trail: list[Edge]) -> None:
+        def dfs(current: str, visited: set[str], trail: list[Edge], x: Decimal | None) -> None:
             for e in self.out_edges(current):
+                if x is not None and not e.accepts(x):
+                    continue
                 if e.dst == start:
                     if len(trail) + 1 >= min_len:
                         found.append((*trail, e))
@@ -143,11 +164,11 @@ class Graph:
                     continue
                 visited.add(e.dst)
                 trail.append(e)
-                dfs(e.dst, visited, trail)
+                dfs(e.dst, visited, trail, e.apply(x) if x is not None else None)
                 trail.pop()
                 visited.discard(e.dst)
 
-        dfs(start, {start}, [])
+        dfs(start, {start}, [], amount_in)
         return found
 
 
@@ -166,7 +187,7 @@ def find_cycles(
         amount = balances[start]
         if amount is None or amount <= 0 or start not in graph.nodes:
             continue
-        for edges in graph.simple_cycles_from(start, max_len=max_len):
+        for edges in graph.simple_cycles_from(start, max_len=max_len, amount_in=amount):
             cyc = graph.evaluate(start, edges, amount)
             if min_roi is not None and cyc.roi < min_roi:
                 continue

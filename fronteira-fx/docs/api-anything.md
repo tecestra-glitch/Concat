@@ -16,4 +16,6 @@ Configuração isolada deste projeto: `API_ANYTHING_HOME=fronteira-fx/.local/api
 
 Uso previsto: `learn` em simuladores com parâmetros reproduzíveis (ex.: calculadora pública da Nomad, formulários com
 query string). Western Union e Bonanza dependem de navegador/JavaScript e ficam com Playwright. Operações de escrita
-permanecem desativadas (`API_ANYTHING_READ_ONLY=1` no `.mcp.json`; nunca usar `--allow-writes`).
+permanecem desativadas porque os `args` do servidor em `.mcp.json` não incluem `--allow-writes` (a variável
+`API_ANYTHING_READ_ONLY`, antes listada ali, não é lida pelo commit fixado e foi removida); a skill em
+`.claude/skills/api-anything` traz o override do projeto: somente leitura, compartilhamento desativado, sem `publish`.

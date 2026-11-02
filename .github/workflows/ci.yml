@@ -8,10 +8,22 @@ name: CI
 # a commit cannot. Dependabot proposes the bumps (.github/dependabot.yml).
 # The prebuilt libraries the jobs download are pinned the same way, by
 # digest, in scripts/ci/deps.lock.
+#
+# The Fronteira FX project under fronteira-fx/ has workflows of its own
+# (fronteira-fx.yml, secret-scan.yml); a change that touches only it
+# builds nothing here.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "fronteira-fx/**"
+      - ".github/workflows/fronteira-fx.yml"
+      - ".github/workflows/secret-scan.yml"
   pull_request:
+    paths-ignore:
+      - "fronteira-fx/**"
+      - ".github/workflows/fronteira-fx.yml"
+      - ".github/workflows/secret-scan.yml"
   workflow_dispatch:
   # release.yml runs this before it builds anything: a tag on a red tree
   # is not a release. It names the tag, because a release started by hand

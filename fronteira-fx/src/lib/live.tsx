@@ -1,13 +1,18 @@
 "use client";
 /**
- * Live updates: initial snapshot, SSE with cursor replay, reconnection without
- * duplicate connections, periodic snapshot fallback. Connection state is kept
- * separate from quote age (a connected stream does not make an old quote fresh).
+ * Live updates (plan F6): initial snapshot, SSE with cursor replay, reconnection without duplicate
+ * connections, and periodic snapshot polling only as a fallback while the stream is down.
+ * Connection state is kept separate from quote age (a connected stream does not make an old quote fresh).
+ * React state changes only inside event callbacks and promise handlers, never in the effect body.
  */
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { API_URL, api } from "./api/client";
-import type { Quote, Snapshot, Source, StreamEvent } from "./api/types";
+import { api } from "./api/client";
+import { type ParsedStreamEvent, QuoteSchema } from "./api/schemas";
+import type { Source } from "./api/types";
+import type { AlertEvent } from "./api/watch";
+import { alertToasts } from "./alert-toasts";
+import { applyQuoteUpdate, applySnapshot, applySourceHealth, parseStreamFrame, shouldResetCursor } from "./live-cache";
 import { useSettings } from "./settings";
 
 export type ConnState = "connected" | "reconnecting" | "offline" | "demo";
@@ -21,11 +26,21 @@ interface LiveCtx {
 
 const LiveContext = React.createContext<LiveCtx>({ state: "demo", lastEventAt: null, eventsReceived: 0, lastHeartbeatAt: null });
 
+function isAlertEvent(p: unknown): p is AlertEvent {
+  if (typeof p !== "object" || p === null) return false;
+  const o = p as Record<string, unknown>;
+  return typeof o.id === "string" && typeof o.rule_id === "string" && typeof o.message === "string" && typeof o.ts === "string";
+}
+
+function isSource(p: unknown): p is Source {
+  return typeof p === "object" && p !== null && typeof (p as Record<string, unknown>).id === "string";
+}
+
 export function LiveProvider({ children }: { children: React.ReactNode }) {
   const { mode, settings } = useSettings();
   const qc = useQueryClient();
   const [connState, setState] = React.useState<ConnState>("reconnecting");
-  const state: ConnState = mode === "demo" || !API_URL ? "demo" : connState;
+  const state: ConnState = mode === "demo" ? "demo" : connState;
   const [lastEventAt, setLastEventAt] = React.useState<string | null>(null);
   const [lastHeartbeatAt, setLastHeartbeatAt] = React.useState<string | null>(null);
   const [eventsReceived, setEventsReceived] = React.useState(0);
@@ -35,20 +50,24 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const attemptRef = React.useRef(0);
 
-  const applySnapshot = React.useCallback(
-    (snap: Snapshot) => {
+  React.useEffect(() => {
+    if (mode === "demo") return;
+    let disposed = false;
+
+    const closeEs = () => {
+      esRef.current?.close();
+      esRef.current = null;
+    };
+
+    const takeSnapshot = async () => {
+      const snap = await api.snapshot(mode);
+      if (disposed) return;
+      applySnapshot(qc, mode, snap);
       cursorRef.current = snap.cursor;
       seenRef.current.clear();
-      qc.setQueryData(["sources", "real"], snap.sources);
-      qc.setQueryData(["quotes", "real", "snapshot"], snap.quotes);
-      qc.setQueryData(["opportunities", "real", undefined], snap.opportunities);
-      qc.invalidateQueries({ queryKey: ["quotes"] });
-    },
-    [qc],
-  );
+    };
 
-  const applyEvent = React.useCallback(
-    (ev: StreamEvent) => {
+    const dispatch = (ev: ParsedStreamEvent) => {
       if (seenRef.current.has(ev.id)) return; // replay dedupe
       seenRef.current.add(ev.id);
       if (seenRef.current.size > 5000) seenRef.current = new Set([...seenRef.current].slice(-2500));
@@ -59,66 +78,54 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       setLastEventAt(ev.ts);
-      if (ev.type === "quote.updated") {
-        const q = ev.payload as Quote;
-        qc.setQueriesData<Quote[]>({ queryKey: ["quotes", "real"] }, (old) => {
-          if (!old) return old;
-          const idx = old.findIndex((x) => x.id === q.id || (x.source_id === q.source_id && x.branch_id === q.branch_id && x.base === q.base && x.quote === q.quote && x.modality === q.modality && x.amount_base === q.amount_base && JSON.stringify(x.context) === JSON.stringify(q.context)));
-          if (idx === -1) return [...old, q];
-          const next = old.slice();
-          next[idx] = q;
-          return next;
-        });
-        qc.invalidateQueries({ queryKey: ["history"] });
-      } else if (ev.type === "source.health") {
-        const s = ev.payload as Source;
-        qc.setQueryData<Source[]>(["sources", "real"], (old) => (old ? old.map((x) => (x.id === s.id ? s : x)) : old));
-      } else if (ev.type === "opportunity.updated") {
-        qc.invalidateQueries({ queryKey: ["opportunities"] });
+      switch (ev.type) {
+        case "quote.updated": {
+          const parsed = QuoteSchema.safeParse(ev.payload);
+          if (parsed.success) applyQuoteUpdate(qc, mode, parsed.data);
+          break;
+        }
+        case "source.health":
+          if (isSource(ev.payload)) applySourceHealth(qc, mode, ev.payload);
+          break;
+        case "opportunity.updated":
+          void qc.invalidateQueries({ queryKey: ["opportunities", mode] });
+          void qc.invalidateQueries({ queryKey: ["cycles", mode] });
+          break;
+        case "source.change":
+          void qc.invalidateQueries({ queryKey: ["watch"] });
+          break;
+        case "alert.fired":
+          void qc.invalidateQueries({ queryKey: ["alerts"] });
+          if (isAlertEvent(ev.payload) && (!ev.payload.data_mode || ev.payload.data_mode === mode)) alertToasts.push(ev.payload);
+          break;
       }
-    },
-    [qc],
-  );
-
-  React.useEffect(() => {
-    if (mode === "demo" || !API_URL) return;
-    let disposed = false;
-
-    const closeEs = () => {
-      esRef.current?.close();
-      esRef.current = null;
     };
 
     const connect = async (fresh: boolean) => {
       if (disposed || esRef.current) return; // never open duplicate connections
       try {
-        if (fresh || !cursorRef.current) {
-          const snap = await api.snapshot("real");
-          if (disposed) return;
-          applySnapshot(snap);
-        }
+        if (fresh || !cursorRef.current) await takeSnapshot();
+        if (disposed) return;
       } catch {
         if (disposed) return;
         setState("offline");
         schedule();
         return;
       }
-      const es = new EventSource(api.streamUrl(cursorRef.current));
+      const es = new EventSource(api.streamUrl(mode, cursorRef.current));
       esRef.current = es;
       es.onopen = () => {
         attemptRef.current = 0;
         setState("connected");
       };
-      es.onmessage = (m) => {
-        try {
-          const ev = JSON.parse(m.data) as StreamEvent;
-          if (!ev.id && m.lastEventId) ev.id = m.lastEventId;
-          applyEvent(ev);
-        } catch {
-          /* ignore malformed */
-        }
+      es.onmessage = (m: MessageEvent<string>) => {
+        const ev = parseStreamFrame(m.data, m.lastEventId);
+        if (ev) dispatch(ev);
       };
       es.onerror = () => {
+        // A closed source means the server refused the request (e.g. 410 Gone: cursor expired):
+        // forget the cursor so the next attempt starts from a fresh snapshot.
+        if (shouldResetCursor(es.readyState)) cursorRef.current = null;
         // Browser auto-retry would duplicate our own schedule; close and own the backoff.
         closeEs();
         if (disposed) return;
@@ -133,22 +140,18 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
       attemptRef.current += 1;
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
-        // Cursor may have expired (410) — the server rejects it; we detect via snapshot path.
         void connect(attemptRef.current > 3);
       }, delay);
     };
 
     void connect(true);
 
-    // Snapshot fallback every N seconds keeps data moving even if SSE is blocked by a proxy.
+    // Polling is only a fallback: while the stream is open the snapshot is skipped.
     const fallback = setInterval(() => {
-      if (disposed) return;
-      api
-        .snapshot("real")
-        .then((snap) => {
-          if (!esRef.current) applySnapshot(snap);
-        })
-        .catch(() => setState((s) => (s === "connected" ? s : "offline")));
+      if (disposed || esRef.current) return;
+      takeSnapshot().catch(() => {
+        if (!disposed) setState((s) => (s === "connected" ? s : "offline"));
+      });
     }, Math.max(10, settings.pollFallbackSeconds) * 1000);
 
     const onVisibility = () => {
@@ -164,7 +167,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
       clearInterval(fallback);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [mode, settings.pollFallbackSeconds, applySnapshot, applyEvent]);
+  }, [mode, settings.pollFallbackSeconds, qc]);
 
   const value = React.useMemo<LiveCtx>(() => ({ state, lastEventAt, eventsReceived, lastHeartbeatAt }), [state, lastEventAt, eventsReceived, lastHeartbeatAt]);
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;

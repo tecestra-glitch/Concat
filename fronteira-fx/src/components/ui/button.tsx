@@ -12,7 +12,7 @@ const buttonVariants = cva(
         secondary: "bg-surface-2 text-foreground border border-border hover:bg-surface",
         ghost: "hover:bg-surface-2 text-foreground",
         outline: "border border-border bg-transparent hover:bg-surface-2",
-        destructive: "bg-loss text-white hover:opacity-90",
+        destructive: "bg-loss text-background hover:opacity-90",
       },
       size: {
         default: "h-9 px-4 py-2",

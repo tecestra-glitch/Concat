@@ -1,21 +1,26 @@
 name: Fronteira FX CI
 
 # Checks for the Fronteira FX project in fronteira-fx/, a subfolder of this
-# repository. The Rust app at the root has its own workflows, which this file
-# does not touch.
+# repository. The Rust app at the root has its own workflows (ci.yml,
+# mobile.yml), which ignore fronteira-fx/** and which this file does not touch.
 #
 # Read-only: nothing is released or deployed here. The Vercel deploy is
 # described in fronteira-fx/docs/ci.md and is not set up yet.
 #
-# Action versions are pinned to a major tag, as the project asked. The one
-# exception is TruffleHog, which follows @main, as the owner's secret-scanning
-# policy specifies.
+# Every action is pinned to a commit, with the tag it was in a comment beside
+# it, like the rest of the repository: a tag can be moved to other code after
+# a run has trusted it, a commit cannot. Dependabot moves the commit and the
+# comment together (.github/dependabot.yml).
+#
+# The secret scan (TruffleHog) lives in secret-scan.yml, which has no path
+# filter, so a push that touches only the Rust app is scanned too.
 
 on:
   push:
     paths: ["fronteira-fx/**", ".github/workflows/fronteira-fx.yml"]
   pull_request:
     paths: ["fronteira-fx/**", ".github/workflows/fronteira-fx.yml"]
+  workflow_dispatch:
 
 # Read access to the repository and nothing else.
 permissions:
@@ -28,52 +33,45 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-jobs:
-  # No `defaults` block on this job or on `docker`: neither has `run` steps.
-  # This one scans the whole range of commits from the repository root.
-  secrets:
-    name: Secret scan (TruffleHog)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      # The scan reads the commits between the two ends of the range, so the
-      # clone needs the whole history.
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      # On push the action scans from github.event.before to github.event.after;
-      # on pull_request, from the base to the head of the pull request.
-      # --only-verified reports only secrets TruffleHog could confirm are live.
-      # A verified secret fails the job.
-      - uses: trufflesecurity/trufflehog@main
-        with:
-          extra_args: --only-verified
+env:
+  # HUSKY=0 skips the "prepare" script of fronteira-fx/package.json, which
+  # installs the local git hooks. A CI runner makes no commits, so there is
+  # nothing for them to guard; the hooks themselves are tested by the `hooks` job.
+  HUSKY: "0"
 
+jobs:
   frontend:
-    name: Frontend (Next.js)
+    name: Frontend (Next.js, demo mode)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
         working-directory: fronteira-fx
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # pnpm is set up before Node so that setup-node's cache can find pnpm's
       # store. The version comes from "packageManager" in package.json.
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           package_json_file: fronteira-fx/package.json
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
           cache: pnpm
           cache-dependency-path: fronteira-fx/pnpm-lock.yaml
-      # HUSKY=0 skips the "prepare" script, which installs the local git hooks.
-      # A CI runner makes no commits, so there is nothing for them to guard.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        env:
-          HUSKY: "0"
+      # The Next.js build cache (.next/cache) is keyed on the exact Next version
+      # and on the lockfile, with no fallback key: a cache written by another
+      # Next or another dependency set is never restored into this build.
+      - name: Next.js version
+        id: next
+        run: echo "version=$(pnpm list next --json | node -e 'const d = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(d[0].dependencies.next.version)')" >> "$GITHUB_OUTPUT"
+      - name: Restore Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fronteira-fx/.next/cache
+          key: next-cache-${{ runner.os }}-next${{ steps.next.outputs.version }}-${{ hashFiles('fronteira-fx/pnpm-lock.yaml') }}
       - name: Typecheck
         run: pnpm typecheck
       - name: Lint
@@ -87,12 +85,14 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
       # playwright.config.ts starts `next start` itself, on the build made above.
-      - name: End-to-end tests
-        run: pnpm test:e2e
+      # The frontend runs in demo mode here (no API). e2e/real-mode.spec.ts has
+      # its own job, e2e-real-mode: the two modes never share a run.
+      - name: End-to-end tests (demo mode)
+        run: pnpm test:e2e --grep-invert real-mode
       # Uploaded whether the tests pass or fail, and kept for 7 days.
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report
           path: fronteira-fx/dev/playwright-report
@@ -100,12 +100,61 @@ jobs:
           if-no-files-found: ignore
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-screenshots
           path: fronteira-fx/dev/screenshots
           retention-days: 7
           if-no-files-found: ignore
+
+  # e2e/real-mode.spec.ts drives the frontend in real mode against an API it
+  # mocks itself with page.route, so no backend or database is started here.
+  # The spec is being written in parallel with this workflow: every step after
+  # the checkout is skipped while the file does not exist. The guard has to be
+  # on the steps, not on the job: a job-level `if` is evaluated before the
+  # checkout, when hashFiles() has no files to look at and always returns ''.
+  e2e-real-mode:
+    name: End-to-end tests (real mode, mocked API)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: fronteira-fx
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: hashFiles('fronteira-fx/e2e/real-mode.spec.ts') != ''
+        with:
+          package_json_file: fronteira-fx/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: hashFiles('fronteira-fx/e2e/real-mode.spec.ts') != ''
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: fronteira-fx/pnpm-lock.yaml
+      - name: Install dependencies
+        if: hashFiles('fronteira-fx/e2e/real-mode.spec.ts') != ''
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        if: hashFiles('fronteira-fx/e2e/real-mode.spec.ts') != ''
+        run: pnpm build
+      - name: Install Playwright Chromium
+        if: hashFiles('fronteira-fx/e2e/real-mode.spec.ts') != ''
+        run: pnpm exec playwright install --with-deps chromium
+      - name: End-to-end tests (real mode)
+        if: hashFiles('fronteira-fx/e2e/real-mode.spec.ts') != ''
+        run: pnpm test:e2e e2e/real-mode.spec.ts
+      - name: Upload Playwright report
+        if: always() && hashFiles('fronteira-fx/e2e/real-mode.spec.ts') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-real-mode
+          path: fronteira-fx/dev/playwright-report
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Nothing to run
+        if: hashFiles('fronteira-fx/e2e/real-mode.spec.ts') == ''
+        run: echo "fronteira-fx/e2e/real-mode.spec.ts does not exist yet; nothing to run."
 
   backend:
     name: Backend (Python 3.13)
@@ -115,11 +164,11 @@ jobs:
       run:
         working-directory: fronteira-fx/backend
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Installs uv and Python 3.13 (the version in backend/.python-version),
       # and caches uv's downloads keyed on uv.lock.
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.13"
           cache-dependency-glob: fronteira-fx/backend/uv.lock
@@ -134,12 +183,87 @@ jobs:
         run: uv run pytest -q --junitxml=junit.xml
       - name: Upload JUnit report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: backend-junit
           path: fronteira-fx/backend/junit.xml
           retention-days: 7
           if-no-files-found: ignore
+
+  # `alembic upgrade head` applies every migration to an empty SQLite file;
+  # `alembic check` then compares the result with the ORM models and fails when
+  # a model changed without a migration (or a migration drifted from the models).
+  alembic-check:
+    name: Migrations (Alembic on SQLite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: fronteira-fx/backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.13"
+          cache-dependency-glob: fronteira-fx/backend/uv.lock
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+      - name: Apply the migrations and compare with the models
+        env:
+          # alembic/env.py reads the URL from the same settings as the app.
+          DATABASE_URL: sqlite:///${{ runner.temp }}/fx-alembic-check.db
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
+
+  # fronteira-fx/docs/openapi.json is generated from the app by
+  # scripts/export_openapi.py. The committed file must be the one the code
+  # serves: this regenerates it and fails on any difference.
+  openapi-parity:
+    name: OpenAPI parity (docs/openapi.json)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: fronteira-fx/backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.13"
+          cache-dependency-glob: fronteira-fx/backend/uv.lock
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
+      - name: Export the OpenAPI document
+        run: uv run python scripts/export_openapi.py
+      - name: Compare with the committed document
+        run: |
+          if ! git diff --exit-code -- ../docs/openapi.json; then
+            echo "::error file=fronteira-fx/docs/openapi.json::docs/openapi.json is out of date. In fronteira-fx/backend run 'uv run python scripts/export_openapi.py' and commit the result."
+            exit 1
+          fi
+
+  # The git hooks in fronteira-fx/.husky are POSIX sh scripts that husky runs
+  # with `sh -e`. Their tests run them in a throwaway repository with fake
+  # tools on the PATH, so neither pnpm, uv nor TruffleHog is needed here.
+  hooks:
+    name: Git hooks (husky)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Syntax and permissions
+        run: |
+          for hook in fronteira-fx/.husky/pre-commit fronteira-fx/.husky/pre-push; do
+            sh -n "$hook"
+            test -x "$hook" || { echo "::error file=$hook::$hook is not executable (chmod +x)"; exit 1; }
+          done
+          sh -n fronteira-fx/.husky/scan-secrets.sh
+      # Also checks that the hooks and secret-scan.yml name the same TruffleHog version.
+      - name: Hook tests
+        run: python3 -I fronteira-fx/.husky/tests/test_hooks.py
 
   docker:
     name: Docker images (build only)
@@ -155,12 +279,12 @@ jobs:
           - { name: fronteira-fx-api, file: Dockerfile }
           - { name: fronteira-fx-worker, file: Dockerfile.worker }
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # push: false builds the image and discards it, which checks that the
       # Dockerfile still builds. The build context is backend/, as in docker-compose.yml.
       - name: Build ${{ matrix.image.name }}
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: fronteira-fx/backend
           file: fronteira-fx/backend/${{ matrix.image.file }}

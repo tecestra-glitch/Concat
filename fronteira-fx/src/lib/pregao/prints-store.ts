@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { historyKey } from "@/lib/api/demo-data";
 import type { Quote, Source } from "@/lib/api/types";
 import { houseName, quoteToPrint } from "./derive";
+import { quoteKey } from "./keys";
 import type { Print } from "./types";
 
 /** Módulo sem React: store externo das atualizações, lido por `useSyncExternalStore` em `use-prints.ts`. */
@@ -45,7 +45,7 @@ export function diffQuotes(
   const out = new Map(seen);
   const added: Print[] = [];
   for (const q of next) {
-    const key = historyKey(q);
+    const key = quoteKey(q);
     const prev = seen.get(key);
     if (!prev || prev.id !== q.id || prev.captured_at !== q.captured_at) {
       const p = quoteToPrint(q, prev ?? null, houseName(sources as Source[], q.source_id));

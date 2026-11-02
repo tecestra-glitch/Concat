@@ -4,7 +4,7 @@
  * Every record carries data_mode = "demo". Values are plausible but invented, and
  * the generator is deterministic (seeded) so screenshots/tests are reproducible.
  */
-import type { Account, Evidence, HistoryPoint, JournalEntry, Opportunity, Quote, Source } from "./types";
+import type { Account, Branch, Evidence, HistoryPoint, HistorySeries, JournalEntry, Opportunity, Quote, Source } from "./types";
 import { rankOpportunities, runRoute } from "../finance";
 
 // Anchored to the current 5-minute bucket at module load so ages look realistic; the generator itself is seeded.
@@ -46,6 +46,38 @@ function iso(offsetSeconds: number): string {
   return new Date(DEMO_NOW + offsetSeconds * 1000).toISOString();
 }
 
+/** FNV-1a 32 bits — deterministic, dependency-free. Only for demo keys/fixtures. */
+function hash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/** Canonical JSON of a quote context: keys sorted, so the same context always hashes alike. */
+function canonicalContext(ctx: Record<string, string | null>): string {
+  const sorted: Record<string, string | null> = {};
+  for (const k of Object.keys(ctx).sort()) sorted[k] = ctx[k];
+  return JSON.stringify(sorted);
+}
+
+/**
+ * D2 series key, same shape the backend emits:
+ * `{source}:{city|digital}:{base}/{quote}:{modality}[:@{branch}][:{amount}][:{ctx8}]`.
+ * The optional segments appear only when present. `ctx8` is 8 hex chars of a hash of the
+ * canonical context (the backend uses sha256; the demo uses FNV-1a — the format is identical).
+ */
+export function seriesKey(q: Omit<Quote, "series_key">): string {
+  let key = `${q.source_id}:${q.city ?? "digital"}:${q.base}/${q.quote}:${q.modality}`;
+  if (q.branch_id) key += `:@${q.branch_id}`;
+  if (q.amount_base) key += `:${q.amount_base}`;
+  if (q.context && Object.keys(q.context).length > 0) key += `:${hash(canonicalContext(q.context)).toString(16).padStart(8, "0")}`;
+  return key;
+}
+
+function withSeriesKey(q: Omit<Quote, "series_key">): Quote {
+  return { ...q, series_key: seriesKey(q) };
+}
+
 interface QSpec {
   source: string; branch: string | null; city: Quote["city"]; base: Quote["base"]; quote: Quote["quote"];
   buy: number | null; sell: number | null; modality: Quote["modality"]; kind: Quote["kind"]; channel: Quote["channel"]; age: number; declaredAge?: number | null;
@@ -74,7 +106,7 @@ const specs: QSpec[] = [
   { source: "nomad", branch: null, city: null, base: "USD", quote: "BRL", buy: null, sell: 5.4310, modality: "account", kind: "indicative", channel: "digital", age: 240 },
 ];
 
-export const demoQuotes: Quote[] = specs.map((s, i) => ({
+export const demoQuotes: Quote[] = specs.map((s, i) => withSeriesKey({
   id: `demo-q-${i}`,
   source_id: s.source,
   branch_id: s.branch,
@@ -97,6 +129,22 @@ export const demoQuotes: Quote[] = specs.map((s, i) => ({
   data_mode: "demo",
 }));
 
+/** GET /v1/sources/{id}/branches — one entry per distinct branch in the demo specs. */
+const BRANCH_NAME: Record<string, string> = {
+  "chaco-cde-centro": "Chaco — CDE Centro",
+  "chaco-asu-shopping": "Chaco — ASU Shopping",
+  "alberdi-cde": "Alberdi — Ciudad del Este",
+  "alberdi-pjc": "Alberdi — Pedro Juan Caballero",
+  "norte-asu": "Norte — Asunción",
+  "bonanza-asu": "Bonanza — Asunción",
+};
+
+export const demoBranches: Branch[] = specs.reduce<Branch[]>((acc, s) => {
+  if (!s.branch || s.city === null || acc.some((b) => b.id === s.branch)) return acc;
+  acc.push({ id: s.branch, source_id: s.source, name: BRANCH_NAME[s.branch] ?? s.branch, city: s.city, address: null });
+  return acc;
+}, []);
+
 /** Western Union simulator quotes carry full context; the two receive methods are distinct quotes. */
 export const demoWesternUnionQuotes: Quote[] = [
   // illustrative: rate improves slightly with the amount; cash pickup pays less than bank account
@@ -105,7 +153,7 @@ export const demoWesternUnionQuotes: Quote[] = [
   { receive: "bank_account", amount: 10000, out: 11_020_000, dur: "0–4 dias úteis" },
   { receive: "bank_account", amount: 25000, out: 27_575_000, dur: "0–4 dias úteis" },
   { receive: "bank_account", amount: 50000, out: 55_200_000, dur: "0–4 dias úteis" },
-].map((w, i) => ({
+].map((w, i) => withSeriesKey({
   id: `demo-wu-${i}`,
   source_id: "westernunion",
   branch_id: null,
@@ -130,9 +178,14 @@ export const demoWesternUnionQuotes: Quote[] = [
 
 export const allDemoQuotes: Quote[] = [...demoQuotes, ...demoWesternUnionQuotes];
 
-export function demoHistory(key: string, points = 288, stepMs = 5 * 60 * 1000): HistoryPoint[] {
+/**
+ * GET /v1/history?key= (demo): the series is addressed by `series_key` and echoes it.
+ * An unknown key answers an empty series (like the backend), never another series' points.
+ */
+export function demoHistory(key: string, points = 288, stepMs = 5 * 60 * 1000): HistorySeries {
+  const q = allDemoQuotes.find((x) => x.series_key === key);
+  if (!q) return { key, points: [] };
   const rnd = seeded(hash(key));
-  const q = allDemoQuotes.find((x) => historyKey(x) === key) ?? demoQuotes[0];
   const baseBuy = Number(q.buy ?? q.sell ?? 1);
   const baseSell = Number(q.sell ?? q.buy ?? 1);
   const out: HistoryPoint[] = [];
@@ -148,17 +201,12 @@ export function demoHistory(key: string, points = 288, stepMs = 5 * 60 * 1000): 
     if (i > 40 && i < 46) continue;
     out.push({ t, buy: buy.toFixed(4), sell: sell.toFixed(4), mid: ((buy + sell) / 2).toFixed(4) });
   }
-  return out;
+  return { key, points: out };
 }
 
+/** @deprecated Use `q.series_key` (D2). Kept so older call sites keep compiling. */
 export function historyKey(q: Quote): string {
-  return `${q.source_id}:${q.city ?? "digital"}:${q.base}/${q.quote}:${q.modality}${q.amount_base ? `:${q.amount_base}` : ""}`;
-}
-
-function hash(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
+  return q.series_key;
 }
 
 export const demoAccounts: Account[] = [
@@ -267,7 +315,7 @@ export const DEMO_CAPITALS = [5000, 10000, 25000, 50000];
 export const demoOpportunities: Opportunity[] = DEMO_CAPITALS.flatMap(buildOpportunities);
 
 export const demoEvidence: Evidence[] = allDemoQuotes.map((q) => ({
-  id: q.evidence_id,
+  id: q.evidence_id ?? q.id,
   source_id: q.source_id,
   kind: q.source_id === "westernunion" ? "screenshot" : "html",
   url: demoSources.find((s) => s.id === q.source_id)?.url ?? "",

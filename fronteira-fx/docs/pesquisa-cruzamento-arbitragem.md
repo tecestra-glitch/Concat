@@ -58,7 +58,7 @@ Outros avaliados e descartados ou secundários:
 - **Belvo MCPs** (oficial): *Developer MCP* (docs, aberto) e *Data Access MCP* (saldos/transações via Open Finance Brasil, exige conta Belvo e consentimento do usuário), ambos "live" no Brasil e México — https://belvo.com/resources/mcps/ e https://developers.belvo.com/developer_resources/resources-mcp-server . Relevância alta para **ler saldos BRL**.
 - **Binance Skills Hub** (oficial Binance): https://github.com/binance/binance-skills-hub (1.116 ★, push 2026-10-26, sem campo de licença) — inclui skill **p2p** com endpoint público de anúncios (`/bapi/c2c/v1/public/c2c/agent/ad-list`, filtros por fiat/ativo/método de pagamento) — útil para cotar **USDT↔PYG e USDT↔BRL** no P2P sem credenciais.
 - **anthropics/skills** (oficial Anthropic): https://github.com/anthropics/skills — não tem skill de trading/FX; serve como padrão de formato `SKILL.md`.
-- **Alexandria/Firecrawl** (já no `.mcp.json` do projeto): provedores `bcb-gov-br/economic-data/ptax_usd`, `ptax_currency`, `xe-com/exchange-rates/*`, `ecb-europa-eu/fx_rates` — PTAX e XE sem escrever scraper.
+- **Alexandria/Firecrawl** (o servidor `firecrawl` do `.mcp.json` do projeto só sobe com `FIRECRAWL_API_KEY`; em sessões claude.ai as ferramentas Alexandria `mcp__Firecrawl__*` vêm do conector do usuário, não do servidor do projeto): provedores `bcb-gov-br/economic-data/ptax_usd`, `ptax_currency`, `xe-com/exchange-rates/*`, `ecb-europa-eu/fx_rates` — PTAX e XE sem escrever scraper.
 
 **Comunitários**
 
@@ -75,6 +75,11 @@ Outros avaliados e descartados ou secundários:
 | 00xLazy/TradeOS — https://github.com/00xLazy/TradeOS | MIT, 23 ★, TS, push 2026-03 | Skill com "arbitrage scanner net of fees" sobre ccxt e *confirmation gates*; pequeno, mas o desenho (gate de confirmação antes de ordem) é exatamente o nosso modo "aprovado". |
 
 Não existe MCP oficial da **Wise**, **Revolut**, **Nomad** ou **ueno**; as páginas que aparecem em buscas ("revolut business to mcp") são geradores genéricos, não produtos.
+
+**PTAX direto do BCB — referência alternativa (avaliada em 2026-11-02, não instalada)**
+
+- **bcb-br-mcp** — https://github.com/SidneyBissoli/bcb-br-mcp — MIT (código; dados do BCB sob ODbL), npm `bcb-br-mcp@1.19.0` (publicado 2026-10-28), projeto pequeno (cerca de 10 estrelas). Ferramentas `bcb_cambio_cotacao` (PTAX por data e moeda) e `bcb_cambio_moedas`, sem chave, só consulta. É a única lacuna clara da configuração atual: a Frankfurter (já no `.mcp.json`) cobre o BCP, mas não a PTAX direto do BCB para o lado BRL (hoje a PTAX só chega via Alexandria `bcb-gov-br/economic-data/ptax_usd`, que depende do conector Firecrawl). **Não instalado** (nem entrou no `.mcp.json`): fica como referência alternativa. Se for adotado, fixar a versão (`npx -y bcb-br-mcp@1.19.0`, `--scope project`), converter `rate` numérico com `Decimal(str(...))` e tratar o valor como `market_reference` (comparação, nunca aresta executável).
+- Descartados nesta rodada: `frankfurtermcp` (PyPI 0.5.0, redundante com o oficial e sem parâmetro `provider`, então não alcança o BCP); `wesbos/currency-conversion-mcp` (sem licença); `cahthuranag/realtime-exchange-rate-mcp` (exige chave, fonte de dados não verificada); `Ruddxxy/currency-exchange-mcp` (versão hospedada paga). Não existe MCP dedicado ao Banco Central del Paraguay; os dados abertos estão em https://www.datos.gov.py/node/843 e `mcp-bcra` / `mcp-uruguay` (PyPI) servem de molde caso um dia valha escrever um.
 
 ---
 
@@ -154,7 +159,7 @@ Nos bots clássicos o ciclo precisa **voltar** à moeda de partida (A→B→C→
 - `nautilus_trader` (LGPL): opcional; se não for usado como lib, copiar só o **contrato** do RiskEngine (lista de validações e códigos de recusa) e o esquema `client_order_id`/`venue_order_id` + reconciliação no boot.
 - Frankfurter (API e MCP) para BCP/PTAX/ECB históricos; aVolpe/cotizacion e dolarPy como fontes agregadas de fallback (sempre marcando `source` e `observed_at`).
 
-**MCPs a conectar** (no `.mcp.json`, além dos existentes): `frankfurter` (`https://mcp.frankfurter.dev/`, sem chave); Belvo Data Access MCP (quando houver conta) para saldos BRL via Open Finance; `mcp-server-ccxt` apenas em ambiente de pesquisa, só leitura. O MCP próprio `fronteira-fx` deve ganhar as ferramentas `scan_cycles(min_roi, max_settle_hours, places)`, `explain_cycle(id)`, `propose_execution(id, amount)` e `approve(id)`.
+**MCPs a conectar** (no `.mcp.json`, além dos existentes): `frankfurter` (`https://mcp.frankfurter.dev/`, sem chave); Belvo Data Access MCP (quando houver conta) para saldos BRL via Open Finance; `mcp-server-ccxt` **não**: expõe ordens (tickers/orderbook/ordens), o que contraria a regra de nunca executar movimentação financeira — se a fase cripto chegar, usar `ccxt` como biblioteca, só com chamadas de leitura. O MCP próprio `fronteira-fx` deve ganhar as ferramentas `scan_cycles(min_roi, max_settle_hours, places)`, `explain_cycle(id)`, `propose_execution(id, amount)` e `approve(id)`.
 
 **Controles de risco antes de qualquer execução automática** (todos em `Decimal`, persistidos, com auditoria):
 1. Modos em escada: `paper` (saldos fictícios por venue, como o Paper Trade do Hummingbot) → `approve` (toda ordem exige aprovação humana com TTL igual ao `quote_ttl`) → `auto` só por par de venues com API oficial (Revolut Business, Wise, exchanges), nunca para apps de consumidor.

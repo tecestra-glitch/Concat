@@ -62,7 +62,8 @@ def test_latest_per_context_and_filters(db):
     assert len(latest_quotes(db, data_mode="real", city="CDE", lookback_s=None)) == 1
     assert len(latest_quotes(db, data_mode="real", base="BRL", quote="PYG", lookback_s=None)) == 2
     assert len(latest_quotes(db, data_mode="real", source="wu", modality="transfer", lookback_s=None)) == 2
-    assert latest_quotes(db, data_mode="real", lookback_s=60) == rows  # all within lookback
+    # Janela relativa ao NOW fixo das fixtures (lookback_s usaria o relógio real e quebraria o teste).
+    assert latest_quotes(db, data_mode="real", since=NOW - timedelta(seconds=60)) == rows  # all within lookback
 
 
 def test_history_resampling_and_prefix_key(db):

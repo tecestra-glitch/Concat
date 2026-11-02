@@ -1,23 +1,28 @@
 "use client";
-import type { Quote } from "@/lib/api/types";
+import { Landmark } from "lucide-react";
+import type { Currency, Quote, Source } from "@/lib/api/types";
+import { MODALITY_LABEL } from "@/lib/api/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatRate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { formatRateFixed } from "@/components/ui/rate";
+import { pickCardContext } from "./price-context";
 
-/** Best buy / best sell per pair across the filtered quotes. */
-export function PriceCards({ quotes }: { quotes: Quote[] }) {
-  const pairs = [
-    { base: "USD", quote: "PYG" },
-    { base: "BRL", quote: "PYG" },
-    { base: "USD", quote: "BRL" },
-  ] as const;
+const PAIRS: { base: Currency; quote: Currency }[] = [
+  { base: "USD", quote: "PYG" },
+  { base: "BRL", quote: "PYG" },
+  { base: "USD", quote: "BRL" },
+];
+
+/**
+ * Melhor compra / melhor venda por par dentro de UM contexto (modalidade). A referência (BCP) aparece
+ * à parte com "≈" e nunca como melhor preço; cotações por montante ficam fora.
+ */
+export function PriceCards({ quotes, sources }: { quotes: Quote[]; sources: Source[] }) {
+  const name = (id: string) => sources.find((s) => s.id === id)?.name ?? id;
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      {pairs.map((p) => {
-        const list = quotes.filter((q) => q.base === p.base && q.quote === p.quote && q.kind !== "market_reference");
-        const ref = quotes.find((q) => q.base === p.base && q.quote === p.quote && q.kind === "market_reference");
-        const bestBuy = list.filter((q) => q.buy !== null).sort((a, b) => Number(b.buy) - Number(a.buy))[0];
-        const bestSell = list.filter((q) => q.sell !== null).sort((a, b) => Number(a.sell) - Number(b.sell))[0];
+      {PAIRS.map((p) => {
+        const ctx = pickCardContext(quotes, p);
         return (
           <Card key={`${p.base}${p.quote}`} data-testid={`price-card-${p.base}${p.quote}`}>
             <CardHeader className="flex-row items-center justify-between">
@@ -25,11 +30,24 @@ export function PriceCards({ quotes }: { quotes: Quote[] }) {
               <CardDescription>{p.quote} por 1 {p.base}</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3">
-              <Stat label="Melhor compra" value={bestBuy ? formatRate(bestBuy.buy, p.quote) : "—"} sub={bestBuy ? bestBuy.source_id : "sem cotação"} tone="gain" />
-              <Stat label="Melhor venda" value={bestSell ? formatRate(bestSell.sell, p.quote) : "—"} sub={bestSell ? bestSell.source_id : "sem cotação"} tone="loss" />
-              <div className="col-span-2 flex items-center justify-between text-xs text-muted">
-                <span>{list.length} cotações</span>
-                {ref && <Badge variant="accent">Ref. BCP {formatRate(ref.buy, p.quote)}</Badge>}
+              <Stat label="Melhor compra" value={ctx.bestBuy ? formatRateFixed(ctx.bestBuy.buy, p.quote) : "—"} sub={ctx.bestBuy ? name(ctx.bestBuy.source_id) : "sem cotação neste contexto"} />
+              <Stat label="Melhor venda" value={ctx.bestSell ? formatRateFixed(ctx.bestSell.sell, p.quote) : "—"} sub={ctx.bestSell ? name(ctx.bestSell.source_id) : "sem cotação neste contexto"} />
+              <div className="col-span-2 flex flex-wrap items-center justify-between gap-1 text-xs text-muted">
+                <span>
+                  {ctx.modality ? (
+                    <>
+                      {ctx.count} cotaç{ctx.count === 1 ? "ão" : "ões"} · {MODALITY_LABEL[ctx.modality]}
+                      {ctx.otherModalities.length > 0 && <span> · outras: {ctx.otherModalities.map((m) => MODALITY_LABEL[m]).join(", ")}</span>}
+                    </>
+                  ) : (
+                    "sem cotação executável"
+                  )}
+                </span>
+                {ctx.reference && (
+                  <Badge variant="reference" title={`${name(ctx.reference.source_id)} — referência de mercado, não executável`}>
+                    <Landmark className="size-3" aria-hidden /> ≈ {name(ctx.reference.source_id)} {formatRateFixed(ctx.reference.buy, p.quote, { reference: true })}
+                  </Badge>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -39,11 +57,11 @@ export function PriceCards({ quotes }: { quotes: Quote[] }) {
   );
 }
 
-function Stat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: "gain" | "loss" }) {
+function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-wide text-muted">{label}</p>
-      <p className={`tnum text-xl font-semibold ${tone === "gain" ? "text-gain" : "text-loss"}`}>{value}</p>
+      <p className="text-xs text-muted">{label}</p>
+      <p className="tnum text-xl font-semibold">{value}</p>
       <p className="truncate text-xs text-muted">{sub}</p>
     </div>
   );
