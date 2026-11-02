@@ -173,6 +173,7 @@ Fórmula: `diffPct(direto, implícito) = (direto / implícito − 1) · 100`.
 
 Regras:
 
+- As pernas vêm da casa selecionada, na mesma cidade e na mesma modalidade (dinheiro com dinheiro, conta com conta): o contexto da cotação não se mistura. Se a série selecionada é uma referência, o cartão usa a casa padrão do par.
 - Se falta Compra ou Venda em qualquer perna, o cruzamento fica sem valor e aparece o aviso "incompleto".
 - Se uma perna tem mais de 24 horas, ela aparece como desatualizada.
 - O cruzamento é **informativo**. Não é cotação, não é oferta e não é executável.
@@ -230,7 +231,8 @@ Regras:
 - **Seleção única** (intervalo e par) é um `radiogroup`, com setas, Home e End. Os indicadores são uma `toolbar` de botões `aria-pressed`.
 - **Abas no celular**: `tablist` com setas, Home e End. Os painéis continuam `section`, sem `role="tabpanel"`, porque a mesma árvore serve ao desktop.
 - **Tabelas** têm `th scope="col"`. A ordenação é um botão com `aria-sort` dentro do cabeçalho. Linhas selecionáveis respondem a Enter e Espaço.
-- **Gráfico** é uma `figure role="img"` com resumo textual em `sr-only`. A legenda é uma lista rotulada.
+- **Gráfico** é uma `figure` com `figcaption` em `sr-only` (resumo textual), sem papel de imagem: a biblioteca põe um link de atribuição dentro do gráfico e o estado de erro tem o botão "Tentar de novo", e controles dentro de uma imagem ficariam inacessíveis. A legenda é uma lista rotulada.
+- **Casa fechada** leva o rótulo "fechada" (e `data-status="closed"`); no mapa de spread, a célula ganha contorno tracejado. Nada é esmaecido com opacidade, que derrubaria o contraste do texto abaixo de 4,5:1.
 - **Sem `aria-live`** na fita e nas últimas atualizações, porque elas mudam a cada minuto. O estado de conexão e o modo demonstração são anunciados pelo aviso global.
 - **Movimento**: a fita rolante pausa com foco ou mouse e vira lista estática com `prefers-reduced-motion`. O flash de linha nova só existe com `motion-safe:`.
 - **Sequência de foco**: cabeçalho, controles (intervalo, par, indicadores), gráfico, livro, últimas atualizações, lista e fita.

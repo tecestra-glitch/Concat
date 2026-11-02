@@ -44,7 +44,7 @@ Visão geral da tela e das regras de negócio: `docs/pregao.md`.
 | `latest-prints.tsx` | `LatestPrints`, `printTime`, `LatestPrintsProps` | Últimas atualizações (cotações publicadas recentes) |
 | `session-clock.tsx` | `SessionClock`, `clockText`, `DEFAULT_ZONES`, `ClockZone`, `SessionClockProps` | Relógios das praças; puro, recebe `now` |
 | `market-status.tsx` | `MarketStatus`, `summarizeSessions`, `formatCountdown`, `SessionSummary`, `MarketStatusProps` | Status agregado das casas e contagem regressiva; puro, recebe `now` |
-| `stats-strip.tsx` | `StatsStrip`, `statsCells`, `rangePosition`, `STALE_AFTER_MS`, `StatsStripProps` | Faixa com as oito estatísticas do dia |
+| `stats-strip.tsx` | `StatsStrip`, `statsCells`, `rangePosition`, `STALE_AFTER_MS`, `StatsStripProps` | Faixa com as oito estatísticas do dia; colunas pela largura do próprio bloco (`@container`) |
 | `spread-heatmap.tsx` | `SpreadHeatmap`, `heatStep`, `heatCellLabel`, `HEAT_LEGEND`, `HeatStep` | Mapa de calor de spread por casa e par |
 | `cross-rate-card.tsx` | `CrossRateCard`, `crossState`, `fmtPyg`, `CrossRateCardProps` | Cartão de cruzamento BRL/PYG via USD, dentro da mesma casa |
 | `shortcuts-help.tsx` | `ShortcutsHelp`, `ShortcutsList`, `groupBindings`, `keyLabel`, `ShortcutsHelpProps` | Diálogo de atalhos (`Dialog` Radix) e a lista `<dl>` pura |
@@ -74,7 +74,9 @@ Os testes de componentes ficam em `src/components/pregao/__tests__/` e são feit
 | `prints-store.ts` | `PRINTS_MAX`, `pushPrint`, `diffQuotes`, `subscribe`, `getSnapshot`, `startPrintsFeed`, `resetPrintsForTests` | Store das últimas atualizações, sem React |
 | `use-prints.ts` | `usePrints`, `useDemoPrints`, `usePrintsFor`, `usePrintsFeed` | Hooks das últimas atualizações nos dois modos |
 | `use-hotkeys.ts` | `HotkeyBinding`, `isTextTarget`, `inDialog`, `matchHotkey`, `useHotkeys`, `buildPregaoBindings` | Atalhos de teclado da página do pregão |
-| `prefs.ts` | `PregaoPrefs`, `DEFAULT_PREFS`, `PREFS_KEY`, `usePregaoPrefs`, `updatePregaoPrefs` | Preferências de intervalo e indicadores (`fx.pregao.prefs`), com `useSyncExternalStore` |
+| `prefs.ts` | `PregaoPrefs`, `DEFAULT_PREFS`, `PREFS_KEY`, `parsePrefs`, `readPregaoPrefs`, `subscribePregaoPrefs`, `usePregaoPrefs`, `updatePregaoPrefs` | Preferências de intervalo e indicadores (`fx.pregao.prefs`), com `useSyncExternalStore`; valor gravado inválido volta ao padrão |
+| `use-pregao-quotes.ts` | `pregaoQuotesFor`, `usePregaoQuotes`, `PregaoQuotes` | Cotações e fontes da tela no modo atual; em demo, `demoQuotesAt(now)` com o relógio da tela |
+| `view.ts` | `buildPregaoView`, `cyclePair`, `PregaoView`, `PregaoViewInput`, `PregaoReference`, `PregaoCross` | Derivações da tela: níveis por par, série escolhida, chaves do resumo e das miniaturas, casas do mapa, linha de referência e pernas do cruzamento (mesma casa, cidade e modalidade; referência nunca é perna) |
 
 Os testes ficam em `src/lib/pregao/__tests__/`. Hooks são testados pelas suas `*QueryOptions` puras.
 

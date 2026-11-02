@@ -56,7 +56,7 @@ const stripDemo = (id: string) => (id.startsWith("demo-") ? id.slice(5) : id);
 /** Segmento `[3]` da chave (`fonte:cidade:PAR:modalidade…`). */
 const modalityOf = (key: string) => key.split(":")[3] ?? "";
 
-/** Próximo par na ordem de `PAIRS`, dando a volta nos dois sentidos. */
+/** Próximo par na sequência de `PAIRS`, dando a volta nos dois sentidos. */
 export function cyclePair(pair: PairKey, dir: 1 | -1): PairKey {
   const i = PAIRS.indexOf(pair);
   return PAIRS[(i + dir + PAIRS.length) % PAIRS.length];

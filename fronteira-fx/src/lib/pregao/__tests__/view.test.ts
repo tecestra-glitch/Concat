@@ -98,7 +98,7 @@ describe("buildPregaoView — chaves, mapa de calor e referência", () => {
     expect(v.houseKeys).toEqual(v.levels.filter((l) => l.kind !== "market_reference").map((l) => l.key));
   });
 
-  it("heatHouses: casas únicas na ordem de aparição, sem referência", () => {
+  it("heatHouses: casas únicas na sequência em que aparecem, sem referência", () => {
     const v = buildPregaoView({ ...demo(), pair: "USD/PYG", selectedKey: null });
     const ids = v.heatHouses.map((h) => h.source_id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -164,7 +164,7 @@ describe("buildPregaoView — cruzamento BRL/PYG via USD (mesma casa, mesmo cont
 });
 
 describe("cyclePair", () => {
-  it("anda na ordem de PAIRS e dá a volta nos dois sentidos", () => {
+  it("anda na sequência de PAIRS e dá a volta nos dois sentidos", () => {
     expect(cyclePair("USD/PYG", 1)).toBe("BRL/PYG");
     expect(cyclePair("BRL/PYG", 1)).toBe("USD/BRL");
     expect(cyclePair("USD/BRL", 1)).toBe("USD/PYG");
