@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -44,3 +45,23 @@ next-env.d.ts
 /dev/
 /design-system/
 .local/
+
+# database backups and dumps (backend/scripts/backup.sh)
+backups/
+*.dump
+
+# local databases
+*.db
+*.sqlite3
+
+# test artifacts (Playwright, coverage)
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
+junit.xml
+.coverage
+htmlcov/
+
+# agent-browser session file
+agent-browser.json
