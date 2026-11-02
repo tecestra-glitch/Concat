@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from fronteira_fx.watch import router as router_mod
+import fronteira_fx.watch as router_mod
 from fronteira_fx.watch.router import get_service, router
 from fronteira_fx.watch.scheduler import Scheduler, SchedulerConfig
 from fronteira_fx.watch.service import WatchService

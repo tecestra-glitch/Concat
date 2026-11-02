@@ -26,7 +26,7 @@ from .schemas import Change
 
 LAYOUT_DROP_RATIO = 0.5  # quote count below 50 % of the previous poll -> layout_change
 _FAILED_PARSE = {AdapterStatus.DEGRADED, AdapterStatus.ERROR}
-_CONTEXT_ORDER = ("payment", "receive", "bank", "promo")
+_CONTEXT_ORDER = ("payment", "receive", "bank")
 
 
 # --------------------------------------------------------------------------- canonical form
@@ -191,10 +191,17 @@ def _change(
     )  # type: ignore[arg-type]
 
 
+_FETCH_FAILED = {str(AdapterStatus.BLOCKED), str(AdapterStatus.ERROR), str(AdapterStatus.STALE)}
+
+
 def is_layout_change(before: Snapshot, after: Snapshot) -> bool:
     before_status, after_status = before.status, after.status
     if before_status == AdapterStatus.OK and after_status in {str(s) for s in _FAILED_PARSE}:
         return True
+    # Quote-count drop only signals layout change when the adapter actually parsed a page;
+    # blocked/error/stale states produce 0 quotes because the fetch failed, not layout.
+    if after_status in _FETCH_FAILED:
+        return False
     n_before, n_after = len(before.quotes), len(after.quotes)
     return n_before > 0 and n_after < n_before * LAYOUT_DROP_RATIO
 

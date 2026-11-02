@@ -124,7 +124,7 @@ def anyio_backend() -> str:
 
 @pytest.fixture(autouse=True)
 def _reset_router_service() -> Iterator[None]:
-    from fronteira_fx.watch import router as router_mod
+    import fronteira_fx.watch as router_mod
 
     router_mod.set_service(None)
     yield
