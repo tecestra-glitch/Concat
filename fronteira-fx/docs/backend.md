@@ -6,8 +6,12 @@ Backend do terminal pessoal de câmbio BRL/USD/PYG. Implementa o contrato em `do
 - API REST `/v1/*` + SSE `/v1/stream` + snapshot `/v1/snapshot`
 - Motor financeiro determinístico (`Decimal`, precisão 28, arredondamento só na apresentação)
 - Coletor (adapters → cotações + evidências + eventos) com backoff por fonte
-- MCP em `/mcp` (fastapi‑mcp) com as ferramentas `list_sources`, `get_quotes`, `request_quote`,
-  `get_history`, `compare_routes`, `simulate_cycle`, `search_evidence`
+- Grafo de posições e ciclos a partir de saldos estacionados (`/v1/opportunities/cycles`)
+- Módulos `watch` (sondagem inteligente + log de mudanças), `notify` (regras de alerta: ui/telegram/webhook/email),
+  `rag` (corpus com busca lexical) e `memory` (memória do agente)
+- MCP em `/mcp` (fastapi‑mcp): `list_sources`, `get_quotes`, `request_quote`, `get_history`, `compare_routes`,
+  `simulate_cycle`, `find_cycles`, `search_evidence`, `watch_status`, `list_changes`, `trigger_poll`,
+  `list_alert_rules`, `create_alert_rule`, `search_knowledge`, `remember`, `recall`, `forget`
 - Modo demo isolado (`data_mode="demo"` em todas as linhas; nunca misturado com dados reais)
 
 Código: `backend/src/fronteira_fx/`
@@ -16,10 +20,11 @@ Código: `backend/src/fronteira_fx/`
 config.py          settings (pydantic-settings) — variáveis de ambiente abaixo
 db.py / models.py  SQLAlchemy 2.0 (SQLite para dev/testes, Postgres+pgvector no compose)
 schemas.py         Pydantic v2 espelhando o contrato (Decimal → string)
-engine/            positions, routes, ranking, search, volatility, cards  (puro, sem I/O)
-services/          events (cursor/replay/410), quotes, history, opportunities, collector, worker, demo
-api/               routers /v1 (health, sources, quotes, history, accounts, simulations,
-                   opportunities, evidence, journal, snapshot, stream)
+engine/            positions, routes, ranking, search, volatility, cards, graph  (puro, sem I/O)
+services/          events (cursor/replay/410), quotes, history, opportunities, cycles, watch, alerts, rag,
+                   collector, worker, demo
+api/               routers /v1 (health, sources, quotes, history, accounts, simulations, opportunities[/cycles],
+                   evidence, journal, snapshot, stream, watch, alerts, rag, memory)
 mcp.py             montagem do servidor MCP
 main.py            create_app() / app
 alembic/           migrações (0001_initial)
@@ -76,13 +81,17 @@ uv run pytest -q
 | `STREAM_HEARTBEAT_S` | `15` | heartbeat SSE |
 | `QUOTES_LOOKBACK_S` | `604800` | janela do "mais recente por contexto" |
 | `EVIDENCE_DIR` | `./var/evidence` | onde o worker guarda payloads brutos |
+| `WATCH_MIN_INTERVAL_S` / `WATCH_MAX_INTERVAL_S` | `60` / `900` | limites do intervalo adaptativo por fonte |
+| `TELEGRAM_BOT_TOKEN` | vazio | canal `telegram` dos alertas (target = chat_id) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_STARTTLS` | — / `587` / — / — / — / `true` | canal `email` |
+| `ALERT_HTTP_TIMEOUT_S` | `10` | timeout de webhook/telegram/smtp |
 
 ## Stream SSE (`/v1/stream`)
 
 - `GET /v1/snapshot` devolve `cursor`; conecte com `GET /v1/stream?cursor=<n>` (ou header
   `Last-Event-ID`, que o `EventSource` envia sozinho ao reconectar).
 - Cada evento tem `id:` (cursor) e `data:` = `StreamEvent` JSON (`type`: `quote.updated`,
-  `source.health`, `opportunity.updated`, `heartbeat`). Não é enviado o campo `event:`, então
+  `source.health`, `opportunity.updated`, `source.change`, `alert.fired`, `heartbeat`). Não é enviado o campo `event:`, então
   `EventSource.onmessage` recebe tudo.
 - `410 Gone` quando o cursor é anterior à janela retida → refaça o snapshot.
 - A conexão fecha de forma limpa após `STREAM_MAX_DURATION_S`; o cliente reconecta com o último id.
@@ -114,6 +123,38 @@ bisseciona onde o vencedor ou o sinal do ROI muda (≤ 12 avaliações) → `sea
 relativos à pior rota comparável (referência).
 
 `POST /v1/simulations/cycle` simula passos explícitos (ferramenta MCP `simulate_cycle`).
+
+### Grafo de posições (`GET /v1/opportunities/cycles?max_len=4&min_roi=&start=`)
+
+Nós `<moeda>@<venue>` (venue = id da fonte digital, `fonte:cidade` para casas de câmbio, instituição da conta ou
+`cash:<cidade>`). Arestas: cotações (`buy`/`1/sell`, taxas fixas convertidas para a moeda de saída), depósitos/resgates
+conta↔venue digital, balcão `cash:<cidade>`↔casa de câmbio e saques/depósitos em ATM (custos não validados ⇒
+`incomplete`). Ciclos simples de 2..`max_len` arestas são avaliados com o saldo livre do nó inicial
+(`x = x·(1−feePct)·rate − feeFixed`), melhor ROI primeiro. Como no contrato, `Cycle`/`Edge` usam camelCase e números JSON.
+
+## Módulo `watch` (sondagem inteligente)
+
+Estado por fonte em `watch_states` (`GET /v1/watch/sources`): intervalo adaptativo entre `min_interval_s` e
+`max_interval_s` — mudança real de preço ⇒ intervalo/2; nada mudou ⇒ ×1,5; erro/bloqueio ⇒ dobra (teto `BACKOFF_MAX_S`).
+`content_hash` = sha256 da evidência (mesma página ⇒ sem novos eventos). Mudanças (`quote_change` com `before/after`,
+`layout_change`, `status_change`) ficam em `changes` (`GET /v1/watch/changes?source=&from=&kind=`) e saem no stream como
+`source.change`. `POST /v1/watch/sources/{id}` ajusta `interval_s`/`enabled`; `POST /v1/watch/run/{id}` sonda agora e
+devolve a primeira `Change` (ou `null`).
+
+## Módulo `notify` (alertas)
+
+`/v1/alerts/rules` (CRUD) com `kind`: `cycle_roi` (melhor ciclo do ranking principal ≥ `threshold`; `params.capital`
+opcional), `quote_move` (variação relativa ≥ `threshold` numa `Change`; `params.pair`/`city`), `source_down`
+(fonte passou a blocked/error/needs_session), `opportunity_new` (nova oportunidade no ranking principal). Avaliadas
+após cada coleta, com `cooldown_s`. Canais: `ui` (só grava), `webhook` (POST JSON), `telegram` (Bot API), `email`
+(SMTP). Eventos em `/v1/alerts/events` e no stream (`alert.fired`); `POST /v1/alerts/test/{id}` envia um teste.
+
+## Módulos `rag` e `memory`
+
+`POST /v1/rag/documents` divide o texto em chunks (`document_chunks`) e `GET /v1/rag/search?q=&k=&tag=` faz busca
+lexical tf‑idf (sem acentos, stopwords pt/es/en). As colunas `embedding` (pgvector) existem, mas nenhum provedor de
+embeddings está ligado ainda. Cotações e cálculos nunca vêm do RAG. `/v1/memory` guarda
+`preference|decision|fact|outcome` com tags e `ttl_days`; `GET` filtra por texto/kind/tag e ignora expiradas.
 
 ## Docker Compose (Postgres + pgvector, API, worker)
 

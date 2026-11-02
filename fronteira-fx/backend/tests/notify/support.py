@@ -18,7 +18,7 @@ def make_rule(**overrides: Any) -> AlertRule:
         "id": "r1",
         "name": "regra de teste",
         "kind": "cycle_roi",
-        "threshold": D("0.002"),
+        "threshold": D("0.001"),
         "params": None,
         "channel": "ui",
         "target": None,
@@ -141,3 +141,7 @@ class FakeChannel:
             raise self.exc
         if self.error is not None:
             raise ChannelError(self.error)
+
+
+def make_event(channel: str = "ui", message: str = "Ciclo BRL@a → BRL@a: +R$ 1,00 (0,100 %) em 0 min") -> AlertEvent:
+    return AlertEvent(id="e-1", rule_id="r1", ts=NOW, message=message, payload={"x": 1}, channel=channel)

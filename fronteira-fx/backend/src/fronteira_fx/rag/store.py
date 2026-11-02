@@ -303,7 +303,10 @@ class SqlStore:
         if ids is not None and not ids:
             return []
         if self._pgvector:
-            return self._nearest_pgvector(vector, model=model, limit=limit, ids=ids)
+            stmt = nearest_statement_pgvector(vector, model=model, limit=limit, ids=ids)
+            with self._sessions() as session:
+                rows = session.execute(stmt).all()
+            return [(row.id, float(row.similarity)) for row in rows]
         stmt = select(ChunkRow.id, ChunkRow.embedding).where(ChunkRow.embedding_model == model)
         if ids is not None:
             stmt = stmt.where(ChunkRow.document_id.in_(ids))
@@ -317,21 +320,20 @@ class SqlStore:
         scored.sort(key=lambda item: (-item[1], item[0]))
         return scored[:limit]
 
-    def _nearest_pgvector(
-        self, vector: Sequence[float], *, model: str, limit: int, ids: list[str] | None
-    ) -> list[tuple[str, float]]:
-        distance = ChunkRow.embedding.op("<=>", return_type=Float)(list(vector))
-        stmt = (
-            select(ChunkRow.id, (1 - distance).label("similarity"))
-            .where(ChunkRow.embedding_model == model)
-            .order_by(distance)
-            .limit(limit)
-        )
-        if ids is not None:
-            stmt = stmt.where(ChunkRow.document_id.in_(ids))
-        with self._sessions() as session:
-            rows = session.execute(stmt).all()
-        return [(row.id, float(row.similarity)) for row in rows]
+def nearest_statement_pgvector(
+    vector: Sequence[float], *, model: str, limit: int, ids: Collection[str] | None
+) -> Any:
+    """SELECT id, 1 - (embedding <=> :vector) ORDER BY distância. Usa o operador de cosseno do pgvector."""
+    distance = ChunkRow.embedding.op("<=>", return_type=Float)(list(vector))
+    stmt = (
+        select(ChunkRow.id, (1 - distance).label("similarity"))
+        .where(ChunkRow.embedding_model == model)
+        .order_by(distance)
+        .limit(limit)
+    )
+    if ids is not None:
+        stmt = stmt.where(ChunkRow.document_id.in_(list(ids)))
+    return stmt
 
 
 def _document_row(document: DocumentRecord) -> DocumentRow:

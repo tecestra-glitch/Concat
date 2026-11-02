@@ -109,14 +109,15 @@ def test_forget_rule_clears_cooldown_and_observations():
 
 
 def _quote_rule(threshold: str = "0.002", **overrides):
-    return make_rule(
-        id="q1",
-        kind="quote_move",
-        threshold=D(threshold),
-        params={"pair": "USD/PYG", "city": "CDE"},
-        cooldown_s=0,
-        **overrides,
-    )
+    fields = {
+        "id": "q1",
+        "kind": "quote_move",
+        "threshold": D(threshold),
+        "params": {"pair": "USD/PYG", "city": "CDE"},
+        "cooldown_s": 0,
+    }
+    fields.update(overrides)
+    return make_rule(**fields)
 
 
 def test_quote_move_first_observation_sets_baseline_only():
