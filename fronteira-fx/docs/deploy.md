@@ -50,7 +50,10 @@ uma VPS com Docker, etc. Exponha a API em HTTPS e aponte `NEXT_PUBLIC_API_URL` p
 
 2. **Como `DATABASE_URL` é lida.** Em `backend/src/fronteira_fx/config.py`, `Settings` é
    `pydantic-settings` com `env_file=".env"` (caminho relativo ao diretório de execução: rode os
-   comandos a partir de `backend/`) e `extra="ignore"`. O campo `database_url: str` (padrão
+   comandos a partir de `backend/`) e `extra="ignore"`. O modelo `backend/.env.example` (só placeholders,
+   nenhum valor real) fica rastreado de propósito, apesar da regra `.env*` do `.gitignore`: ele foi
+   adicionado com `git add -f`; se precisar recriá-lo, faça o mesmo. Copie-o para `backend/.env`, que
+   nunca entra no Git. O campo `database_url: str` (padrão
    `sqlite:///./var/fx.db`) vem da variável `DATABASE_URL`. `auto_create_schema: bool = True` vem de
    `AUTO_CREATE_SCHEMA`. `is_sqlite` é `database_url.startswith("sqlite")`. O `alembic/env.py` lê o
    mesmo `get_settings().database_url`. O `docker-compose.yml` já monta
@@ -62,8 +65,8 @@ uma VPS com Docker, etc. Exponha a API em HTTPS e aponte `NEXT_PUBLIC_API_URL` p
    **Por que não o modo transação (porta 6543).** O `psycopg` 3 cria comandos preparados no servidor a
    partir da 5ª execução, e o pooler em modo transação não os suporta. Habilitar o modo transação
    exigiria `connect_args={"prepare_threshold": None}` no `create_engine`, uma mudança de código fora
-   desta seção, registrada em `dev/spec-pregao.md` §0.17 (dúvida 8). Até lá, o modo transação não é
-   suportado.
+   desta seção, registrada como pendência em `docs/pregao.md` (seção "Pendências"). Até lá, o modo
+   transação não é suportado.
 
    Exemplo de URL, com placeholders:
 

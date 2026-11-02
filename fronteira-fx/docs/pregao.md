@@ -251,3 +251,14 @@ Em modo `demo`, a tela mostra a marca d'água **DEMONSTRAÇÃO** e a nota "Demon
 - **Atualizações demo** são variações pequenas das cotações demo, listadas do mais novo para o mais antigo.
 
 Os valores são ilustrativos. Não use a tela demo para decidir nada.
+
+## Pendências
+
+Decisões registradas na integração do pregão, para uma rodada futura. Nenhuma delas muda o contrato de `docs/api-contract.md`.
+
+- **Aritmética decimal no cliente**: `src/lib/pregao/candles.ts` agrega o histórico em ponto flutuante e serializa com `toFixed(8)`; `impliedBrlPyg` e `diffPct` (`src/lib/pregao/cross.ts`) dividem em `number` antes de voltar a string decimal. O backend continua sendo a referência (`Decimal`); no cliente, isso só alimenta o gráfico e os cartões. Trocar por aritmética decimal quando houver biblioteca escolhida.
+- **Spread negativo (livro cruzado)**: `spread_avg` mantém o sinal; o mapa de calor (`heatStep`) mapeia valores negativos para o degrau 1, o mesmo do spread mais estreito. Falta um tratamento visual próprio para livro cruzado.
+- **Contagem regressiva**: `formatCountdown` arredonda para cima; entre 59 min e 1 s e 60 min aparece "1 h 00 min".
+- **Horários com abertura antes das 00:30**: uma casa (não 24 h) com `opens` anterior a `00:30` pode receber `next_change_at` no passado durante a pré-abertura. Nenhuma casa cadastrada é afetada.
+- **Supabase em modo transação (porta 6543)**: exigiria `connect_args={"prepare_threshold": None}` no `create_engine` do backend. Enquanto não houver essa mudança, `docs/deploy.md` manda usar o pooler em modo sessão (porta 5432).
+- **Store de últimas atualizações**: `prints-store.ts` é global; ao trocar `real` → `demo` → `real`, as atualizações reais somem e voltam, sem se misturar com as demo.

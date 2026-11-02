@@ -26,7 +26,7 @@ Source {
   "capabilities": ["branch_table","buy_sell","usd_pyg","brl_pyg"],
   "limitations": ["sem API oficial", "cotação por filial requer navegador"],
   "coverage": { "cities": ["CDE","ASU"], "currencies": ["USD","BRL","PYG"] },
-  "poll_interval_s": 300, "data_mode": "real|demo"
+  "poll_interval_s": 300, "data_mode": "real|simulation|demo"
 }
 Branch { "id": "chaco-cde-centro", "source_id": "chaco", "name": "...", "city": "CDE", "address": "string|null" }
 Quote {
@@ -39,7 +39,7 @@ Quote {
   "context": { "payment": "pix", "receive": "bank_account", "bank": null, "promo": "fee_100_off" } | null,
   "fees": [{ "label": "tarifa", "amount": "0", "currency": "BRL" }],
   "captured_at": "...", "declared_updated_at": "...|null", "valid_until": "...|null",
-  "evidence_id": "uuid", "data_mode": "real|demo"
+  "evidence_id": "uuid", "data_mode": "real|simulation|demo"
 }
 HistoryPoint { "t": "...", "buy": "7300|null", "sell": "7450|null", "mid": "7375|null" }
 HistorySeries { "key": "chaco:CDE:USD/PYG:cash", "points": [HistoryPoint] }
@@ -64,7 +64,7 @@ Opportunity {
   "effective_rate": "1080.37", "valuation_currency": "BRL",
   "steps": [RouteStep], "confidence": "quoted", "pending_costs": ["IOF confirmar"],
   "in_main_ranking": true, "ranking_reason": "digital com ganho líquido positivo",
-  "comparable_best_digital_roi": "0.0071|null", "computed_at": "...", "data_mode": "real|demo"
+  "comparable_best_digital_roi": "0.0071|null", "computed_at": "...", "data_mode": "real|simulation|demo"
 }
 Evidence { "id": "uuid", "source_id": "chaco", "kind": "html|screenshot|json|manual", "url": "...", "captured_at": "...", "sha256": "...", "excerpt": "string", "rules": ["parser chaco v1"] }
 JournalEntry { "id": "uuid", "ts": "...", "kind": "note|operation|reconciliation", "text": "...", "amounts": [Fee], "account_ids": [] }
@@ -186,7 +186,7 @@ Exemplo de `HouseSession` para `GET /v1/pregao/sessions` (segunda-feira, 12:00Z,
 - `mid = (buy + sell) / 2` quando os dois lados existem; o lado presente quando só um existe; cotação sem nenhum lado é ignorada.
 - Buckets alinhados ao epoch Unix em UTC (o dia começa às 00:00Z): `bucket_start(ts) = epoch(ts) − epoch(ts) mod grid_s`, com `grid_s` = 900 (`15m`), 3600 (`1h`), 14400 (`4h`) e 86400 (`1d`). Uma cotação pertence ao bucket `B` quando `B ≤ captured_at < B + grid_s`.
 - Buckets vazios não são emitidos: sem preenchimento e sem repetir o último `c`. A sequência sai crescente por `t`, sem `t` repetido.
-- Campos por bucket: `o` é o primeiro mid, `c` o último, `h` o máximo e `l` o mínimo; `n` conta as cotações com mid; `spread_avg` é a média de `sell − buy` nas cotações com os dois lados (`null` se nenhuma); `buy_c` e `sell_c` são o último buy e o último sell não nulos (`null` se nenhum). Os três campos nulos são sempre emitidos, nunca omitidos.
+- Campos por bucket: `o` é o primeiro mid, `c` o último, `h` o máximo e `l` o mínimo; `n` conta as cotações com mid; `spread_avg` é a média de `sell − buy` nas cotações com os dois lados (`null` se nenhuma), com sinal: negativo indica livro cruzado (Compra acima da Venda); `buy_c` e `sell_c` são o último buy e o último sell não nulos (`null` se nenhum). Os três campos nulos são sempre emitidos, nunca omitidos.
 - Sem arredondamento na agregação. Na saída, os decimais têm até 8 casas, com arredondamento ROUND_HALF_EVEN e sem zeros à direita (`"7335"`, não `"7335.00000000"`).
 
 ### Resumo da sessão — `GET /v1/pregao/stats`
@@ -197,7 +197,7 @@ Exemplo de `HouseSession` para `GET /v1/pregao/sessions` (segunda-feira, 12:00Z,
 - Janela: `day_start ≤ captured_at ≤ now`, considerando só cotações com mid não nulo.
 - `open`, `high`, `low` e `last` são o primeiro, o máximo, o mínimo e o último mid da janela; `last_at` é o `captured_at` do último.
 - `change_abs = last − open`. `change_pct = (last − open) / open · 100`, em string já multiplicada por 100; é `null` se `open` for nulo ou zero.
-- `n_quotes` conta as cotações com mid na janela. `spread_avg` é a média de `sell − buy` nas cotações com os dois lados (diferença absoluta na moeda de cotação, não percentual).
+- `n_quotes` conta as cotações com mid na janela. `spread_avg` é a média de `sell − buy` nas cotações com os dois lados (diferença na moeda de cotação, não percentual, com sinal: negativo indica livro cruzado, Compra acima da Venda).
 - `houses` conta as casas distintas (`source_id`) com cotação do mesmo par (segmento `[2]` da chave), no mesmo `data_mode` e na mesma janela, em qualquer cidade e modalidade. Cotações com `kind: market_reference` ficam de fora.
 - Sem cotações na janela: os campos decimais e `last_at` são `null`; `n_quotes` é `0`; `houses` é `0`.
 
