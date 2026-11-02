@@ -98,6 +98,10 @@ def _declared(text: str, issues: list[str]) -> datetime | None:
 
 
 class MaxiCambiosAdapter:
+    # B8/Q-05: `fetch` is one GET of `info.url` + `parse`, so scheduled polls let the collector do a conditional
+    # GET (If-None-Match / If-Modified-Since) and a 304 skips parsing. On-demand calls with params still use fetch.
+    conditional_get = True
+
     info = AdapterInfo(
         id="maxicambios",
         name="MaxiCambios",

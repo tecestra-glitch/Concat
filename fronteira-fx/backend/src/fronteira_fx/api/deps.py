@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+import hmac
 from collections.abc import Iterator
 from typing import Annotated
 
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from ..config import Settings
+from ..config import DataMode, Settings
 from ..services.collector import Collector
+
+LIKE_ESCAPE = "\\"
+
+
+def like_literal(value: str) -> str:
+    """Make `value` a literal LIKE fragment: `%`, `_` and the escape char itself lose their meaning."""
+    escaped = value.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2)
+    return escaped.replace("%", f"{LIKE_ESCAPE}%").replace("_", f"{LIKE_ESCAPE}_")
 
 
 def get_settings_dep(request: Request) -> Settings:
@@ -41,6 +50,29 @@ def get_data_mode(settings: SettingsDep) -> str:
 DataModeDep = Annotated[str, Depends(get_data_mode)]
 
 
+def require_instance_mode(
+    settings: SettingsDep,
+    data_mode: Annotated[
+        DataMode | None,
+        Query(
+            description=(
+                "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir "
+                "do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+            ),
+        ),
+    ] = None,
+) -> None:
+    """SEC-01: modes never mix. Mounted on every /v1 router except `/v1/health` (how a client learns the mode)."""
+    if data_mode is not None and data_mode != settings.data_mode:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"esta instância serve data_mode={settings.data_mode}; o pedido declarou data_mode={data_mode}. "
+                "Os modos nunca se misturam: aponte para uma instância nesse modo ou mude a preferência."
+            ),
+        )
+
+
 def get_collector(request: Request) -> Collector:
     return request.app.state.collector
 
@@ -48,13 +80,18 @@ def get_collector(request: Request) -> Collector:
 CollectorDep = Annotated[Collector, Depends(get_collector)]
 
 
+def _same_secret(given: str, expected: str) -> bool:
+    """Constant-time comparison (SEC-08): the response time never tells how much of the key matched."""
+    return hmac.compare_digest(given.encode(), expected.encode())
+
+
 def api_key_matches(settings: Settings, x_api_key: str | None, authorization: str | None) -> bool:
     if not settings.api_key:
         return True
-    if x_api_key == settings.api_key:
+    if x_api_key is not None and _same_secret(x_api_key, settings.api_key):
         return True
     if authorization and authorization.lower().startswith("bearer "):
-        return authorization[7:].strip() == settings.api_key
+        return _same_secret(authorization[7:].strip(), settings.api_key)
     return False
 
 

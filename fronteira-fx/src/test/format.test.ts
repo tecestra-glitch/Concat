@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageSeconds, formatAge, formatMoney, formatPercent, formatRate, parseDecimalPtBR, significantFractionDigits } from "@/lib/format";
+import { ageSeconds, formatAge, formatBoundary, formatFee, formatMoney, formatPercent, formatRate, parseDecimalPtBR, significantFractionDigits } from "@/lib/format";
 
 describe("formatMoney (pt-BR)", () => {
   it("formats BRL with 2 decimals", () => {
@@ -88,5 +88,23 @@ describe("formatAge / ageSeconds take an explicit clock", () => {
   it("ageSeconds uses the same clock", () => {
     expect(ageSeconds("2026-11-02T11:58:30Z", now)).toBe(90);
     expect(ageSeconds(null, now)).toBeNull();
+  });
+});
+
+describe("formatFee (Q-03)", () => {
+  it("shows the fixed part, the percentage or both, never «R$ NaN»", () => {
+    expect(formatFee({ label: "tarifa", amount: "9.9", currency: "BRL" })).toBe(`tarifa: ${formatMoney("9.9", "BRL")}`);
+    expect(formatFee({ label: "spread", amount: null, currency: "BRL", pct: "0.015" })).toBe("spread: 1,50 %");
+    expect(formatFee({ label: "envio", amount: "5", currency: "USD", pct: "0.01" })).toBe(`envio: ${formatMoney("5", "USD")} + 1,00 %`);
+    expect(formatFee({ label: "a confirmar", amount: null, currency: "BRL", pct: null })).toBe("a confirmar: —");
+  });
+});
+
+describe("formatBoundary (Q-09/MED-02)", () => {
+  it("renders the contract's Boundary object, never «[object Object]»", () => {
+    const b = { low: "10000", high: "25000", low_winner: "chaco", high_winner: "alberdi", low_roi_sign: "+", high_roi_sign: "+", reason: "vencedor muda", refined: true };
+    const text = formatBoundary(b);
+    expect(text).toBe(`${formatMoney("10000", "BRL")}–${formatMoney("25000", "BRL")}: vencedor muda`);
+    expect(text).not.toContain("[object");
   });
 });

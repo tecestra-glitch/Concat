@@ -89,7 +89,7 @@ describe("fetchCandles", () => {
   it("real mode builds the URL, sends JSON headers and returns the validated series", async () => {
     fetchMock.mockResolvedValueOnce(response(200, SERIES));
     const s = await fetchCandles("real", "k", "1h", { limit: 10 });
-    expect(urlOf(0).endsWith("/v1/candles?key=k&tf=1h&limit=10")).toBe(true);
+    expect(urlOf(0).endsWith("/v1/candles?key=k&tf=1h&limit=10&data_mode=real")).toBe(true);
     expect((fetchMock.mock.calls[0]?.[1] as RequestInit).headers).toMatchObject({ "content-type": "application/json" });
     expect(s).toEqual(SERIES);
   });
@@ -98,7 +98,7 @@ describe("fetchCandles", () => {
     const ctl = new AbortController();
     await fetchCandles("real", "k", "15m", { from: "2026-11-02T00:00:00Z", to: "2026-11-02T12:00:00Z", signal: ctl.signal });
     const p = paramsOf(0);
-    expect([...p.keys()]).toEqual(["key", "tf", "from", "to"]);
+    expect([...p.keys()]).toEqual(["key", "tf", "from", "to", "data_mode"]);
     expect(p.get("from")).toBe("2026-11-02T00:00:00Z");
     expect((fetchMock.mock.calls[0]?.[1] as RequestInit).signal).toBe(ctl.signal);
   });
@@ -131,7 +131,7 @@ describe("fetchCandles", () => {
     );
     const s = await fetchCandles("real", "k", "15m", { limit: 1 });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(urlOf(1).endsWith("/v1/history?key=k&grid=300")).toBe(true);
+    expect(urlOf(1).endsWith("/v1/history?key=k&grid=300&data_mode=real")).toBe(true);
     expect(s).toEqual({ key: "k", tf: "15m", data_mode: "real", candles: [{ t: "2026-11-02T12:15:00.000Z", o: "7340", h: "7340", l: "7340", c: "7340", n: 1, spread_avg: "30", buy_c: "7325", sell_c: "7355", data_mode: "real" }] });
   });
   it("applies from (inclusive) and to (exclusive) to the history fallback", async () => {
@@ -148,7 +148,7 @@ describe("fetchCandles", () => {
       }),
     );
     const s = await fetchCandles("real", "k", "15m", { from: "2026-11-02T12:00:00Z", to: "2026-11-02T12:30:00Z" });
-    expect(urlOf(1).endsWith("/v1/history?key=k&grid=300")).toBe(true);
+    expect(urlOf(1).endsWith("/v1/history?key=k&grid=300&data_mode=real")).toBe(true);
     expect(s.candles.map((c) => [c.t, c.c])).toEqual([
       ["2026-11-02T12:00:00.000Z", "7335"],
       ["2026-11-02T12:15:00.000Z", "7340"],
@@ -228,7 +228,7 @@ describe("fetchSessions", () => {
   it("real mode fetches /v1/pregao/sessions", async () => {
     fetchMock.mockResolvedValueOnce(response(200, [SESSION]));
     const out = await fetchSessions("real");
-    expect(urlOf(0).endsWith("/v1/pregao/sessions")).toBe(true);
+    expect(urlOf(0).endsWith("/v1/pregao/sessions?data_mode=real")).toBe(true);
     expect(out).toEqual([SESSION]);
   });
   it("returns [] on 404 and throws on other errors", async () => {
@@ -244,16 +244,16 @@ describe("fetchSessions", () => {
   });
 });
 
-describe("proxy e modo simulation (D3)", () => {
+describe("proxy e modo declarado (D3, SEC-01)", () => {
   it("goes through API_BASE (the /api/fx proxy unless NEXT_PUBLIC_API_URL is set)", async () => {
     fetchMock.mockResolvedValueOnce(response(200, [SESSION]));
     await fetchSessions("real");
-    expect(urlOf(0)).toBe(`${API_BASE}/v1/pregao/sessions`);
+    expect(urlOf(0)).toBe(`${API_BASE}/v1/pregao/sessions?data_mode=real`);
   });
-  it("real mode sends no data_mode; simulation sends ?data_mode=simulation on every route", async () => {
+  it("every route declares the mode it expects: ?data_mode=real or ?data_mode=simulation (SEC-01)", async () => {
     fetchMock.mockResolvedValueOnce(response(200, SERIES));
     await fetchCandles("real", "k", "1h");
-    expect(paramsOf(0).has("data_mode")).toBe(false);
+    expect(paramsOf(0).get("data_mode")).toBe("real");
     fetchMock.mockReset();
     fetchMock.mockResolvedValueOnce(response(200, { ...SERIES, data_mode: "simulation" }));
     fetchMock.mockResolvedValueOnce(response(200, [{ ...STATS, data_mode: "simulation" }]));

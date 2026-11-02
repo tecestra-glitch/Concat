@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { historyKey } from "@/lib/api/demo-data";
 import { toNumber } from "@/lib/format";
 import {
   DEFAULT_SERIES_KEY,
@@ -222,7 +221,7 @@ describe("visões demo", () => {
     const cells = demoHeat(NOW);
     expect(cells.some((c) => c.source_id === "bcp")).toBe(false);
     expect(new Set(cells.map((c) => c.pair))).toEqual(new Set(["USD/PYG", "BRL/PYG", "USD/BRL"]));
-    expect(cells.find((c) => c.key === historyKey(demoQuotesAt(NOW)[0]))).toBeDefined();
+    expect(cells.find((c) => c.key === demoQuotesAt(NOW)[0].series_key)).toBeDefined();
   });
 });
 

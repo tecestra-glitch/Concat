@@ -27,14 +27,17 @@ Autenticação: com `API_KEY` definido no backend, **`X-API-Key` (ou `Authorizat
 exporte `FX_API_KEY` com o mesmo valor de `API_KEY` antes de abrir o Claude Code. Com `API_KEY` vazio (só em dev local),
 o `/mcp` fica aberto, inclusive as escritas.
 
+Toda ferramenta (menos as que espelham `/v1/health`) aceita `data_mode` opcional: se diferir do modo da instância, a
+resposta é `409` e nada é lido nem gravado (cada instância serve um único modo).
+
 | Ferramenta | Tipo | Rota | O que faz |
 |---|---|---|---|
 | `list_sources` | leitura | `GET /v1/sources` | fontes e saúde |
-| `get_quotes` | leitura | `GET /v1/quotes` | última cotação por contexto comparável (filtros `source`, `city`, `pair`, `amount`, `channel`); cada `Quote` traz `series_key` |
+| `get_quotes` | leitura | `GET /v1/quotes` | última cotação por contexto comparável (filtros `city`, `base`, `quote`, `source`, `modality`, `amount`); cada `Quote` traz `series_key` |
 | `request_quote` | **escrita** | `POST /v1/quotes/request` | pede captura nova de uma fonte (fila do worker para fontes com navegador); o piso de 60 s por fonte vale mesmo com `force` → `429` + `Retry-After` dentro da janela |
 | `get_history` | leitura | `GET /v1/history?key=` | série reamostrada por `series_key` |
-| `compare_routes` | **escrita** | `POST /v1/simulations/routes` | monta e simula rotas; grava `Simulation`/`Opportunity` com `data_mode="simulation"` |
-| `simulate_cycle` | **escrita** | `POST /v1/simulations/cycle` | simula passos explícitos de um ciclo; grava com `data_mode="simulation"` |
+| `compare_routes` | **escrita** | `POST /v1/simulations/routes` | monta e simula rotas; só grava (`Simulation`/`Opportunity` com `data_mode="simulation"`, devolvendo `simulation_id`) com `persist: true` |
+| `simulate_cycle` | **escrita** | `POST /v1/simulations/cycle` | simula passos explícitos de um ciclo; só calcula, não grava nada (exige a chave por ser POST) |
 | `find_cycles` | leitura | `GET /v1/opportunities/cycles` | ciclos no grafo de posições (`max_len` 2..6, padrão 4 — peça 6 para ciclos entre contas; `min_roi`, `start`, `limit` ≤ 500); strings decimais, snake_case, `data_mode` |
 | `search_evidence` | leitura | `GET /v1/evidence` | evidências (URL, hash, excerpt) |
 | `watch_status` | leitura | `GET /v1/watch/sources` | estado da sondagem adaptativa por fonte |

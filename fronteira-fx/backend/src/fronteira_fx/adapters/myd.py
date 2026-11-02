@@ -55,6 +55,10 @@ def _flag_iso(cell: LexborNode) -> str | None:
 
 
 class MydAdapter:
+    # B8/Q-05: `fetch` is one GET of `info.url` + `parse`, so scheduled polls let the collector do a conditional
+    # GET (If-None-Match / If-Modified-Since) and a 304 skips parsing. On-demand calls with params still use fetch.
+    conditional_get = True
+
     info = AdapterInfo(
         id="myd",
         name="M&D Cambios",

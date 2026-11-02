@@ -467,6 +467,8 @@ class Collector:
         with session_scope(self.session_factory) as session:
             source = self.ensure_source(session, info)
             ws = watch_svc.ensure_watch(session, source, now=now, data_mode=self.data_mode)
+            # Row lock on Postgres (no-op on SQLite): the api and the worker check and reserve one at a time.
+            session.refresh(ws, with_for_update=True)
             if not force and not watch_svc.is_due(ws, now):
                 reason = "desabilitada" if not ws.enabled else f"próxima sondagem {ws.next_run_at.isoformat()}"
                 return CollectOutcome(
@@ -475,6 +477,9 @@ class Collector:
             remaining = self._floor_remaining_s(ws, now)
             if remaining is not None:  # D6: never hammer a source, even on demand; hand back the last result
                 return self._rate_limited_outcome(info.id, ws, source.health, remaining)
+            # SEC-03: reserve the slot in the same transaction as the check, before any await, so callers that
+            # arrive while this fetch is in flight (same process or another one) see the floor and get 429.
+            ws.last_run_at = now
             validators = (ws.etag, ws.last_modified)
         fetched: FetchOutcome | None = None
         if self._uses_conditional_get(adapter, params):

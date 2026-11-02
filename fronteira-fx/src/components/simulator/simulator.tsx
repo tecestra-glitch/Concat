@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { RankingTable } from "@/components/opportunities/ranking-table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatMoney } from "@/lib/format";
+import { formatBoundary, formatMoney } from "@/lib/format";
 
 export function Simulator() {
   const { settings } = useSettings();
@@ -99,7 +99,7 @@ export function Simulator() {
           <>
             <div className="flex flex-wrap gap-2 text-xs text-muted" data-testid="search-summary">
               <span>Valores testados: {q.data.search.amounts_tested.map((a) => formatMoney(a, "BRL")).join(", ")}</span>
-              {q.data.search.boundaries.length > 0 && <span>· Fronteiras: {q.data.search.boundaries.join("; ")}</span>}
+              {q.data.search.boundaries.length > 0 && <span>· Fronteiras: {q.data.search.boundaries.map(formatBoundary).join("; ")}</span>}
             </div>
             <RankingTable title="Ranking principal" items={q.data.opportunities.filter((o) => o.in_main_ranking)} emptyText="Nenhuma rota atingiu os critérios do ranking principal." />
             <RankingTable title="Ranking secundário (abaixo do limite ou sem ganho)" items={q.data.opportunities.filter((o) => !o.in_main_ranking)} emptyText="—" />

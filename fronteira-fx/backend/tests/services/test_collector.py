@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 from datetime import timedelta
 from decimal import Decimal
@@ -199,6 +200,43 @@ async def test_poll_now_distinguishes_unknown_mode_and_rate_limit(session_factor
         await demo.poll_now("chaco")
 
 
+class SlowAdapter(FakeAdapter):
+    """The provider takes a while to answer: concurrent callers overlap while the first fetch is in flight."""
+
+    async def fetch(self, **params):
+        await asyncio.sleep(0.05)
+        return await super().fetch(**params)
+
+
+async def test_concurrent_forced_polls_hit_the_provider_once(session_factory):
+    """SEC-03 / D6: the floor holds for callers that arrive together, not only one after another: the slot
+    is reserved before the fetch, so 5 simultaneous polls make 1 request and 4 get RateLimited (429)."""
+    adapter = SlowAdapter()
+    collector = Collector(session_factory, make_settings(), adapters={"chaco": adapter}, now_fn=Clock())
+    results = await asyncio.gather(*(collector.poll_now("chaco") for _ in range(5)), return_exceptions=True)
+    assert adapter.calls == 1
+    limited = [r for r in results if isinstance(r, RateLimited)]
+    assert len(limited) == 4 and all(r.retry_after_s == 60 for r in limited)
+    quotes = await asyncio.gather(
+        *(collector.request_quote("chaco", {"base": "USD"}) for _ in range(3)), return_exceptions=True
+    )
+    assert adapter.calls == 1 and all(isinstance(r, RateLimited) for r in quotes)
+
+
+async def test_floor_reservation_is_visible_to_another_collector(session_factory):
+    """The reservation lives in the database, so a second process (api vs worker) sees it mid-fetch."""
+    clock = Clock()
+    adapter, other_adapter = SlowAdapter(), FakeAdapter()
+    api = Collector(session_factory, make_settings(), adapters={"chaco": adapter}, now_fn=clock)
+    worker = Collector(session_factory, make_settings(), adapters={"chaco": other_adapter}, now_fn=clock)
+    first = asyncio.create_task(api.poll_now("chaco"))
+    await asyncio.sleep(0.01)  # api is now waiting on the provider
+    out = await worker.collect(other_adapter, force=True)
+    assert out.retry_after_s == 60 and other_adapter.calls == 0
+    await first
+    assert adapter.calls == 1
+
+
 async def test_rate_limited_task_is_requeued(session_factory):
     clock = Clock()
     browser = FakeAdapter("wu", method="browser")
@@ -278,3 +316,28 @@ async def test_on_demand_request_uses_adapter_fetch(session_factory):
     collector = Collector(session_factory, make_settings(), adapters={"chaco": adapter}, now_fn=Clock())
     done = await collector.request_quote("chaco", {"base": "USD", "quote": "PYG"})
     assert done["status"] == "done" and adapter.calls == 1 and adapter.parsed == 0
+
+
+@respx.mock
+@pytest.mark.parametrize("source_id", ["maxicambios", "myd"])
+async def test_registered_html_adapters_use_conditional_get(session_factory, tmp_path, source_id):
+    """Q-05 / B8: the pure-parse html adapters (one GET of `info.url`, then `parse`) opt in, so production
+    polls send If-None-Match / If-Modified-Since and a 304 skips parsing."""
+    from fronteira_fx.adapters.registry import ADAPTERS
+
+    adapter = ADAPTERS[source_id]
+    assert getattr(adapter, "conditional_get", False) is True
+    body = (Path(__file__).resolve().parents[1] / "adapters" / "fixtures" / f"{source_id}.html").read_bytes()
+    clock = Clock()
+    collector = Collector(
+        session_factory, make_settings(evidence_dir=str(tmp_path)), adapters={source_id: adapter}, now_fn=clock
+    )
+    headers = {"ETag": '"v1"', "Content-Type": "text/html"}
+    route = respx.get(adapter.info.url).mock(return_value=httpx.Response(200, content=body, headers=headers))
+    out = (await collector.run_once())[0]
+    assert route.call_count == 1 and out.quotes_stored > 0
+    clock.t = NOW + timedelta(hours=2)
+    route.mock(return_value=httpx.Response(304))
+    out = (await collector.run_once())[0]
+    assert route.calls.last.request.headers["If-None-Match"] == '"v1"'
+    assert out.status == "not_modified" and out.quotes_stored == 0

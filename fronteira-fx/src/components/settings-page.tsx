@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/input";
-import { API_BASE } from "@/lib/api/client";
+import { API_BASE, modeConflict } from "@/lib/api/client";
 import { capitalOptions } from "@/lib/api/capitals";
 import { useBackendHealth } from "@/lib/queries";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
@@ -13,9 +13,9 @@ import { useLive } from "@/lib/live";
 import { formatMoney } from "@/lib/format";
 
 const MODE_HELP: Record<string, string> = {
-  auto: "Real quando o backend responde; demonstração enquanto não houver API.",
-  real: "Cotações e operações do backend; nada é inventado nem misturado.",
-  simulation: "Cotações reais, resultados gravados à parte como simulação (data_mode=simulation).",
+  auto: "Segue o modo do backend quando ele responde; demonstração enquanto não houver API.",
+  real: "Cotações e operações do backend real; nada é inventado nem misturado.",
+  simulation: "Exige um backend à parte em DATA_MODE=simulation: o que for gravado ali nunca toca os dados reais.",
   demo: "Dados ilustrativos isolados; nenhuma cotação é atual ou executável.",
 };
 const BACKEND_LABEL = { unknown: "verificando", available: "disponível", unavailable: "indisponível" } as const;
@@ -27,13 +27,14 @@ export function SettingsPage() {
   const health = useBackendHealth();
   const live = useLive();
   const capitals = capitalOptions(mode, settings.defaultCapital);
-  const conflict = health.data && health.data.data_mode !== mode && mode !== "simulation";
+  // SEC-01: any mismatch counts, simulation included; the backend refuses those calls (409).
+  const conflict = !!health.data && modeConflict(mode, health.data.data_mode);
   return (
     <div className="space-y-4">
       <PageHeader title="Configurações" description="Modo de dados, orçamento padrão e moeda de avaliação. Segredos do backend nunca ficam no navegador." />
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>Modo de dados</CardTitle><CardDescription>Real, simulação sobre dados reais e demonstração isolada não se misturam.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>Modo de dados</CardTitle><CardDescription>Real, simulação (instância à parte) e demonstração isolada não se misturam.</CardDescription></CardHeader>
           <CardContent className="grid gap-3">
             <div className="grid gap-1">
               <Label htmlFor="mode">Preferência</Label>
@@ -54,7 +55,7 @@ export function SettingsPage() {
               <dt className="text-muted">Saúde da API</dt>
               <dd>
                 {health.isLoading ? <Badge variant="outline">verificando…</Badge> : health.data ? <Badge variant={conflict ? "warn" : "gain"}>{health.data.status} · {MODE_LABEL[health.data.data_mode] ?? health.data.data_mode}{health.data.version ? ` · v${health.data.version}` : ""}</Badge> : <Badge variant="outline">não conectada</Badge>}
-                {conflict && <p className="mt-1 text-xs text-warn">O backend está em modo «{MODE_LABEL[health.data!.data_mode]}», diferente da sua preferência; os dados mostrados seguem o backend.</p>}
+                {conflict && <p className="mt-1 text-xs text-warn" data-testid="mode-conflict">O backend está em modo «{MODE_LABEL[health.data!.data_mode]}», diferente do modo «{MODE_LABEL[mode]}» pedido: as chamadas são recusadas (409) para não misturar dados. Escolha «Automático» ou aponte para uma instância nesse modo.</p>}
               </dd>
               <dt className="text-muted">Stream</dt><dd><Badge variant="outline">{STREAM_LABEL[live.state]}</Badge></dd>
             </dl>

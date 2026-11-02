@@ -37,3 +37,17 @@ def test_canonical_env_wins_over_alias(monkeypatch):
     monkeypatch.setenv("EVIDENCE_DIR", "/srv/evidence")
     monkeypatch.setenv("FX_EVIDENCE_DIR", "/legacy/evidence")
     assert Settings(_env_file=None).evidence_dir == "/srv/evidence"
+
+
+def test_placeholder_secrets_from_env_example_are_refused():
+    """SEC-05: `.env.example` ships `TROQUE_ESTA_*` so `docker compose config` validates; booting the api or the
+    worker with them unchanged would run with publicly known credentials, so Settings refuses them."""
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="API_KEY"):
+        make_settings(api_key="TROQUE_ESTA_CHAVE")
+    with pytest.raises(ValidationError, match="POSTGRES_PASSWORD"):
+        make_settings(database_url="postgresql+psycopg://fx:TROQUE_ESTA_SENHA@postgres:5432/fx")
+    assert make_settings(api_key="a" * 64).api_key == "a" * 64
+    assert make_settings(api_key=None).api_key is None

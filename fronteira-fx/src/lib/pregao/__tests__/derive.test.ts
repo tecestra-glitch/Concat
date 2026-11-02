@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Quote, Source } from "@/lib/api/types";
-import { demoSources, historyKey, seriesKey } from "@/lib/api/demo-data";
+import { demoSources, seriesKey } from "@/lib/api/demo-data";
 import { AgioBadge, agioLabel } from "@/components/pregao/agio-badge";
 import { Delta, deltaText, directionOf } from "@/components/pregao/delta";
 import { ReferenceBadge } from "@/components/pregao/reference-badge";
@@ -134,7 +134,7 @@ describe("toBookLevels", () => {
   });
   it("derives spread, agio, status, house and incomplete", () => {
     const c = levels.find((l) => l.source_id === "chaco")!;
-    expect(c).toMatchObject({ key: historyKey(chaco), house: "Cambios Chaco", status: "closed", incomplete: false, channel: "physical", kind: "indicative", city: "CDE", data_mode: "real" });
+    expect(c).toMatchObject({ key: chaco.series_key, house: "Cambios Chaco", status: "closed", incomplete: false, channel: "physical", kind: "indicative", city: "CDE", data_mode: "real" });
     expect(c.spread_pct).toBeCloseTo(1.1784, 3);
     expect(c.agio_buy_pct).toBeCloseTo(-0.66882, 4);
     expect(c.agio_sell_pct).toBeCloseTo(0.50868, 4);
@@ -150,10 +150,10 @@ describe("toBookLevels", () => {
 
 describe("toTickerItems", () => {
   it("one per key, pairs in PAIRS order, houses before references, houses by source_id", () => {
-    const stats = new Map<string, SessionStats>([[historyKey(chaco), { key: historyKey(chaco), day_start: "", open: null, high: null, low: null, last: null, last_at: null, change_abs: null, change_pct: "0.0681663", n_quotes: 4, spread_avg: null, houses: 1, data_mode: "real" }]]);
+    const stats = new Map<string, SessionStats>([[chaco.series_key, { key: chaco.series_key, day_start: "", open: null, high: null, low: null, last: null, last_at: null, change_abs: null, change_pct: "0.0681663", n_quotes: 4, spread_avg: null, houses: 1, data_mode: "real" }]]);
     const items = toTickerItems(quotes, sources, stats);
     expect(items.map((i) => `${i.pair} ${i.source_id}`)).toEqual(["USD/PYG alberdi", "USD/PYG chaco", "USD/PYG ueno", "USD/PYG bcp", "BRL/PYG chaco", "USD/BRL chaco"]);
-    const c = items.find((i) => i.key === historyKey(chaco))!;
+    const c = items.find((i) => i.key === chaco.series_key)!;
     expect(c).toMatchObject({ mid: 5940, buy: "5905", incomplete: false, house: "Cambios Chaco" });
     expect(c.change_pct).toBeCloseTo(0.0681663, 6);
     expect(items.find((i) => i.source_id === "alberdi")?.change_pct).toBeNull();
@@ -163,7 +163,7 @@ describe("toTickerItems", () => {
 describe("toWatchlistRows / toHeatCells", () => {
   const levels = toBookLevels(quotes, "USD/PYG", sources, sessions, NOW);
   it("adds change_pct and spark", () => {
-    const rows = toWatchlistRows(levels, new Map(), { [historyKey(chaco)]: [1, 2, 3] });
+    const rows = toWatchlistRows(levels, new Map(), { [chaco.series_key]: [1, 2, 3] });
     expect(rows.find((r) => r.source_id === "chaco")).toMatchObject({ change_pct: null, spark: [1, 2, 3] });
     expect(rows.find((r) => r.source_id === "alberdi")?.spark).toEqual([]);
   });
@@ -178,7 +178,7 @@ describe("toWatchlistRows / toHeatCells", () => {
 describe("quoteToPrint", () => {
   it("computes change_pct from prev", () => {
     const p = quoteToPrint(chaco, chacoOld, "Cambios Chaco")!;
-    expect(p).toMatchObject({ id: "q-chaco", key: historyKey(chaco), pair: "USD/PYG", mid: 5940, prev_mid: 5935, house: "Cambios Chaco", incomplete: false });
+    expect(p).toMatchObject({ id: "q-chaco", key: chaco.series_key, pair: "USD/PYG", mid: 5940, prev_mid: 5935, house: "Cambios Chaco", incomplete: false });
     expect(p.change_pct).toBeCloseTo((5940 / 5935 - 1) * 100, 9);
   });
   it("has null prev_mid/change_pct without prev", () => {
@@ -192,9 +192,9 @@ describe("quoteToPrint", () => {
 describe("defaultKeyFor", () => {
   it("prefers the first open house, then the first house, never a reference", () => {
     const levels = toBookLevels(quotes, "USD/PYG", sources, sessions, NOW);
-    expect(defaultKeyFor(levels)).toBe(historyKey(alberdi));
+    expect(defaultKeyFor(levels)).toBe(alberdi.series_key);
     const closed = toBookLevels(quotes, "USD/PYG", sources, [], NOW);
-    expect(defaultKeyFor(closed)).toBe(historyKey(uenoHalf));
+    expect(defaultKeyFor(closed)).toBe(uenoHalf.series_key);
     expect(defaultKeyFor(toBookLevels([bcp], "USD/PYG", sources, [], NOW))).toBeNull();
     expect(defaultKeyFor([])).toBeNull();
   });

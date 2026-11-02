@@ -10,7 +10,7 @@ export type SourceMethod = "official_api" | "html" | "browser" | "manual";
 export type Health = "ok" | "degraded" | "blocked" | "stale" | "unknown";
 export type Confidence = "quoted" | "estimated" | "incomplete";
 export type DataMode = "real" | "simulation" | "demo";
-/** D3: the three data modes never mix; `simulation` travels as `?data_mode=simulation`. */
+/** D3/SEC-01: the three data modes never mix; each backend instance serves one, and every call declares it (`?data_mode=`). */
 export type Mode = DataMode;
 export type OpportunityKind = "cycle" | "remittance_saving" | "purchase_saving";
 
@@ -23,10 +23,12 @@ export interface BackendHealth {
   server_time?: string;
 }
 
+/** Fixed (`amount`) and/or percentage over the input (`pct`); unknown parts are null. */
 export interface Fee {
   label: string;
-  amount: string;
+  amount: string | null;
   currency: Currency;
+  pct?: string | null;
 }
 
 export interface Source {
@@ -288,6 +290,33 @@ export interface Memory {
   text: string;
   tags: string[];
   created_at: string;
+  expires_at: string | null;
+  source: string;
+}
+
+/** GET /v1/memory?q=&kind=&tag=&limit= */
+export interface MemoryQuery {
+  q: string;
+  kind: string;
+  tag: string;
+  limit: number;
+}
+
+/** GET /v1/rag/search → RagHit[] (documentação, tarifas, horários; nunca cotações). */
+export interface KnowledgeHit {
+  id: string;
+  document_id: string;
+  title: string | null;
+  snippet: string;
+  score: number;
+  source: string | null;
+  tags: string[];
+}
+
+export interface KnowledgeQuery {
+  q: string;
+  k: number;
+  tag: string;
 }
 
 /** GET /v1/memory/summary?limit= */
@@ -302,11 +331,27 @@ export interface SimulationRequest {
   channels: Channel[];
   amounts?: string[];
   destination?: Position;
+  /** true grava a simulação (`Simulation`/`Opportunity` com data_mode="simulation", D3) e devolve `simulation_id`. */
+  persist?: boolean;
+}
+
+/** Faixa de capital em que o vencedor ou o sinal do ROI muda (busca adaptativa). */
+export interface Boundary {
+  low: string;
+  high: string;
+  low_winner: string | null;
+  high_winner: string | null;
+  low_roi_sign: string;
+  high_roi_sign: string;
+  reason: string;
+  refined: boolean;
 }
 
 export interface SimulationResponse {
   opportunities: Opportunity[];
-  search: { amounts_tested: string[]; boundaries: string[] };
+  search: { amounts_tested: string[]; boundaries: Boundary[] };
+  /** Só quando `persist: true`; senão null. */
+  simulation_id: string | null;
 }
 
 export const CITY_LABEL: Record<Exclude<City, null> | "digital", string> = {

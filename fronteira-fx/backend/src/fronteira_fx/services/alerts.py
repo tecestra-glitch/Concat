@@ -68,17 +68,32 @@ def _match_cycle_roi(rule: AlertRule, ctx: AlertContext) -> tuple[str, dict[str,
     }
 
 
+DIGITAL_CITY = "digital"  # rule param for «Digital (sem cidade)»: only quotes without a city (Q-04)
+
+
+def _is_reference(snapshot: dict[str, Any]) -> bool:
+    """Third-party reference numbers (dolarPy) are comparison only: never an alert on a price move."""
+    return snapshot.get("modality") == "reference" or snapshot.get("channel") == "aggregator"
+
+
 def _change_matches(ch: Change, *, pair: str | None, city: str | None) -> bool:
     """Compare the rule against the structured `pair`/`city` recorded in `Change.after` (B18). Rows written
-    before those fields existed fall back to the label prefix of the summary."""
+    before those fields existed fall back to the label prefix of the summary. `city="digital"` matches only
+    quotes without a city; no city matches any city."""
     after = ch.after or {}
+    if _is_reference(after):
+        return False
     if "pair" in after:
         if pair and after.get("pair") != pair:
             return False
+        if city == DIGITAL_CITY:
+            return after.get("city") is None
         return not city or after.get("city") == city
     head = ch.summary.split(":")[0]
     if pair and not head.startswith(pair):
         return False
+    if city == DIGITAL_CITY:
+        return not any(f" {c}" in head for c in ("CDE", "ASU", "PJC"))
     return not city or f" {city}" in head
 
 

@@ -20,10 +20,9 @@ x-backend-env: &backend-env
   AUTO_CREATE_SCHEMA: "false"
   # Protege /mcp e as rotas de escrita. O frontend nunca a recebe: o proxy server-side a injeta.
   API_KEY: ${API_KEY:?defina API_KEY no .env (protege /mcp e as rotas de escrita)}
-  # Evidências dos adaptadores (volume `evidence`). FX_EVIDENCE_DIR é o alias legado que alguns
-  # adaptadores ainda leem; recebe o mesmo valor para nunca gravar fora do volume.
+  # Evidências dos adaptadores e do coletor (volume `evidence`). Todos leem EVIDENCE_DIR; o alias legado
+  # FX_EVIDENCE_DIR não é definido aqui (dispararia o aviso de obsoleto a cada arranque).
   EVIDENCE_DIR: /app/var/evidence
-  FX_EVIDENCE_DIR: /app/var/evidence
   POLL_INTERVAL_S: ${POLL_INTERVAL_S:-300}
   BACKOFF_MAX_S: ${BACKOFF_MAX_S:-3600}
   QUOTES_LOOKBACK_S: ${QUOTES_LOOKBACK_S:-604800}
@@ -128,6 +127,10 @@ services:
       # Proxy server-side (src/app/api/fx): o navegador nunca vê a API nem a chave. Nada em NEXT_PUBLIC_.
       FX_API_URL: http://api:8000
       FX_API_KEY: ${FX_API_KEY:-${API_KEY}}
+      # A chave só vai com o frontend protegido (SEC-02). O padrão 1 vale porque WEB_BIND é 127.0.0.1:
+      # se publicar o frontend em outra interface, defina FX_BASIC_AUTH=usuario:senha e FX_FRONTEND_PROTECTED=0.
+      FX_FRONTEND_PROTECTED: ${FX_FRONTEND_PROTECTED:-1}
+      FX_BASIC_AUTH: ${FX_BASIC_AUTH:-}
     ports:
       - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
     depends_on:

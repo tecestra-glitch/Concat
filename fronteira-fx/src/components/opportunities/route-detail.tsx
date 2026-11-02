@@ -1,7 +1,7 @@
 "use client";
 import type { Opportunity } from "@/lib/api/types";
 import { CITY_LABEL, MODALITY_LABEL } from "@/lib/api/types";
-import { formatDateTime, formatMoney, formatPercent } from "@/lib/format";
+import { formatDateTime, formatFee, formatMoney, formatPercent } from "@/lib/format";
 import { formatRateFixed } from "@/components/ui/rate";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +55,7 @@ export function RouteDetail({ opportunity: o, onClose }: { opportunity: Opportun
                     <Row k="De" v={`${formatMoney(s.amount_in, s.from.currency)} · ${place(s.from.location)} · ${MODALITY_LABEL[s.from.modality]}`} />
                     <Row k="Para" v={`${formatMoney(s.amount_out, s.to.currency)} · ${place(s.to.location)} · ${MODALITY_LABEL[s.to.modality]}`} />
                     <Row k="Taxa" v={s.rate ? `${formatRateFixed(s.rate, s.to.currency, { decimals: s.to.currency === "PYG" ? 2 : 4 })} ${s.to.currency} por 1 ${s.from.currency} (${s.rate_note})` : "—"} />
-                    <Row k="Custos" v={s.fees.length ? s.fees.map((f) => `${f.label}: ${formatMoney(f.amount, f.currency)}`).join("; ") : "nenhum conhecido"} />
+                    <Row k="Custos" v={s.fees.length ? s.fees.map(formatFee).join("; ") : "nenhum conhecido"} />
                     <Row k="Prazo" v={s.duration} />
                     <Row k="Promoção" v={s.promo ?? "—"} />
                     <Row k="Contas" v={[s.from.account_id, s.to.account_id].filter(Boolean).join(" → ") || "—"} />

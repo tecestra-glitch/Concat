@@ -1,8 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
-import { applyQuoteUpdate, applySnapshot, mergeQuote, parseStreamFrame, quoteMatchesFilters, shouldResetCursor } from "@/lib/live-cache";
+import { applyQuoteUpdate, applySnapshot, applySourceHealthEvent, mergeQuote, parseStreamFrame, quoteMatchesFilters, shouldResetCursor } from "@/lib/live-cache";
 import { alertToasts } from "@/lib/alert-toasts";
-import type { Quote, Snapshot } from "@/lib/api/types";
+import type { Quote, Snapshot, Source } from "@/lib/api/types";
 
 const q = (over: Partial<Quote>): Quote => ({
   id: "q1",
@@ -45,7 +45,8 @@ describe("quoteMatchesFilters", () => {
     expect(quoteMatchesFilters(q({ city: "CDE" }), { city: "digital" })).toBe(false);
     expect(quoteMatchesFilters(q({ amount_base: "5000" }), { amount: "5000.00" })).toBe(true);
     expect(quoteMatchesFilters(q({ amount_base: "5000" }), { amount: 10000 })).toBe(false);
-    expect(quoteMatchesFilters(q({ amount_base: null }), { amount: "5000" })).toBe(false);
+    // Q-06: same rule as the backend's latest_quotes — a quote without amount is generic and stays in the list
+    expect(quoteMatchesFilters(q({ amount_base: null }), { amount: "5000" })).toBe(true);
   });
 });
 
@@ -123,6 +124,50 @@ describe("applySnapshot", () => {
     expect(qc.getQueryData(["sources", "real"])).toEqual([]);
     expect(qc.getQueryCache().findAll({ queryKey: ["quotes"] })).toHaveLength(2);
     expect(qc.getQueryCache().findAll({ queryKey: ["opportunities"] })).toHaveLength(0);
+  });
+});
+
+describe("source.health (Q-02)", () => {
+  const src = (id: string, over: Partial<Source> = {}): Source => ({
+    id,
+    name: id.toUpperCase(),
+    kind: "exchange_house",
+    method: "html",
+    url: `https://${id}.example`,
+    health: "ok",
+    last_success_at: "2026-11-02T11:00:00Z",
+    last_error: null,
+    capabilities: ["buy_sell"],
+    limitations: [],
+    coverage: { cities: ["CDE"], currencies: ["USD", "PYG"] },
+    poll_interval_s: 300,
+    data_mode: "real",
+    ...over,
+  });
+  // exactly what services/collector.py emits (no `id`, not a full Source)
+  const frame = (payload: unknown) =>
+    parseStreamFrame(JSON.stringify({ id: "19", type: "source.health", ts: "2026-11-02T12:00:00Z", payload }), "")!;
+
+  it("merges the backend payload into the cached Source by source_id and keeps the rest of it", () => {
+    const qc = new QueryClient();
+    qc.setQueryData<Source[]>(["sources", "real"], [src("chaco"), src("bcp")]);
+    const ev = frame({ source_id: "chaco", health: "blocked", last_error: "403 anti-bot", consecutive_failures: 2, next_poll_at: "2026-11-02T12:10:00Z" });
+    expect(applySourceHealthEvent(qc, "real", ev.payload)).toBe(true);
+    const [chaco, bcp] = qc.getQueryData<Source[]>(["sources", "real"])!;
+    expect(chaco.health).toBe("blocked");
+    expect(chaco.last_error).toBe("403 anti-bot");
+    expect(chaco.name).toBe("CHACO");
+    expect(chaco.capabilities).toEqual(["buy_sell"]);
+    expect(bcp).toEqual(src("bcp"));
+  });
+
+  it("ignores malformed payloads and lists of another mode", () => {
+    const qc = new QueryClient();
+    qc.setQueryData<Source[]>(["sources", "real"], [src("chaco")]);
+    expect(applySourceHealthEvent(qc, "real", { id: "chaco", health: "blocked" })).toBe(false);
+    expect(applySourceHealthEvent(qc, "real", { source_id: "chaco", health: "on fire", last_error: null })).toBe(false);
+    expect(applySourceHealthEvent(qc, "simulation", frame({ source_id: "chaco", health: "blocked", last_error: null }).payload)).toBe(true);
+    expect(qc.getQueryData<Source[]>(["sources", "real"])![0].health).toBe("ok");
   });
 });
 

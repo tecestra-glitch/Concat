@@ -1,6 +1,7 @@
 /**
  * Fetchers do pregão (§0.6, §2.6). Modo `demo` usa os geradores locais e nunca toca a rede;
- * `real` e `simulation` vão ao backend pelo proxy (`API_BASE`, D3: `simulation` leva `?data_mode=simulation`),
+ * `real` e `simulation` vão ao backend pelo proxy (`API_BASE`) declarando o modo esperado (`?data_mode=`, SEC-01:
+ * a instância em outro modo responde 409),
  * validam cada resposta com zod e convertem falhas de contrato em `ApiError(0, …)`.
  */
 import { z } from "zod";

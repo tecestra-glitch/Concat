@@ -35,10 +35,10 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-/** Switches the app to real mode and installs the fake API. */
-async function setupRealMode(page: Page, overrides: Overrides = {}): Promise<Log> {
+/** Switches the app to real mode (or `preference`) and installs the fake API. */
+async function setupRealMode(page: Page, overrides: Overrides = {}, preference = "real"): Promise<Log> {
   const log: Log = { streams: [], snapshots: 0, quotes: [], rag: [] };
-  await page.addInitScript(() => localStorage.setItem("fronteira-fx.settings.v1", JSON.stringify({ modePreference: "real", defaultCapital: 5000, valuationCurrency: "BRL", pollFallbackSeconds: 30 })));
+  await page.addInitScript((pref) => localStorage.setItem("fronteira-fx.settings.v1", JSON.stringify({ modePreference: pref, defaultCapital: 5000, valuationCurrency: "BRL", pollFallbackSeconds: 30 })), preference);
   await page.route("**/api/fx/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^.*\/api\/fx/, "");
@@ -89,6 +89,31 @@ test.describe("Modo real (API simulada)", () => {
     await expect(page.getByTestId("backend-status")).toHaveText("disponível");
     await expect(page.getByTestId("effective-mode")).toHaveText("real");
     await expect(page.getByText("ok · real · v0.1.0")).toBeVisible();
+  });
+
+  test("«Simulação» against a real backend is a conflict: never labelled simulation, calls refused", async ({ page }) => {
+    const declared: (string | null)[] = [];
+    await setupRealMode(page, {
+      "/v1/accounts": (route, url) => {
+        declared.push(url.searchParams.get("data_mode"));
+        return json(route, { detail: "esta instância serve data_mode=real; o pedido declarou data_mode=simulation." }, 409);
+      },
+    }, "simulation");
+    await page.goto("/contas");
+    await expect(page.getByTestId("mode-conflict-banner")).toContainText("Real");
+    await expect(page.getByTestId("simulation-banner")).toHaveCount(0);
+    await expect.poll(() => declared.length).toBeGreaterThan(0);
+    expect(declared.every((m) => m === "simulation")).toBe(true);
+    await page.goto("/configuracoes");
+    await expect(page.getByTestId("mode-conflict")).toContainText("recusadas");
+  });
+
+  test("«Automático» follows a simulation instance and labels it", async ({ page }) => {
+    await setupRealMode(page, { "/v1/health": (route) => json(route, { ...HEALTH, data_mode: "simulation" }) }, "auto");
+    await page.goto("/configuracoes");
+    await expect(page.getByTestId("effective-mode")).toHaveText("simulação");
+    await expect(page.getByTestId("simulation-banner")).toBeVisible();
+    await expect(page.getByTestId("mode-conflict-banner")).toHaveCount(0);
   });
 
   test("410 on the stream drops the stale cursor, takes a fresh snapshot and resumes from its cursor", async ({ page }) => {

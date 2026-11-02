@@ -55,8 +55,13 @@ após falhas: `poll_interval * 2^(n-1)`, teto `BACKOFF_MAX_S`). Também processa
 `POST /v1/quotes/request` para fontes que exigem navegador e poda o stream de eventos. **Piso de 60 s por
 fonte (D6):** `collect(..., force=True)` respeita `last_run_at + 60 s` — dentro da janela devolve o último
 resultado conhecido sem nova requisição, e o endpoint/MCP responde `429` com `Retry-After` quando o chamador
-exigiu sondagem nova (vale para `trigger_poll` e `request_quote`). As requisições são condicionais
-(`watch/fetcher.conditional_get` com `etag`/`last_modified` de `watch_states`); `304` não gera evidência nova.
+exigiu sondagem nova (vale para `trigger_poll` e `request_quote`). O slot é reservado (`last_run_at`) na mesma
+transação da verificação, com trava de linha no Postgres, antes de qualquer requisição: chamadas simultâneas (na api
+ou entre api e worker) fazem uma única requisição ao provedor e as demais recebem `429`. As sondagens agendadas dos
+adaptadores html de parse puro que declaram `conditional_get = True` (hoje `maxicambios` e `myd`) são condicionais
+(`watch/fetcher.conditional_get` com `etag`/`last_modified` de `watch_states`); `304` não gera evidência nova. Os
+demais adaptadores fazem a própria requisição (formulários, APIs JSON, navegador) e o hash do conteúdo evita
+capturas repetidas.
 
 Modo demo: `DATA_MODE=demo uv run uvicorn fronteira_fx.main:app` — semeia dados ilustrativos
 (ids prefixados `demo-`, nomes com "(demo)") e serve só eles; `/v1/health` reporta `data_mode`.

@@ -14,7 +14,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useSettings } from "@/lib/settings";
 import { useMemorySummary } from "@/lib/queries";
 import { formatDateTime } from "@/lib/format";
-import { listMemory, type MemoryQuery } from "@/components/knowledge/knowledge-api";
+import { api } from "@/lib/api/client";
+import type { MemoryQuery } from "@/lib/api/types";
 
 const KINDS = ["all", "preference", "decision", "fact", "outcome"] as const;
 const KIND_LABEL: Record<string, string> = { all: "Todos", preference: "Preferência", decision: "Decisão", fact: "Fato", outcome: "Resultado" };
@@ -23,7 +24,7 @@ export function MemoryPage() {
   const { mode } = useSettings();
   const [filters, setFilters] = React.useState<MemoryQuery>({ q: "", kind: "all", tag: "", limit: 50 });
   const summary = useMemorySummary(20);
-  const list = useQuery({ queryKey: ["memory", mode, filters], queryFn: () => listMemory(mode, filters), staleTime: 30_000 });
+  const list = useQuery({ queryKey: ["memory", mode, filters], queryFn: () => api.memory(mode, filters), staleTime: 30_000 });
 
   return (
     <div className="space-y-4">

@@ -135,9 +135,19 @@ def step_from_conversion(c: Conversion) -> StepSpec:
     )
 
 
+def _valuation_priority(q: Quote) -> int:
+    """Lower wins. Third-party aggregators (dolarPy) are the last resort, never ahead of BCP (SEC-06)."""
+    if q.channel == "aggregator" or q.modality == "reference":
+        return 3
+    if q.kind == "market_reference":
+        return 0
+    return 1 if q.channel == "digital" else 2
+
+
 def derive_valuation_rates(quotes: Iterable[Quote], valuation: str) -> dict[str, Decimal]:
-    """currency -> valuation units per 1 unit, preferring market_reference mids."""
-    best: dict[str, tuple[int, Decimal]] = {}
+    """currency -> valuation units per 1 unit, preferring official market_reference mids (BCP); ties are
+    broken by source_id so the result never depends on the order the quotes arrive in."""
+    best: dict[str, tuple[tuple[int, str], Decimal]] = {}
     for q in quotes:
         mid = None
         if q.buy is not None and q.sell is not None:
@@ -146,7 +156,7 @@ def derive_valuation_rates(quotes: Iterable[Quote], valuation: str) -> dict[str,
             mid = q.buy if q.buy is not None else q.sell
         if mid is None or mid <= 0:
             continue
-        prio = 0 if q.kind == "market_reference" else (1 if q.channel == "digital" else 2)
+        prio = (_valuation_priority(q), q.source_id or "")
         if q.quote == valuation:
             cand = (q.base, mid)
         elif q.base == valuation:

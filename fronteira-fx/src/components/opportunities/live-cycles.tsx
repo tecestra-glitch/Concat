@@ -100,7 +100,12 @@ export function LiveCycles({ limit = 12, compact = false }: { limit?: number; co
                       {incomplete && <span className="sr-only"> (não confirmado)</span>}
                     </TableCell>
                     <TableCell className={cn("tnum text-right", incomplete ? "text-muted" : profit ? "text-gain" : "text-loss")}>{formatPercent(c.roi, { sign: !incomplete })}</TableCell>
-                    {!compact && <TableCell className="tnum text-right text-muted">{formatPercent(roiPerDay(c), { sign: true })}</TableCell>}
+                    {!compact && (
+                      <TableCell className="tnum text-right text-muted" data-testid="roi-day-cell">
+                        {incomplete && <span aria-hidden>≈ </span>}
+                        {formatPercent(roiPerDay(c), { sign: !incomplete })}
+                      </TableCell>
+                    )}
                     <TableCell className="tnum text-right text-muted">{formatMinutes(c.minutes)}</TableCell>
                     <TableCell><ConfidenceBadge c={c.confidence} /></TableCell>
                   </TableRow>

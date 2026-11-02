@@ -2,7 +2,7 @@
 /** User settings persisted in localStorage via a tiny external store (hydration-safe). */
 import * as React from "react";
 import { type BackendStatus, type Mode, resolveMode } from "./api/client";
-import { getBackendStatus, getServerBackendStatus, subscribeBackendStatus } from "./api/backend-status";
+import { getBackendMode, getBackendStatus, getServerBackendMode, getServerBackendStatus, subscribeBackendStatus } from "./api/backend-status";
 
 export interface Settings {
   modePreference: Mode | "auto";
@@ -45,9 +45,11 @@ export function updateSettings(patch: Partial<Settings>) {
 
 interface Ctx {
   settings: Settings;
-  /** Resolved data mode: `auto` becomes `real` only once the backend probe (via `/api/fx`) succeeds. */
+  /** Resolved data mode: `auto` follows the backend instance only once the probe (via `/api/fx`) succeeds. */
   mode: Mode;
   backend: BackendStatus;
+  /** Mode the backend instance declared in `/v1/health` (`null` until it answered). */
+  backendMode: Mode | null;
   update: (patch: Partial<Settings>) => void;
 }
 
@@ -56,8 +58,9 @@ const SettingsContext = React.createContext<Ctx | null>(null);
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const settings = React.useSyncExternalStore(subscribe, load, () => DEFAULT_SETTINGS);
   const backend = React.useSyncExternalStore(subscribeBackendStatus, getBackendStatus, getServerBackendStatus);
-  const mode = resolveMode(settings.modePreference, backend);
-  const value = React.useMemo<Ctx>(() => ({ settings, mode, backend, update: updateSettings }), [settings, mode, backend]);
+  const backendMode = React.useSyncExternalStore(subscribeBackendStatus, getBackendMode, getServerBackendMode);
+  const mode = resolveMode(settings.modePreference, backend, backendMode);
+  const value = React.useMemo<Ctx>(() => ({ settings, mode, backend, backendMode, update: updateSettings }), [settings, mode, backend, backendMode]);
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 

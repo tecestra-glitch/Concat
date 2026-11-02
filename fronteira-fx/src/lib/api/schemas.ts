@@ -18,10 +18,12 @@ export const ChannelSchema = z.enum(["digital", "physical", "aggregator"]);
 export const ModalitySchema = z.enum(["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]);
 export const QuoteKindSchema = z.enum(["market_reference", "indicative", "executable"]);
 
+/** Fixed (`amount`) and/or percentage over the input (`pct`); either may be null (contract `Fee`). */
 export const FeeSchema = z.object({
   label: z.string(),
-  amount: DecimalString,
+  amount: NullableDecimalString,
   currency: CurrencySchema,
+  pct: NullableDecimalString.optional(),
 });
 
 export const EdgeSchema = z.object({
@@ -83,6 +85,20 @@ export const StreamEventSchema = z.object({
   payload: z.unknown(),
 });
 
+export const SourceHealthStateSchema = z.enum(["ok", "degraded", "blocked", "stale", "unknown"]);
+
+/**
+ * Payload of `source.health` (Q-02): a partial update keyed by `source_id`, never a full `Source`.
+ * Emitted by services/collector.py (with `next_poll_at`) and services/demo.py (without it).
+ */
+export const SourceHealthEventSchema = z.object({
+  source_id: z.string().min(1),
+  health: SourceHealthStateSchema,
+  last_error: z.string().nullable(),
+  consecutive_failures: z.number().int().nonnegative().optional(),
+  next_poll_at: z.string().nullable().optional(),
+});
+
 export const HealthSchema = z.object({
   status: z.string(),
   data_mode: ModeSchema,
@@ -96,3 +112,4 @@ export type ParsedCycle = z.infer<typeof CycleSchema>;
 export type ParsedEdge = z.infer<typeof EdgeSchema>;
 export type ParsedStreamEvent = z.infer<typeof StreamEventSchema>;
 export type ParsedHealth = z.infer<typeof HealthSchema>;
+export type SourceHealthEvent = z.infer<typeof SourceHealthEventSchema>;

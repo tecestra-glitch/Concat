@@ -95,9 +95,11 @@ _BLOCK_WORDS = ("access denied", "captcha", "unusual traffic", "pardon our inter
 
 
 def evidence_dir() -> Path:
-    override = os.environ.get("FX_EVIDENCE_DIR", "").strip()
-    if override:
-        return Path(override)
+    """Same setting as the collector (`settings.evidence_dir`): EVIDENCE_DIR, then the legacy FX_EVIDENCE_DIR."""
+    for name in ("EVIDENCE_DIR", "FX_EVIDENCE_DIR"):
+        override = os.environ.get(name, "").strip()
+        if override:
+            return Path(override)
     return Path(__file__).resolve().parents[3] / "var" / "evidence"
 
 

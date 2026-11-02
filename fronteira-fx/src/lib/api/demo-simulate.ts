@@ -11,6 +11,10 @@ export async function simulateDemo(req: SimulationRequest): Promise<SimulationRe
     .map((o) => ({ ...o, valuation_currency: req.valuation_currency }));
   return {
     opportunities,
-    search: { amounts_tested: [...DEMO_CAPITALS.map(String), String(capital)], boundaries: ["25000 (melhora Alberdi PJC acima de R$ 25 mil)"] },
+    search: {
+      amounts_tested: [...DEMO_CAPITALS.map(String), String(capital)],
+      boundaries: [{ low: "10000", high: "25000", low_winner: "demo-chaco", high_winner: "demo-alberdi", low_roi_sign: "+", high_roi_sign: "+", reason: "Alberdi PJC passa a vencer acima de R$ 25 mil (demonstração)", refined: false }],
+    },
+    simulation_id: null, // demo never persists
   };
 }

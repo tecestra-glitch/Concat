@@ -1,7 +1,9 @@
 /**
  * API client (D3 / D5). Every call takes the resolved mode:
  * - `real` and `simulation` go to the backend through the Next proxy (`/api/fx`, which injects the
- *   API key server-side); `simulation` adds `?data_mode=simulation` so the modes never mix.
+ *   API key server-side). Each backend instance serves ONE data mode, so every call declares the mode it
+ *   expects (`?data_mode=`): an instance in another mode answers `409` and nothing is read or written, and a
+ *   response stamped with another `data_mode` is rejected here as well (SEC-01: the modes never mix).
  * - `demo` serves the isolated demo dataset (flagged `data_mode = "demo"`) and never touches the network.
  *
  * `NEXT_PUBLIC_API_URL` is honoured only for local development against a backend without key
@@ -20,6 +22,10 @@ import type {
   HistorySeries,
   JournalEntry,
   JournalInput,
+  KnowledgeHit,
+  KnowledgeQuery,
+  Memory,
+  MemoryQuery,
   MemorySummary,
   Mode,
   Opportunity,
@@ -52,12 +58,21 @@ export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, ""
 export const API_BASE = API_URL || "/api/fx";
 
 /**
- * D3: an explicit preference always wins; `auto` is `real` only once the backend answered the
- * health probe, otherwise `demo` (never a silent mix).
+ * D3: an explicit preference always wins; `auto` follows the mode the backend instance declares in
+ * `/v1/health` once it answered (`real` when it did not say), otherwise `demo` (never a silent mix).
  */
-export function resolveMode(preferred: Mode | "auto", backend: BackendStatus): Mode {
+export function resolveMode(preferred: Mode | "auto", backend: BackendStatus, backendMode?: Mode | null): Mode {
   if (preferred !== "auto") return preferred;
-  return backend === "available" ? "real" : "demo";
+  if (backend !== "available") return "demo";
+  return backendMode ?? "real";
+}
+
+/**
+ * SEC-01: the preference asks for a backend mode the instance does not serve. The backend refuses those
+ * calls (409); the UI says so instead of labelling foreign data. The demo dataset is local and never conflicts.
+ */
+export function modeConflict(mode: Mode, backendMode: Mode | null | undefined): boolean {
+  return mode !== "demo" && !!backendMode && backendMode !== mode;
 }
 
 export class ApiError extends Error {
@@ -85,6 +100,27 @@ async function errorDetail(res: Response): Promise<string> {
   return res.statusText || "erro";
 }
 
+/** The `data_mode` a request declared in its query string, if any. */
+function declaredMode(path: string): string | null {
+  const q = path.indexOf("?");
+  return q === -1 ? null : new URLSearchParams(path.slice(q + 1)).get("data_mode");
+}
+
+/**
+ * SEC-01, second line of defence: a record (or a list of records) stamped with another `data_mode` than the
+ * request declared never reaches the UI. Nested objects are not inspected: a real instance legitimately tags
+ * the opportunities of a simulation with `simulation` inside the simulation response (D3).
+ */
+function assertSameMode(path: string, expected: string, body: unknown): void {
+  for (const item of Array.isArray(body) ? body : [body]) {
+    if (item === null || typeof item !== "object") continue;
+    const stamp = (item as { data_mode?: unknown }).data_mode;
+    if (typeof stamp === "string" && stamp !== expected) {
+      throw new ApiError(409, `409 resposta em data_mode=${stamp} para um pedido em data_mode=${expected} em ${path}; os modos nunca se misturam`);
+    }
+  }
+}
+
 /**
  * The single HTTP helper (watch.ts shares it). `Content-Type` only when there is a body,
  * `204`/empty body → `undefined`, non-2xx → `ApiError` carrying the backend `detail`.
@@ -97,7 +133,10 @@ export async function http<T>(path: string, init: RequestInit = {}): Promise<T> 
   if (res.status === 204 || res.status === 205) return undefined as T;
   const text = await res.text();
   if (text === "") return undefined as T;
-  return JSON.parse(text) as T;
+  const body = JSON.parse(text) as unknown;
+  const expected = declaredMode(path);
+  if (expected) assertSameMode(path, expected, body);
+  return body as T;
 }
 
 export type QueryParams = Record<string, string | number | boolean | null | undefined>;
@@ -113,9 +152,19 @@ export function qs(params: QueryParams): string {
   return s ? `?${s}` : "";
 }
 
-/** D3: only `simulation` travels as a query parameter; `real` is the backend default. */
-export function modeQuery(mode: Mode): { data_mode?: "simulation" } {
-  return mode === "simulation" ? { data_mode: "simulation" } : {};
+/** SEC-01: the mode every backend call expects; the instance answers 409 when it serves another one. */
+export function modeQuery(mode: Mode): { data_mode?: Exclude<Mode, "demo"> } {
+  return mode === "demo" ? {} : { data_mode: mode };
+}
+
+/** GET /v1/rag/search?q=&k=&tag= (path only; tests and the client share it). */
+export function knowledgeSearchPath(mode: Mode, f: KnowledgeQuery): string {
+  return `/v1/rag/search${qs({ q: f.q, k: f.k, tag: f.tag, ...modeQuery(mode) })}`;
+}
+
+/** GET /v1/memory?q=&kind=&tag=&limit= (the UI's "all" sentinel is dropped by `qs`). */
+export function memoryListPath(mode: Mode, f: MemoryQuery): string {
+  return `/v1/memory${qs({ q: f.q, kind: f.kind, tag: f.tag, limit: f.limit, ...modeQuery(mode) })}`;
 }
 
 const active = (v: string | number | null | undefined): v is string | number => v !== undefined && v !== null && v !== "" && v !== "all";
@@ -194,7 +243,8 @@ export const api = {
         (!active(f.quote) || q.quote === f.quote) &&
         (!active(f.source) || q.source_id === f.source) &&
         (!active(f.modality) || q.modality === f.modality) &&
-        (amount === null || toNumber(q.amount_base) === amount),
+        // like the backend (`latest_quotes`): a quote without amount is generic and stays (MED-06)
+        (amount === null || q.amount_base === null || toNumber(q.amount_base) === amount),
     );
   },
   /** `key` is the D2 series_key. */
@@ -221,10 +271,17 @@ export const api = {
     const quote = (amount !== undefined && amount !== null ? ofSource.find((q) => toNumber(q.amount_base) === toNumber(amount)) : undefined) ?? ofSource[0] ?? null;
     return { status: "done", quote };
   },
-  /** Accepts the capital alone (number) or the full filter set; all three filters are really sent. */
+  /**
+   * Accepts the capital alone (number) or the full filter set; all three filters are really sent, except
+   * `city = "digital"`, which is not a backend value (422): it is applied here as `city === null` (MED-05).
+   */
   async opportunities(mode: Mode, filters?: OpportunityFilters | number): Promise<Opportunity[]> {
     const f: OpportunityFilters = typeof filters === "number" ? { capital: filters } : (filters ?? {});
-    if (mode !== "demo") return http<Opportunity[]>(`/v1/opportunities${qs({ capital: f.capital, channel: f.channel, city: f.city, ...modeQuery(mode) })}`);
+    if (mode !== "demo") {
+      const digital = f.city === "digital";
+      const list = await http<Opportunity[]>(`/v1/opportunities${qs({ capital: f.capital, channel: f.channel, city: digital ? undefined : f.city, ...modeQuery(mode) })}`);
+      return digital ? list.filter((o) => o.city === null) : list;
+    }
     const capital = active(f.capital) ? toNumber(f.capital) : null;
     return demoOpportunities.filter(
       (o) =>
@@ -301,6 +358,16 @@ export const api = {
     }
     demoDeleteRule(id);
   },
+  /** RAG over documentation/fees/hours. Demo has no corpus: an empty list, never the network. */
+  async searchKnowledge(mode: Mode, f: KnowledgeQuery): Promise<KnowledgeHit[]> {
+    if (mode === "demo") return [];
+    return http<KnowledgeHit[]>(knowledgeSearchPath(mode, f));
+  },
+  /** GET /v1/memory. Demo has no memory: an empty list, never the network. */
+  async memory(mode: Mode, f: MemoryQuery): Promise<Memory[]> {
+    if (mode === "demo") return [];
+    return http<Memory[]>(memoryListPath(mode, f));
+  },
   /** GET /v1/memory/summary?limit= → { summary } (text for the overview). */
   async memorySummary(mode: Mode, limit?: number): Promise<MemorySummary> {
     if (mode !== "demo") return http<MemorySummary>(`/v1/memory/summary${qs({ limit, ...modeQuery(mode) })}`);
@@ -310,11 +377,14 @@ export const api = {
     if (mode !== "demo") return http<Snapshot>(`/v1/snapshot${qs(modeQuery(mode))}`);
     return { cursor: "demo-0", server_time: DEMO_SERVER_TIME, quotes: allDemoQuotes, sources: demoSources, opportunities: demoOpportunities, data_mode: "demo" };
   },
-  /** `null` when the backend (or the proxy) is unreachable; demo answers locally. */
+  /**
+   * `null` when the backend (or the proxy) is unreachable; demo answers locally. Never declares a mode:
+   * health is how the client learns which mode the instance serves (SEC-01).
+   */
   async health(mode: Mode = "real"): Promise<BackendHealth | null> {
     if (mode === "demo") return { status: "ok", data_mode: "demo", server_time: DEMO_SERVER_TIME };
     try {
-      return await http<BackendHealth>(`/v1/health${qs(modeQuery(mode))}`);
+      return await http<BackendHealth>("/v1/health");
     } catch {
       return null;
     }

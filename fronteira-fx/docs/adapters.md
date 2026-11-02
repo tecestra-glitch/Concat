@@ -133,7 +133,7 @@ comportamento esperado (nunca números inventados). Nenhum deles martela: um `GE
 | `FX_NORTE_CA_BUNDLE=/caminho/bundle.pem` | verifica o TLS da Norte Cambios com esse bundle (CAs do sistema + intermediária Sectigo "Public Server Authentication CA DV R36"; o projeto Java `cotizacion` embarca o PEM em `src/main/resources/certs/`) |
 | `FX_NORTE_INSECURE=1` | desliga a verificação TLS **só** da Norte, explicitamente; a mensagem do resultado avisa |
 | `FX_PW_CHROMIUM=/caminho/chromium` | binário do Chromium para o Playwright quando o download padrão não existe (fallback automático: `/opt/pw-browsers/chromium`) |
-| `FX_EVIDENCE_DIR` | diretório das screenshots (default `backend/var/evidence`) |
+| `EVIDENCE_DIR` | diretório das screenshots e do HTML bruto (default `backend/var/evidence`); `FX_EVIDENCE_DIR` é alias legado (aviso de obsoleto no arranque) |
 
 `backend/var/` inteiro é ignorado por `backend/.gitignore` (`var/`); um `backend/var/.gitignore` local não é versionado.
 

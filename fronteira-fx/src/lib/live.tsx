@@ -9,10 +9,9 @@ import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "./api/client";
 import { type ParsedStreamEvent, QuoteSchema } from "./api/schemas";
-import type { Source } from "./api/types";
 import type { AlertEvent } from "./api/watch";
 import { alertToasts } from "./alert-toasts";
-import { applyQuoteUpdate, applySnapshot, applySourceHealth, parseStreamFrame, shouldResetCursor } from "./live-cache";
+import { applyQuoteUpdate, applySnapshot, applySourceHealthEvent, parseStreamFrame, shouldResetCursor } from "./live-cache";
 import { useSettings } from "./settings";
 
 export type ConnState = "connected" | "reconnecting" | "offline" | "demo";
@@ -30,10 +29,6 @@ function isAlertEvent(p: unknown): p is AlertEvent {
   if (typeof p !== "object" || p === null) return false;
   const o = p as Record<string, unknown>;
   return typeof o.id === "string" && typeof o.rule_id === "string" && typeof o.message === "string" && typeof o.ts === "string";
-}
-
-function isSource(p: unknown): p is Source {
-  return typeof p === "object" && p !== null && typeof (p as Record<string, unknown>).id === "string";
 }
 
 export function LiveProvider({ children }: { children: React.ReactNode }) {
@@ -85,7 +80,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
           break;
         }
         case "source.health":
-          if (isSource(ev.payload)) applySourceHealth(qc, mode, ev.payload);
+          applySourceHealthEvent(qc, mode, ev.payload);
           break;
         case "opportunity.updated":
           void qc.invalidateQueries({ queryKey: ["opportunities", mode] });

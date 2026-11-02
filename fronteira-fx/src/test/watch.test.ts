@@ -12,11 +12,10 @@ import {
   validateTarget,
   validateThreshold,
   watchApi,
-  type AlertRule,
   type Change,
   type WatchStatus,
 } from "@/lib/api/watch";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, api } from "@/lib/api/client";
 import {
   buildDemoWatch,
   demoAlertEvents,
@@ -271,10 +270,15 @@ describe("demo watch dataset", () => {
 describe("watchApi (demo)", () => {
   it("updating a rule that does not exist fails with 404 instead of inventing a row", async () => {
     resetDemoWatch();
-    const ghost: AlertRule = { id: "nope", name: "fantasma", kind: "cycle_roi", threshold: "0.002", params: null, channel: "ui", target: null, cooldown_s: 600, enabled: true, data_mode: "demo" };
-    const attempt = watchApi.updateRule("demo", ghost, { enabled: false });
+    const attempt = api.updateRule("demo", "nope", { enabled: false });
     await expect(attempt).rejects.toBeInstanceOf(ApiError);
     await expect(attempt).rejects.toMatchObject({ status: 404 });
     expect(demoAlertRules().some((r) => r.id === "nope")).toBe(false);
+  });
+  it("polling an unknown source fails with 404 like the backend (LOW-11)", async () => {
+    resetDemoWatch();
+    const attempt = watchApi.triggerPoll("demo", "nope");
+    await expect(attempt).rejects.toBeInstanceOf(ApiError);
+    await expect(attempt).rejects.toMatchObject({ status: 404 });
   });
 });

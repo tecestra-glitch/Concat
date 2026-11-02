@@ -13,6 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 log = logging.getLogger("fronteira_fx.config")
 
 DataMode = Literal["real", "simulation", "demo"]
+PLACEHOLDER_PREFIX = "TROQUE_"  # `.env.example` placeholders (SEC-05)
 SIMULATION_MODE: DataMode = "simulation"  # every persisted simulation row is tagged with this mode (D3)
 
 
@@ -68,6 +69,18 @@ class Settings(BaseSettings):
     # One-off alternative: `python -m fronteira_fx.cli seed-knowledge`.
     seed_knowledge: bool = True
     knowledge_dir: str | None = None
+
+    @model_validator(mode="after")
+    def _refuse_placeholder_secrets(self) -> Self:
+        """SEC-05: the `TROQUE_ESTA_*` placeholders of `.env.example` are public; never run with them."""
+        if self.api_key and self.api_key.strip().upper().startswith(PLACEHOLDER_PREFIX):
+            raise ValueError("API_KEY ainda é o placeholder do .env.example; gere uma com `openssl rand -hex 32`")
+        if PLACEHOLDER_PREFIX in self.database_url.upper():
+            raise ValueError(
+                "POSTGRES_PASSWORD (DATABASE_URL) ainda é o placeholder do .env.example; "
+                "gere com `openssl rand -hex 32`"
+            )
+        return self
 
     @model_validator(mode="after")
     def _warn_deprecated_env_names(self) -> Self:
