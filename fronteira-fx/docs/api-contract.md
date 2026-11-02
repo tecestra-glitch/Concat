@@ -86,10 +86,23 @@ StreamEvent { "id": "123", "type": "quote.updated|source.health|opportunity.upda
 | PATCH | `/v1/accounts/{id}` | atualiza saldos informados manualmente |
 | POST | `/v1/simulations/routes` | body `{capital_brl, objective:"cycle|remittance|purchase", destination?:Position, valuation_currency:"BRL", channels:["digital","physical"], amounts?:["5000","10000","25000","50000"]}` → `{opportunities: Opportunity[], search:{amounts_tested, boundaries}}` |
 | GET | `/v1/opportunities?capital=&channel=&city=` | `Opportunity[]` (ranking principal + secundário) |
+| GET | `/v1/opportunities/cycles?max_len=4&min_roi=` | `Cycle[]` — ciclos no grafo de posições a partir dos saldos estacionados (ver abaixo) |
 | GET | `/v1/evidence?source=&from=` / `/v1/evidence/{id}` | `Evidence[]` |
 | GET/POST | `/v1/journal` | `JournalEntry[]` |
 | GET | `/v1/snapshot` | `{cursor, quotes, sources, opportunities, server_time}` |
 | GET | `/v1/stream` | SSE. Header `Last-Event-ID` ou `?cursor=` para replay; `410 Gone` se cursor expirou → cliente refaz snapshot |
+
+## Grafo de posições e ciclos (cruzamento ao vivo)
+
+Nó = `"<moeda>@<venue>"` (venue: id da fonte, `fonte:cidade` para casas de câmbio, id da conta, ou `cash:<cidade>`).
+Aresta = cotação (compra: base→quote a `buy`; venda: quote→base a `1/sell`), transferência ou depósito/saque,
+com `rate`, `feePct` (sobre a entrada), `feeFixed` (na moeda de saída), `minutes`, `via`, `confidence`, `evidenceId`.
+Ciclos simples de 2 a `max_len` arestas são avaliados com o saldo livre do nó inicial.
+
+```jsonc
+Cycle { "start": "BRL@brbank", "path": ["BRL@brbank","PYG@ueno","USD@ueno","BRL@brbank"], "edges": [Edge],
+        "amountIn": 25000, "amountOut": 25041.2, "gain": 41.2, "roi": 0.001648, "minutes": 4320, "confidence": "estimated" }
+```
 
 ## Regras do ranking
 
@@ -99,4 +112,69 @@ StreamEvent { "id": "123", "type": "quote.updated|source.health|opportunity.upda
 
 ## MCP
 
-Ferramentas espelham os serviços: `list_sources`, `get_quotes`, `request_quote`, `get_history`, `compare_routes`, `simulate_cycle`, `search_evidence`.
+Ferramentas espelham os serviços: `list_sources`, `get_quotes`, `request_quote`, `get_history`, `compare_routes`, `simulate_cycle`, `find_cycles`, `search_evidence`.
+
+## Monitoramento ao vivo (sites sem API) — módulo `watch`
+
+Sites sem API não "empurram" dados; o máximo possível é **sondagem inteligente**: requisições condicionais (ETag /
+If-Modified-Since), hash do conteúdo relevante para detectar mudança real, intervalo adaptativo (mais curto quando a
+fonte muda com frequência ou em horário comercial; recuo exponencial após erros/bloqueio), respeito a limites, e
+emissão de evento no stream assim que algo muda.
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/v1/watch/sources` | `WatchStatus[]` |
+| POST | `/v1/watch/sources/{id}` | body `{interval_s?, enabled?}` — ajuste manual |
+| POST | `/v1/watch/run/{id}` | sondagem imediata; retorna `Change | null` |
+| GET | `/v1/watch/changes?source=&from=&kind=` | `Change[]` |
+
+```jsonc
+WatchStatus { "source_id": "chaco", "enabled": true, "interval_s": 120, "min_interval_s": 60, "max_interval_s": 900,
+  "next_run_at": "...", "last_run_at": "...", "last_change_at": "...|null", "changes_24h": 7, "errors_in_row": 0,
+  "etag": "string|null", "content_hash": "sha256|null", "status": "ok|degraded|blocked|stale|error|needs_session" }
+Change { "id": "uuid", "source_id": "chaco", "ts": "...", "kind": "quote_change|layout_change|status_change",
+  "summary": "USD/PYG CDE venda 7350 → 7360", "before": {}, "after": {}, "evidence_id": "uuid|null" }
+```
+Eventos no stream: `source.change` (payload `Change`) e `alert.fired` (payload `AlertEvent`).
+MCP: `watch_status`, `list_changes`, `trigger_poll`.
+
+## Alertas / notificações — módulo `notify`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET/POST | `/v1/alerts/rules` | `AlertRule[]` / cria |
+| PATCH/DELETE | `/v1/alerts/rules/{id}` | atualiza / remove |
+| GET | `/v1/alerts/events?from=&rule=` | `AlertEvent[]` |
+| POST | `/v1/alerts/test/{id}` | envia mensagem de teste pelo canal da regra |
+
+```jsonc
+AlertRule { "id": "uuid", "name": "ciclo > 0,2 %", "kind": "cycle_roi|quote_move|source_down|opportunity_new",
+  "threshold": "0.002", "params": { "pair": "USD/PYG", "city": "CDE" } | null,
+  "channel": "ui|telegram|webhook|email", "target": "chat_id|url|email|null", "cooldown_s": 600, "enabled": true }
+AlertEvent { "id": "uuid", "rule_id": "uuid", "ts": "...", "message": "...", "payload": {}, "channel": "telegram",
+  "delivered": true, "error": "string|null" }
+```
+Segredos (token do bot, SMTP) só por variáveis de ambiente do backend. MCP: `list_alert_rules`, `create_alert_rule`.
+
+## RAG (documentação, tarifas, horários, evidências) — módulo `rag`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/v1/rag/documents` | body `{title, text, source, tags[], metadata?}` → `{id, chunks}` |
+| GET | `/v1/rag/search?q=&k=5&tag=` | `[{id, document_id, title, snippet, score, source, tags}]` |
+| GET | `/v1/rag/documents` | lista resumida |
+
+Cotações e cálculos **nunca** vêm do RAG: vêm do banco e do motor. MCP: `search_knowledge`.
+
+## Memória do agente — módulo `memory`
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/v1/memory` | body `{kind: "preference|decision|fact|outcome", text, tags[], ttl_days?}` → `Memory` |
+| GET | `/v1/memory?q=&kind=&tag=&limit=` | `Memory[]` (busca textual + tags; mais recentes primeiro) |
+| DELETE | `/v1/memory/{id}` | remove |
+
+```jsonc
+Memory { "id": "uuid", "kind": "decision", "text": "...", "tags": ["ueno"], "created_at": "...", "expires_at": "...|null", "source": "user|agent" }
+```
+MCP: `remember`, `recall`, `forget`.

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/input";
 import { DEMO_CAPITALS } from "@/lib/api/demo-data";
 import { useSettings } from "@/lib/settings";
+import { LiveCycles } from "./live-cycles";
 
 export function Opportunities() {
   const { settings } = useSettings();
@@ -32,7 +33,7 @@ export function Opportunities() {
         </div>
       </PageHeader>
       <Tabs defaultValue="principal">
-        <TabsList><TabsTrigger value="principal">Ranking principal ({main.length})</TabsTrigger><TabsTrigger value="secundario">Secundário ({secondary.length})</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="principal">Ranking principal ({main.length})</TabsTrigger><TabsTrigger value="secundario">Secundário ({secondary.length})</TabsTrigger><TabsTrigger value="cruzamento">Cruzamento ao vivo</TabsTrigger></TabsList>
         <TabsContent value="principal"><Card><CardContent className="p-0 sm:p-2">{q.isLoading ? <Skeleton className="m-3 h-40" /> : <RankingTable items={main} />}</CardContent></Card></TabsContent>
         <TabsContent value="secundario">
           <Card>
@@ -40,6 +41,7 @@ export function Opportunities() {
             <CardContent className="p-0 sm:p-2">{q.isLoading ? <Skeleton className="m-3 h-40" /> : <RankingTable items={secondary} />}</CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="cruzamento"><LiveCycles /></TabsContent>
       </Tabs>
     </div>
   );

@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@radix-ui/react-collapsible";
 import { Button } from "@/components/ui/button";
 import { SlidersHorizontal } from "lucide-react";
+import { LiveCycles } from "@/components/opportunities/live-cycles";
 
 export function Overview() {
   const { settings } = useSettings();
@@ -74,6 +75,8 @@ export function Overview() {
           </CardContent>
         </Card>
       </div>
+
+      <LiveCycles limit={6} compact />
 
       <div className="grid gap-4 xl:grid-cols-[3fr_2fr]">
         <Card className="min-w-0">

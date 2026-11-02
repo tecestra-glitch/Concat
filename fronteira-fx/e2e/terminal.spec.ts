@@ -74,3 +74,11 @@ test.describe("Fronteira FX terminal", () => {
     await expect(page.locator("html")).not.toHaveClass(/dark/);
   });
 });
+
+test("live cycle crossing lists cycles starting from parked balances", async ({ page }) => {
+  await page.goto("/oportunidades");
+  await page.getByRole("tab", { name: "Cruzamento ao vivo" }).click();
+  const card = page.getByTestId("live-cycles");
+  await expect(card).toBeVisible();
+  await expect(card.getByRole("row").nth(1)).toContainText("@");
+});
