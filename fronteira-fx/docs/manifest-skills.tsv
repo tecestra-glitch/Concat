@@ -10,3 +10,4 @@ wshobson-agents	0874a27b17a22e2b7c2e2bcd725768e0803cad06	plugins/llm-application
 deepeval	90e230cbe916c73240a48312c494065a39bf52d1	skills/deepeval	.claude/skills/deepeval	/home/user/Concat/fronteira-fx/dev/external/deepeval/LICENSE.md
 api-anything	9f3d15336aa520a389ad3674491b49009925696a	.	fronteira-fx/dev/external/api-anything (reference + skill copy)	MIT (package.json)
 aVolpe/cotizacion	a3aa1bbf9874274afd911e4eee3470f51482efcc	.	fronteira-fx/dev/external/cotizacion (reference only)	LICENSE in checkout
+api-anything	9f3d15336aa520a389ad3674491b49009925696a	skills/api-anything	.claude/skills/api-anything	fronteira-fx/dev/external/api-anything/LICENSE (MIT)
