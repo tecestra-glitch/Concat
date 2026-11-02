@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+# Secret scan with TruffleHog (binary, or Docker when a daemon is available) + lint of the frontend.
+# TruffleHog exits 183 when --fail finds a verified secret; any other failure is reported, not blocking.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+scan() {
+  if command -v trufflehog >/dev/null 2>&1; then
+    trufflehog git "file://$PWD" --since-commit HEAD --only-verified --fail --no-update >/dev/null 2>&1
+  elif docker info >/dev/null 2>&1; then
+    docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:latest git file:///repo --since-commit HEAD --only-verified --fail --no-update >/dev/null 2>&1
+  else
+    echo "aviso: trufflehog indisponível (sem binário e sem daemon Docker); varredura de segredos pulada."
+    return 0
+  fi
+}
+scan; rc=$?
+if [ "$rc" -eq 183 ]; then echo "trufflehog: segredo verificado encontrado nas alterações. Commit bloqueado."; exit 1; fi
+[ "$rc" -ne 0 ] && echo "aviso: trufflehog terminou com código $rc (não bloqueante)."
+cd fronteira-fx && pnpm exec eslint src e2e

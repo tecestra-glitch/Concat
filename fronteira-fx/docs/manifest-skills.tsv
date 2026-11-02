@@ -1,0 +1,12 @@
+repo	commit	source_path	installed_as	license_file
+anthropics-skills	dbd4588f9e1033efb41dad4bef2f7947c8993d44	skills/frontend-design	.claude/skills/frontend-design	<skill>/LICENSE.txt (bundled per skill)
+anthropics-skills	dbd4588f9e1033efb41dad4bef2f7947c8993d44	skills/webapp-testing	.claude/skills/webapp-testing	<skill>/LICENSE.txt (bundled per skill)
+vercel-agent-skills	1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62	skills/react-best-practices	.claude/skills/react-best-practices	"repo README ""License"" section (MIT); no root LICENSE file at commit"
+vercel-agent-skills	1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62	skills/web-design-guidelines	.claude/skills/web-design-guidelines	"repo README ""License"" section (MIT); no root LICENSE file at commit"
+ui-ux-pro-max	3a13158ff1f32156cbe144108de48eda2ecaed9a	.claude/skills/ui-ux-pro-max	.claude/skills/ui-ux-pro-max	/home/user/Concat/fronteira-fx/dev/external/ui-ux-pro-max/LICENSE
+fastapi	45cb2252c737906f37544f5ba6bee0295fb81468	.agents/skills/fastapi	.claude/skills/fastapi	fronteira-fx/dev/external/fastapi/LICENSE (MIT)
+useful-ai-prompts	3f5182cfd739fc113f4af5244a1cf342ad7f7911	skills/real-time-features	.claude/skills/real-time-features	/home/user/Concat/fronteira-fx/dev/external/useful-ai-prompts/LICENSE
+wshobson-agents	0874a27b17a22e2b7c2e2bcd725768e0803cad06	plugins/llm-application-dev/skills/rag-implementation	.claude/skills/rag-implementation	/home/user/Concat/fronteira-fx/dev/external/wshobson-agents/LICENSE
+deepeval	90e230cbe916c73240a48312c494065a39bf52d1	skills/deepeval	.claude/skills/deepeval	/home/user/Concat/fronteira-fx/dev/external/deepeval/LICENSE.md
+api-anything	9f3d15336aa520a389ad3674491b49009925696a	.	fronteira-fx/dev/external/api-anything (reference + skill copy)	MIT (package.json)
+aVolpe/cotizacion	a3aa1bbf9874274afd911e4eee3470f51482efcc	.	fronteira-fx/dev/external/cotizacion (reference only)	LICENSE in checkout

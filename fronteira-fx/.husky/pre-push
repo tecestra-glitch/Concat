@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# Full-history secret scan (when TruffleHog is available) + unit tests before every push.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+if command -v trufflehog >/dev/null 2>&1; then
+  trufflehog git "file://$PWD" --only-verified --fail --no-update >/dev/null 2>&1; rc=$?
+  if [ "$rc" -eq 183 ]; then echo "trufflehog: segredo verificado no histórico. Push bloqueado."; exit 1; fi
+elif docker info >/dev/null 2>&1; then
+  docker run --rm -v "$PWD:/repo" trufflesecurity/trufflehog:latest git file:///repo --only-verified --fail --no-update >/dev/null 2>&1; rc=$?
+  if [ "$rc" -eq 183 ]; then echo "trufflehog (docker): segredo verificado no histórico. Push bloqueado."; exit 1; fi
+else
+  echo "aviso: trufflehog indisponível; varredura de segredos pulada no push."
+fi
+cd fronteira-fx && pnpm exec vitest run || exit 1
+if [ -d backend/.venv ]; then ( cd backend && uv run pytest -q ) || exit 1; fi

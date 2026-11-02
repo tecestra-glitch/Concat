@@ -1,0 +1,91 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Fronteira FX light theme */
+  --background: #f4f6fb;
+  --surface: #ffffff;
+  --surface-2: #eef1f8;
+  --foreground: #0b1020;
+  --muted: #5b6478;
+  --border: #d9deea;
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+  --gain: #059669;
+  --loss: #e11d48;
+  --warn: #d97706;
+  --ring: #2563eb;
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* Spec: fundo #0B1020, superfícies #111827, destaque #60A5FA, ganho #34D399, perda #FB7185 */
+  --background: #0b1020;
+  --surface: #111827;
+  --surface-2: #171f33;
+  --foreground: #e6eaf3;
+  --muted: #94a3b8;
+  --border: #243049;
+  --accent: #60a5fa;
+  --accent-foreground: #0b1020;
+  --gain: #34d399;
+  --loss: #fb7185;
+  --warn: #fbbf24;
+  --ring: #60a5fa;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
+  --color-warn: var(--warn);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  .tnum {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 35%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
