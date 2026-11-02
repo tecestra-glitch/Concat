@@ -174,19 +174,22 @@ export function StatsStrip({
   const state = stateOf(stats, loading, error);
   const cells = statsCells(stats, quote, now);
 
+  // Raiz `@container`: as colunas seguem a largura do bloco (no pregão ele mora na coluna do gráfico,
+  // que nunca é a largura da janela). Só o estado pronto é uma `<dl>`, e ela só tem grupos dt/dd.
+  const grid = "grid grid-cols-2 gap-2 @lg:grid-cols-4 @4xl:grid-cols-8";
   let body: ReactElement;
   if (state === "loading") {
     body = (
-      <>
+      <div className={grid}>
         <span className="sr-only">Carregando…</span>
         {Array.from({ length: TILE_COUNT }, (_, i) => (
           <Skeleton key={i} className="h-16" />
         ))}
-      </>
+      </div>
     );
   } else if (state === "error") {
     body = (
-      <div role="alert" className="col-span-full text-sm">
+      <div role="alert" className="text-sm">
         Não foi possível carregar as estatísticas da sessão.{" "}
         <span className="text-muted">{error?.message}</span>
         {onRetry ? (
@@ -197,32 +200,30 @@ export function StatsStrip({
       </div>
     );
   } else if (state === "empty") {
-    body = (
-      <div className="col-span-full">
-        <p className="text-sm text-muted">Sessão sem cotações até agora.</p>
-      </div>
-    );
+    body = <p className="text-sm text-muted">Sessão sem cotações até agora.</p>;
   } else {
     body = (
       <>
-        {cells.map((cell) => (
-          <StatTile key={cell.id} cell={cell} stats={stats} quote={quote} />
-        ))}
-        <div className="col-span-full text-[11px] text-muted">corte diário 00:00 Assunção</div>
+        <dl className={grid}>
+          {cells.map((cell) => (
+            <StatTile key={cell.id} cell={cell} stats={stats} quote={quote} />
+          ))}
+        </dl>
+        <p className="mt-1 text-[11px] text-muted">corte diário 00:00 Assunção</p>
       </>
     );
   }
 
   return (
-    <dl
+    <div
       data-testid="pregao-stats"
       data-state={state}
       aria-busy={loading || undefined}
       data-mode={stats?.data_mode === "demo" ? "demo" : undefined}
       data-day-start={stats?.day_start}
-      className={cn("grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8", className)}
+      className={cn("@container", className)}
     >
       {body}
-    </dl>
+    </div>
   );
 }

@@ -52,6 +52,16 @@ describe("Pregao (container da integração, §24.4)", () => {
     expect(html).toMatch(/data-pair="USD\/PYG"[^>]*aria-checked="true"|aria-checked="true"[^>]*data-pair="USD\/PYG"/);
   });
 
+  it("grades do layout têm trilha minmax(0,1fr) (grid-cols-1): a fita w-max e o canvas não alargam a página", () => {
+    const grids = [...html.matchAll(/<div[^>]*class="(grid [^"]*)"/g)].map((m) => m[1]);
+    // raiz do layout e pilha do livro; as duas linhas (até lg); o painel do gráfico
+    expect(grids.filter((c) => c === "grid grid-cols-1 gap-4")).toHaveLength(2);
+    expect(grids.filter((c) => /^grid grid-cols-1 gap-(3|4) lg:grid-cols-\[minmax\(0,1fr\)_20rem\]/.test(c))).toHaveLength(2);
+    // painel do gráfico: as linhas não esticam até a altura do livro (sem vão entre resumo e gráfico)
+    expect(grids).toContain("grid grid-cols-1 content-start gap-3 min-w-0");
+    expect(html).not.toContain('class="grid gap-4');
+  });
+
   it("mapa de spread tem seção e título próprios dentro do livro", () => {
     expect(html).toMatch(/<section aria-labelledby="pregao-h-mapa"[^>]*>\s*<h3 id="pregao-h-mapa"[^>]*>Mapa de spread<\/h3>/);
   });

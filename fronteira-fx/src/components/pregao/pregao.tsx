@@ -180,7 +180,7 @@ export function Pregao() {
           />
         }
         book={
-          <div className="grid gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <BookLadder
               levels={levels}
               pair={pair}
@@ -192,7 +192,7 @@ export function Pregao() {
               error={quotesError}
               onRetry={quotesQ.refetch}
             />
-            <section aria-labelledby="pregao-h-mapa" className="grid gap-2">
+            <section aria-labelledby="pregao-h-mapa" className="grid grid-cols-1 gap-2">
               <h3 id="pregao-h-mapa" className="text-sm font-medium">
                 Mapa de spread
               </h3>

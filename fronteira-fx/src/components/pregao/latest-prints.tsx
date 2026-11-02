@@ -98,7 +98,7 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
       {state === "empty" ? <p className="text-sm text-muted">Nenhuma atualização ainda. As casas publicam a cada minuto ou mais.</p> : null}
 
       {state === "ready" ? (
-        <div className="max-h-[22rem] overflow-y-auto">
+        <div className="relative max-h-[22rem] overflow-y-auto">
           <table className="w-full text-[13px]">
             <caption className="sr-only">Últimas atualizações de cotação</caption>
             <thead>

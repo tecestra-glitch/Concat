@@ -132,13 +132,14 @@ describe("BookLadder", () => {
     expect(html).toContain("Lado da venda");
   });
 
-  it("casa fechada fica esmaecida com o rótulo fechada; incompleta leva aviso", () => {
+  it("casa fechada leva o rótulo fechada, sem opacidade (contraste AA); incompleta leva aviso", () => {
     const closed = mkLevel({ key: "f", house: "Casa Fechada", source_id: "f", buy: "7310", sell: "7390", status: "closed" });
     const incomplete = mkLevel({ key: "i", house: "Casa Parcial", source_id: "i", buy: "7305", sell: null, incomplete: true });
     const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={[closed, incomplete]} />);
     const closedRow = rowsOf(html, "pregao-book-row").find((r) => r.open.includes('data-key="f"'));
     expect(closedRow).toBeDefined();
-    expect(closedRow?.open).toContain("opacity-70");
+    expect(closedRow?.open).not.toContain("opacity-");
+    expect(closedRow?.open).toContain('data-status="closed"');
     expect(closedRow?.body).toContain("fechada");
     const incompleteRow = rowsOf(html, "pregao-book-row").find((r) => r.open.includes('data-key="i"'));
     expect(incompleteRow?.body).toContain("incompleta");

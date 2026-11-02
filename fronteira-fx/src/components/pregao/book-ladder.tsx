@@ -82,12 +82,12 @@ function BookRow({ level, side, best, quote, selected, now, onSelect }: BookRowP
       data-key={level.key}
       data-side={side}
       data-best={best ? "true" : "false"}
+      data-status={level.status}
       tabIndex={0}
       aria-selected={selected}
       className={cn(
         "h-8 max-md:h-10 cursor-pointer hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-ring aria-selected:ring-1 aria-selected:ring-inset aria-selected:ring-accent",
         best && "bg-surface-2 font-semibold",
-        closed && "opacity-70",
       )}
       onClick={() => onSelect(level.key)}
       onKeyDown={onKeyDown}
@@ -229,8 +229,9 @@ export function BookLadder({
   }
 
   return (
-    <div {...shared} data-state="ready" className={cn("grid gap-3", className)}>
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div {...shared} data-state="ready" className={cn("@container grid gap-3", className)}>
+      {/* Lado a lado só quando o próprio bloco tem ≥ 28rem: em lg+ o livro mora numa coluna de 20rem. */}
+      <div className="grid gap-3 @md:grid-cols-2">
         <section aria-labelledby="pregao-book-buy-h" data-testid="pregao-book-side-buy" className="min-w-0">
           <h4 id="pregao-book-buy-h" className="text-sm font-medium">Compra</h4>
           <p className="text-xs text-muted">quanto a casa paga</p>

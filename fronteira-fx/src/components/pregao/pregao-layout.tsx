@@ -46,6 +46,8 @@ export interface PregaoLayoutProps {
 /**
  * Grade da tela de pregão. Uma única árvore DOM para todas as larguras: em `< md` os painéis não ativos
  * ficam ocultos por `max-md:hidden` (continuam montados), e as abas aparecem; em `md+` o tablist some.
+ * Toda grade tem trilha explícita `minmax(0, 1fr)` (`grid-cols-1` abaixo de `lg`): uma trilha implícita
+ * `auto` cresceria até o conteúdo mais largo (a fita `w-max`, o canvas do gráfico) e alargaria a página.
  */
 export function PregaoLayout({
   banner,
@@ -71,7 +73,7 @@ export function PregaoLayout({
   }
 
   return (
-    <div data-testid="pregao-layout" data-mobile-tab={tab} className={cn("grid gap-4", className)}>
+    <div data-testid="pregao-layout" data-mobile-tab={tab} className={cn("grid grid-cols-1 gap-4", className)}>
       {banner != null && <div data-testid="pregao-banner">{banner}</div>}
 
       <section aria-labelledby="pregao-h-fita">
@@ -81,7 +83,7 @@ export function PregaoLayout({
         {ticker}
       </section>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_20rem_18rem]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_20rem_18rem]">
         <section aria-labelledby="pregao-h-controles" className="xl:col-span-2">
           <h3 id="pregao-h-controles" className="sr-only">
             Controles
@@ -114,8 +116,8 @@ export function PregaoLayout({
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_20rem_18rem]">
-        <div id="pregao-panel-grafico" className={cn("grid gap-3 min-w-0", tab !== "grafico" && "max-md:hidden")}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_20rem_18rem]">
+        <div id="pregao-panel-grafico" className={cn("grid grid-cols-1 content-start gap-3 min-w-0", tab !== "grafico" && "max-md:hidden")}>
           <section aria-labelledby="pregao-h-resumo">
             <h3 id="pregao-h-resumo" className="text-sm font-medium">
               Resumo da sessão

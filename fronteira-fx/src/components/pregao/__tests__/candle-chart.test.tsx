@@ -169,6 +169,12 @@ describe("fonte de candle-chart", () => {
     expect(source).toContain('data-testid="pregao-chart"');
     expect(source).toContain("DEMONSTRAÇÃO");
   });
+
+  it("figure com figcaption, sem role=img: o link de atribuição da biblioteca e o «Tentar de novo» ficam dentro (axe nested-interactive)", () => {
+    expect(source).toMatch(/<figure\b/);
+    expect(source).toMatch(/<figcaption className="sr-only">/);
+    expect(source).not.toMatch(/role="img"/);
+  });
 });
 
 describe("CandleChart — três estados (§0.12)", () => {

@@ -253,10 +253,11 @@ export function CandleChart({
     legend.push({ name: "Bollinger 20/2", value: `${upper} / ${lower}`, swatch: { background: "var(--chart-band)" } });
   }
 
+  // <figure> + <figcaption>, sem papel de imagem (como em charts/price-chart.tsx): a biblioteca põe um link
+  // de atribuição dentro do contêiner e o estado de erro tem um botão; ambos seriam nested-interactive.
   return (
     <figure
       data-testid="pregao-chart"
-      role="img"
       aria-label={label}
       aria-busy={state === "loading" ? true : undefined}
       data-state={state}

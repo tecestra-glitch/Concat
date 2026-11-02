@@ -99,7 +99,7 @@ function heatTd(cell: HeatCell | null, pair: PairKey, selectedKey: string | null
         aria-label={heatCellLabel(cell)}
         aria-pressed={cell.key === selectedKey}
         disabled={step === 0}
-        className={cn("tnum h-8 w-full text-foreground max-md:h-10", cell.status === "closed" && "opacity-70")}
+        className={cn("tnum h-8 w-full text-foreground max-md:h-10", cell.status === "closed" && "border border-dashed border-border-strong")}
         onClick={() => onSelect(cell.key)}
       >
         {shown}
@@ -140,7 +140,7 @@ export function SpreadHeatmap({
 
   return (
     <div data-testid="pregao-heatmap" data-state="ready" className={cn("grid gap-2", className)}>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="text-[13px]">
           <caption className="sr-only">Spread por casa e par</caption>
           <thead>

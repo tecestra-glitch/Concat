@@ -155,11 +155,12 @@ describe("Watchlist", () => {
     expect(rowHtml(html, ref.key)).not.toContain('aria-selected="true"');
   });
 
-  it("linha fechada fica esmaecida e diz fechada", () => {
+  it("linha fechada diz fechada, sem opacidade (contraste AA)", () => {
     const target = firstHouseRow(ROWS);
     const rows = ROWS.map((r) => (r.key === target.key ? { ...r, status: "closed" as const } : r));
     const row = rowHtml(renderList({}, rows), target.key);
-    expect(row).toContain("opacity-70");
+    expect(row).not.toContain("opacity-");
+    expect(row).toContain('data-status="closed"');
     expect(row).toContain("fechada");
   });
 

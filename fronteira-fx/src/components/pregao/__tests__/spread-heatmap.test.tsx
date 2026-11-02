@@ -178,11 +178,12 @@ describe("SpreadHeatmap — células", () => {
     expect(cellByKey(reversed, CELL.key)).toContain('data-step="4"');
   });
 
-  it("status fechada: aria-label termina em ', fechada' e a célula fica com opacidade reduzida", () => {
+  it("status fechada: aria-label termina em ', fechada' e a célula ganha contorno tracejado (sem opacidade, contraste AA)", () => {
     const html = render({ cells: [{ ...CELL, status: "closed" }], houses: SYNTH_HOUSES });
     const chaco = cellByKey(html, CELL.key);
     expect(chaco).toContain('aria-label="Cambios Chaco, USD/PYG: spread 1,18 %, fechada"');
-    expect(chaco).toContain("opacity-70");
+    expect(chaco).not.toContain("opacity-");
+    expect(chaco).toContain("border-dashed");
   });
 
   it("aria-pressed fica true só na célula selecionada", () => {

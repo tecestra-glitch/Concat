@@ -186,6 +186,7 @@ export function Watchlist({ rows, selectedKey, onSelect, loading = false, error 
                 data-testid="pregao-watchlist-row"
                 data-key={r.key}
                 data-kind={r.kind}
+                data-status={r.status}
                 data-state={selected ? "selected" : undefined}
                 aria-selected={selected}
                 tabIndex={isRef ? -1 : 0}
@@ -193,7 +194,6 @@ export function Watchlist({ rows, selectedKey, onSelect, loading = false, error 
                 className={cn(
                   "h-8 max-md:h-10",
                   isRef ? "border-l-2 border-dashed border-border" : "cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
-                  r.status === "closed" && "opacity-70",
                 )}
                 onClick={isRef ? undefined : () => onSelect(r.key)}
                 onKeyDown={isRef ? undefined : (e) => handleRowKey(e, r.key)}
