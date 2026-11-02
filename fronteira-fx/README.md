@@ -94,7 +94,7 @@ ROI            = lucro líquido / capital total alocado
 
 ```bash
 cd fronteira-fx
-cp .env.example .env                        # POSTGRES_PASSWORD é obrigatório; sem defaults fracos
+cp .env.example .env                        # POSTGRES_PASSWORD e API_KEY são obrigatórios; sem defaults fracos
 docker compose up -d --build                # postgres (pgvector) + api :8000 + worker (Playwright)
 docker compose --profile web up -d --build  # idem + web: Next.js standalone com FX_API_URL=http://api:8000 e FX_API_KEY do .env
 docker compose logs -f api worker

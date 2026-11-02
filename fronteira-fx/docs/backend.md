@@ -202,8 +202,8 @@ para não colidir com `alert_rules`/`alert_events` de `models.py`), `memory/stor
 
 ```bash
 cd fronteira-fx
-cp .env.example .env                        # POSTGRES_PASSWORD obrigatório (sem default fraco)
-docker compose up -d --build                # postgres (pgvector/pgvector:pg16), api :8000, worker (Playwright)
+cp .env.example .env                        # POSTGRES_PASSWORD e API_KEY obrigatórios (sem default fraco)
+docker compose up -d --build                # postgres (pgvector 0.8.7-pg16, pinado por digest), api :8000, worker (Playwright)
 docker compose --profile web up -d --build  # + web (Next.js standalone, FX_API_URL=http://api:8000, FX_API_KEY do .env)
 docker compose logs -f api worker
 ```
