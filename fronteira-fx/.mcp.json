@@ -2,25 +2,47 @@
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@4.4.4"]
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@4.4.4"
+      ]
     },
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@0.0.84", "--headless"]
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.84",
+        "--headless"
+      ]
     },
     "firecrawl": {
       "command": "npx",
-      "args": ["-y", "firecrawl-mcp@3.36.0"],
-      "env": { "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}" }
+      "args": [
+        "-y",
+        "firecrawl-mcp@3.36.0"
+      ],
+      "env": {
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
+      }
     },
     "api-anything": {
       "command": "node",
-      "args": ["dev/external/api-anything/dist/cli.js", "mcp"],
-      "env": { "API_ANYTHING_HOME": ".local/api-anything", "API_ANYTHING_READ_ONLY": "1" }
+      "args": [
+        "dev/external/api-anything/dist/cli.js",
+        "mcp"
+      ],
+      "env": {
+        "API_ANYTHING_HOME": ".local/api-anything",
+        "API_ANYTHING_READ_ONLY": "1"
+      }
     },
     "fronteira-fx": {
       "type": "http",
       "url": "${FX_API_URL:-http://localhost:8000}/mcp"
+    },
+    "frankfurter": {
+      "type": "http",
+      "url": "https://mcp.frankfurter.dev/"
     }
   }
 }
