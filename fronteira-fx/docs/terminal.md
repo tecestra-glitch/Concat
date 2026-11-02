@@ -63,9 +63,10 @@ Os testes de componentes ficam em `src/components/pregao/__tests__/` e são feit
 | `candles.ts` | `toDecStr`, `midOf`, `bucketStart`, `pairOf`, `pairKeyOf`, `quoteOfPair`, `baseOfPair`, `aggregateHistory`, `tailLimit` | Buckets, `mid` e agregação de velas a partir do histórico |
 | `hours.ts` | `PRE_OPEN_MIN`, `houseStatus`, `isAlwaysOpen`, `localParts`, `zonedToUtc` | Algoritmo de status das casas (`open`, `pre`, `closed`, `unknown`) |
 | `cross.ts` | `Leg`, `ImpliedCross`, `STALE_MS`, `legOf`, `isStale`, `midOfLeg`, `impliedBrlPyg`, `diffPct` | Cruzamento BRL/PYG via USD e diferença contra o direto |
+| `keys.ts` | `quoteKey` | Chave da série de uma cotação: `Quote.series_key` (D2), com fallback reconstruído quando ausente |
 | `derive.ts` | `isIncomplete`, `spreadPct`, `agioPct`, `pctChange`, `houseName`, `statusOf`, `refMidFor`, `toBookLevels`, `toTickerItems`, `toWatchlistRows`, `toHeatCells`, `quoteToPrint`, `defaultKeyFor` | Derivação pura de fita, livro, lista, mapa e últimas atualizações |
 | `demo.ts` | `DEFAULT_SERIES_KEY`, `DEMO_HOUSES`, `DEMO_HOURS`, `DEMO_HOUSE_IDS`, `DEMO_ANCHOR`, `DEMO_VOL`, `fnv1a`, `lcg`, `demoCandles`, `demoStats`, `demoSessions`, `demoQuotesAt`, `demoBook`, `demoTicker`, `demoPrints`, `demoWatchlist`, `demoHeat` | Gerador demo determinístico; `now` sempre é parâmetro |
-| `api.ts` | `fetchCandles`, `fetchStats`, `fetchSessions`, `STATS_BATCH`, `FetchOpts`, `CandleOpts` | Cliente HTTP do pregão, com zod e fallback de `/v1/history` |
+| `api.ts` | `fetchCandles`, `fetchStats`, `fetchSessions`, `STATS_BATCH`, `FetchOpts`, `CandleOpts` | Cliente HTTP do pregão pelo proxy `/api/fx` (`API_BASE`), com zod, `?data_mode=simulation` em `simulation` e fallback de `/v1/history` |
 | `indicators.ts` | `closes`, `sma`, `ema`, `bollinger`, `atr`, `vwapProxy`, `buildOverlays` | Indicadores (SMA, EMA, Bollinger, ATR de Wilder, VWAP-proxy) |
 | `use-candles.ts` | `pregaoKeys`, `REFETCH_FAST_MS`, `REFETCH_SLOW_MS`, `refetchMsFor`, `candlesQueryOptions`, `useCandles`, `useSparklines` | Hook de velas e de miniaturas |
 | `use-session-stats.ts` | `statsQueryOptions`, `statsByKey`, `useSessionStats` | Hook de estatísticas da sessão por chave |

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "@/lib/api/client";
+import { API_BASE, ApiError } from "@/lib/api/client";
 import { STATS_BATCH, fetchCandles, fetchSessions, fetchStats } from "@/lib/pregao/api";
 import { DEFAULT_SERIES_KEY, DEMO_HOURS, demoSessions } from "@/lib/pregao/demo";
 import {
@@ -241,5 +241,34 @@ describe("fetchSessions", () => {
     const out = await fetchSessions("demo", { now: NOW });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(out).toEqual(demoSessions(NOW));
+  });
+});
+
+describe("proxy e modo simulation (D3)", () => {
+  it("goes through API_BASE (the /api/fx proxy unless NEXT_PUBLIC_API_URL is set)", async () => {
+    fetchMock.mockResolvedValueOnce(response(200, [SESSION]));
+    await fetchSessions("real");
+    expect(urlOf(0)).toBe(`${API_BASE}/v1/pregao/sessions`);
+  });
+  it("real mode sends no data_mode; simulation sends ?data_mode=simulation on every route", async () => {
+    fetchMock.mockResolvedValueOnce(response(200, SERIES));
+    await fetchCandles("real", "k", "1h");
+    expect(paramsOf(0).has("data_mode")).toBe(false);
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce(response(200, { ...SERIES, data_mode: "simulation" }));
+    fetchMock.mockResolvedValueOnce(response(200, [{ ...STATS, data_mode: "simulation" }]));
+    fetchMock.mockResolvedValueOnce(response(200, [{ ...SESSION, data_mode: "simulation" }]));
+    await fetchCandles("simulation", "k", "1h");
+    await fetchStats("simulation", ["a"]);
+    await fetchSessions("simulation");
+    for (const call of [0, 1, 2]) expect(paramsOf(call).get("data_mode")).toBe("simulation");
+  });
+  it("labels the /v1/history fallback with the requested mode", async () => {
+    fetchMock.mockResolvedValueOnce(response(404));
+    fetchMock.mockResolvedValueOnce(response(200, { key: "k", points: [{ t: "2026-11-02T12:01:00Z", buy: "7320", sell: "7350", mid: null }] }));
+    const s = await fetchCandles("simulation", "k", "15m");
+    expect(paramsOf(1).get("data_mode")).toBe("simulation");
+    expect(s.data_mode).toBe("simulation");
+    expect(s.candles.every((c) => c.data_mode === "simulation")).toBe(true);
   });
 });
