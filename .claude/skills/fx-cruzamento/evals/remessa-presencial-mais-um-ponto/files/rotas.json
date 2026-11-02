@@ -1,0 +1,19 @@
+{
+  "cotacoes": [
+    { "fonte": "alberdi", "cidade": "PJC", "base": "BRL", "cotada": "PYG", "compra": "1122", "venda": "1134", "modalidade": "dinheiro", "tipo": "indicativa", "evidencia": "ev-alb-pjc" },
+    { "fonte": "chaco", "cidade": "CDE", "base": "BRL", "cotada": "PYG", "compra": "1104", "venda": "1118", "modalidade": "dinheiro", "tipo": "indicativa", "evidencia": "ev-chaco-cde" }
+  ],
+  "transferencias": [
+    { "de": "BRL@brbank", "para": "PYG@ueno", "taxa": "1090.0", "custo_pct": "0", "custo_fixo": "0", "minutos": 2880, "via": "Pix → Western Union → conta ueno, R$ 10 mil, tarifa 100 % desconto", "confianca": "estimada", "evidencia": "ev-wu-10000" },
+    { "de": "BRL@brbank", "para": "BRL@cash:PJC", "taxa": "1", "custo_pct": "0", "custo_fixo": "180", "minutos": 480, "via": "saque + deslocamento até Pedro Juan Caballero", "confianca": "estimada" },
+    { "de": "BRL@brbank", "para": "BRL@cash:CDE", "taxa": "1", "custo_pct": "0", "custo_fixo": "60", "minutos": 180, "via": "saque + deslocamento até Ciudad del Este", "confianca": "estimada" },
+    { "de": "BRL@cash:PJC", "para": "BRL@alberdi:PJC", "taxa": "1", "minutos": 10, "via": "balcão Alberdi", "confianca": "cotada" },
+    { "de": "PYG@alberdi:PJC", "para": "PYG@cash:PJC", "taxa": "1", "minutos": 0, "via": "balcão Alberdi", "confianca": "cotada" },
+    { "de": "PYG@cash:PJC", "para": "PYG@ueno", "taxa": "1", "minutos": 20, "via": "depósito em agência ueno (PJC)", "confianca": "estimada" },
+    { "de": "BRL@cash:CDE", "para": "BRL@chaco:CDE", "taxa": "1", "minutos": 10, "via": "balcão Chaco", "confianca": "cotada" },
+    { "de": "PYG@chaco:CDE", "para": "PYG@cash:CDE", "taxa": "1", "minutos": 0, "via": "balcão Chaco", "confianca": "cotada" },
+    { "de": "PYG@cash:CDE", "para": "PYG@ueno", "taxa": "1", "minutos": 30, "via": "depósito em agência ueno (CDE)", "confianca": "estimada" }
+  ],
+  "saldos": { "BRL@brbank": "10000" },
+  "max_arestas": 6
+}

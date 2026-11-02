@@ -1,0 +1,17 @@
+{
+  "cotacoes": [
+    { "fonte": "ueno", "cidade": null, "base": "USD", "cotada": "PYG", "compra": "5880", "venda": "5925", "modalidade": "conta", "tipo": "indicativa", "evidencia": "ev-ueno-1", "capturada_em": "2026-11-02T10:05:00Z" },
+    { "fonte": "nomad", "cidade": null, "base": "USD", "cotada": "BRL", "compra": "5.3950", "venda": "5.4310", "modalidade": "conta", "tipo": "indicativa", "evidencia": "ev-nomad-1", "capturada_em": "2026-11-02T10:04:00Z" },
+    { "fonte": "revolut", "cidade": null, "base": "USD", "cotada": "BRL", "compra": "5.4020", "venda": "5.4260", "modalidade": "conta", "tipo": "indicativa", "evidencia": "ev-rev-1", "capturada_em": "2026-11-02T10:04:00Z" },
+    { "fonte": "bcp", "cidade": null, "base": "USD", "cotada": "PYG", "compra": "5944.76", "venda": "5944.76", "modalidade": "transferencia", "tipo": "referencia" }
+  ],
+  "transferencias": [
+    { "de": "BRL@brbank", "para": "PYG@ueno", "taxa": "1101.0", "custo_pct": "0", "custo_fixo": "0", "minutos": 2880, "via": "Pix → Western Union → conta ueno (tarifa 100 % desconto)", "confianca": "estimada", "evidencia": "ev-wu-5000" },
+    { "de": "USD@ueno", "para": "USD@nomad", "taxa": "1", "custo_pct": "0.002", "custo_fixo": "0", "minutos": 1440, "via": "transferência USD ueno → Nomad", "confianca": "estimada" },
+    { "de": "BRL@nomad", "para": "BRL@brbank", "taxa": "1", "custo_pct": "0", "custo_fixo": "0", "minutos": 60, "via": "Pix Nomad → banco BR", "confianca": "cotada" },
+    { "de": "BRL@revolut", "para": "BRL@brbank", "taxa": "1", "custo_pct": "0", "custo_fixo": "0", "minutos": 60, "via": "Pix Revolut → banco BR", "confianca": "cotada" },
+    { "de": "USD@ueno", "para": "USD@revolut", "taxa": "1", "custo_pct": "0.002", "custo_fixo": "0", "minutos": 1440, "via": "transferência USD ueno → Revolut", "confianca": "estimada" }
+  ],
+  "saldos": { "BRL@brbank": "5000", "USD@nomad": "1500", "PYG@ueno": "1250000" },
+  "max_arestas": 6
+}

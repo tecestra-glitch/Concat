@@ -1,0 +1,15 @@
+{
+  "cotacoes": [
+    { "fonte": "ueno", "cidade": null, "base": "USD", "cotada": "PYG", "compra": "5890", "venda": "5930", "modalidade": "conta", "tipo": "indicativa", "evidencia": "ev-ueno-2", "capturada_em": "2026-11-02T09:30:00Z" },
+    { "fonte": "nomad", "cidade": null, "base": "USD", "cotada": "BRL", "compra": "5.3980", "venda": "5.4300", "modalidade": "conta", "tipo": "indicativa", "evidencia": "ev-nomad-2", "capturada_em": "2026-11-02T09:31:00Z" },
+    { "fonte": "bcp", "cidade": null, "base": "USD", "cotada": "PYG", "compra": "5944.76", "venda": "5944.76", "modalidade": "transferencia", "tipo": "referencia" },
+    { "fonte": "bcp", "cidade": null, "base": "USD", "cotada": "BRL", "compra": "5.4043", "venda": "5.4043", "modalidade": "transferencia", "tipo": "referencia" }
+  ],
+  "transferencias": [
+    { "de": "BRL@brbank", "para": "PYG@ueno", "taxa": "1103.5", "custo_pct": "0", "custo_fixo": "0", "minutos": 2880, "via": "Pix → Western Union → conta ueno (tarifa 100 % desconto)", "confianca": "estimada", "evidencia": "ev-wu-2" },
+    { "de": "USD@ueno", "para": "USD@nomad", "taxa": "1", "custo_pct": "0", "custo_fixo": "0", "minutos": 1440, "via": "transferência internacional USD ueno → Nomad: tarifa e IOF NÃO confirmados", "confianca": "incompleta" },
+    { "de": "BRL@nomad", "para": "BRL@brbank", "taxa": "1", "custo_pct": "0", "custo_fixo": "0", "minutos": 60, "via": "Pix Nomad → banco BR", "confianca": "cotada" }
+  ],
+  "saldos": { "BRL@brbank": "20000", "USD@nomad": "1500", "PYG@ueno": "1250000" },
+  "max_arestas": 6
+}

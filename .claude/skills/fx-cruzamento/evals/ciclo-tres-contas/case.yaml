@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: ciclo-tres-contas
+expected_outcome: |
+  O modelo identifica pelo menos um ciclo digital lucrativo de 5 arestas entre as
+  três contas (BRL@brbank, USD@nomad, PYG@ueno), usando a Revolut ou a Nomad como
+  ponto de câmbio. O melhor ciclo deve mostrar ganho líquido de aproximadamente +R$ 9
+  (ROI ~0,18 %) ou +US$ 0,76 (ROI ~0,05 %), dependendo do ponto de partida.
+  Deve indicar que todos os ciclos são "estimados" (a transferência ueno → conta não
+  está confirmada) e que a referência BCP não é executável. Não deve apresentar as
+  idas e voltas de 2 arestas na mesma casa como resultado lucrativo.
+context:
+  scaffold_script: place-files.sh

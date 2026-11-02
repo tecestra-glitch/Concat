@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: remessa-presencial-mais-um-ponto
+expected_outcome: |
+  O modelo compara três rotas BRL@brbank → PYG@ueno: Alberdi em PJC (presencial),
+  Chaco em CDE (presencial) e Western Union digital. A rota Alberdi entrega ~₲ 1.118.040
+  (taxa efetiva ~₲ 1.101,804 por R$ 1, ROI +1,08 % sobre o digital), entra no ranking
+  principal porque supera o digital em ≥ 1 p.p. A rota Chaco entrega ~₲ 1.097.376
+  (ROI +0,68 %), abaixo do limiar de 1 p.p., portanto secundária. O digital (WU) entrega
+  ₲ 1.090.000 e é a referência. O modelo explica a regra do 1 p.p. e não apresenta a
+  rota Chaco como a melhor opção.
+context:
+  scaffold_script: place-files.sh

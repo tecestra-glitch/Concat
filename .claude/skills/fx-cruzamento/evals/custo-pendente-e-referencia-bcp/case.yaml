@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: custo-pendente-e-referencia-bcp
+expected_outcome: |
+  O modelo identifica o ciclo digital de 5 arestas entre as três contas, mas marca o
+  resultado como "estimativa incompleta" porque a transferência USD ueno → Nomad tem
+  confiança "incompleta" (tarifa e IOF não confirmados). O ganho estimado é ~US$ 6,75
+  (ROI ~0,45 %) a partir de USD@nomad, ou ~R$ 90 (ROI ~0,45 %) a partir de BRL@brbank.
+  O modelo explica que não pode chamar esse resultado de lucro confirmado e indica qual
+  custo precisa ser verificado. Além disso, informa que as cotações do BCP são referência
+  de mercado, não executáveis como aresta de câmbio.
+context:
+  scaffold_script: place-files.sh
