@@ -216,9 +216,9 @@ mesma alteração.
 2. **Como `DATABASE_URL` é lida.** Em `backend/src/fronteira_fx/config.py`, `Settings` é
    `pydantic-settings` com `env_file=".env"` (caminho relativo ao diretório de execução: rode os
    comandos a partir de `backend/`) e `extra="ignore"`. O modelo `backend/.env.example` (só placeholders,
-   nenhum valor real) fica rastreado de propósito, apesar da regra `.env*` do `.gitignore`: ele foi
-   adicionado com `git add -f`; se precisar recriá-lo, faça o mesmo. Copie-o para `backend/.env`, que
-   nunca entra no Git. O campo `database_url: str` (padrão
+   nenhum valor real) fica rastreado de propósito: o `.gitignore` ignora `.env*` mas libera
+   `!.env.example`, então este modelo e o `.env.example` da raiz do projeto entram no Git sem `-f`.
+   Copie-o para `backend/.env`, que nunca entra no Git. O campo `database_url: str` (padrão
    `sqlite:///./var/fx.db`) vem da variável `DATABASE_URL`. `auto_create_schema: bool = True` vem de
    `AUTO_CREATE_SCHEMA`. `is_sqlite` é `database_url.startswith("sqlite")`. O `alembic/env.py` lê o
    mesmo `get_settings().database_url`. O `docker-compose.yml` já monta
