@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from ..engine.volatility import WINDOWS, Observation, VolatilityResult, compute_volatility
 from ..models import Quote, utcnow
 from ..schemas import HistoryPoint, HistorySeries
+from .candles import LIKE_ESCAPE, like_prefix
 
 
 def _mid(buy: Decimal | None, sell: Decimal | None) -> Decimal | None:
@@ -26,8 +27,8 @@ def _bucket_start(ts: datetime, grid_s: int) -> datetime:
 
 def _key_filter(key: str):
     """Exact series key, or a contract-style prefix (e.g. `chaco:CDE:USD/PYG:cash`) matching every
-    series below it (branches / amounts / contexts)."""
-    return (Quote.series_key == key) | Quote.series_key.like(key.replace("%", r"\%") + ":%")
+    series below it (branches / amounts / contexts). Same LIKE escaping as `services.candles.key_filter`."""
+    return (Quote.series_key == key) | Quote.series_key.like(like_prefix(key), escape=LIKE_ESCAPE)
 
 
 def history_series(

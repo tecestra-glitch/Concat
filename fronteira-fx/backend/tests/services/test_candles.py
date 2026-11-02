@@ -13,6 +13,7 @@ from fronteira_fx.services.candles import (
     ensure_utc,
     fmt,
     key_filter,
+    like_prefix,
     mid_of,
     pair_of,
 )
@@ -101,6 +102,14 @@ def test_key_filter_matches_exact_key_and_contract_suffixes():
     sql = str(key_filter("chaco:CDE:USD/PYG:cash").compile(compile_kwargs={"literal_binds": True}))
     assert "quotes.series_key = 'chaco:CDE:USD/PYG:cash'" in sql
     assert "quotes.series_key LIKE 'chaco:CDE:USD/PYG:cash:%'" in sql
+
+
+def test_key_filter_escapes_like_wildcards_and_declares_escape():
+    # `_` e `%` da chave são literais no LIKE; o `ESCAPE` é declarado para o banco não adivinhar
+    assert like_prefix("wu:digital:BRL/PYG:cash_promo") == "wu:digital:BRL/PYG:cash\\_promo:%"
+    assert like_prefix("a:b:c/d:x%y\\z") == "a:b:c/d:x\\%y\\\\z:%"
+    sql = str(key_filter("wu:digital:BRL/PYG:cash_promo").compile(compile_kwargs={"literal_binds": True}))
+    assert "LIKE 'wu:digital:BRL/PYG:cash\\_promo:%' ESCAPE '\\'" in sql
 
 
 # ---- aggregate_quotes ---------------------------------------------------------------------------

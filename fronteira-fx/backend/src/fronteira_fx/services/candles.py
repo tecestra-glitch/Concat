@@ -23,6 +23,7 @@ from fronteira_fx.schemas import DataMode
 from fronteira_fx.schemas_candles import TF_SECONDS, Candle, CandleSeries, Timeframe
 
 __all__ = [
+    "LIKE_ESCAPE",
     "aggregate_quotes",
     "bucket_start",
     "candles_series",
@@ -30,6 +31,7 @@ __all__ = [
     "ensure_utc",
     "fmt",
     "key_filter",
+    "like_prefix",
     "mid_of",
     "pair_of",
 ]
@@ -61,9 +63,18 @@ def pair_of(key: str) -> str:
     return parts[2] if len(parts) > 2 else ""
 
 
+LIKE_ESCAPE = "\\"
+
+
+def like_prefix(key: str) -> str:
+    """Padrão LIKE para "a chave e tudo abaixo dela": escapa `\\`, `%` e `_` da chave (ver `LIKE_ESCAPE`)."""
+    escaped = key.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return escaped + ":%"
+
+
 def key_filter(key: str):
     """Chave exata ou qualquer série abaixo dela (`:@branch`, `:amount`, `:ctx`), como no contrato."""
-    return (Quote.series_key == key) | Quote.series_key.like(key.replace("%", r"\%") + ":%")
+    return (Quote.series_key == key) | Quote.series_key.like(like_prefix(key), escape=LIKE_ESCAPE)
 
 
 def _norm(value: Decimal) -> Decimal:
