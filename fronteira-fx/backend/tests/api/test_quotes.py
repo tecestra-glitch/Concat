@@ -1,8 +1,8 @@
 from decimal import Decimal
 
 from fronteira_fx.schemas import QuoteOut
-from fronteira_fx.services.quotes import series_key
-from tests.conftest import seed_market
+from fronteira_fx.services.quotes import series_key, store_quote_draft
+from tests.conftest import NOW, add_source, draft, seed_market
 
 
 def test_quotes_filters_and_string_decimals(client, db):
@@ -13,6 +13,35 @@ def test_quotes_filters_and_string_decimals(client, db):
     assert q["buy"] == "7290" and q["sell"] == "7360" and isinstance(q["buy"], str)
     assert q["unit_note"] == "PYG por 1 USD" and q["channel"] == "physical" and q["data_mode"] == "real"
     assert q["branch_id"] == "chaco-cde-centro" and q["context"] is None and q["fees"] == []
+
+
+def test_reference_vocabulary_is_filterable(client, db):
+    """dolarPy (D8) emite modality=reference + channel=aggregator: a API filtra por eles, nunca 422."""
+    add_source(db, "dolarpy", method="official_api", kind="fintech")
+    store_quote_draft(
+        db,
+        draft(
+            "dolarpy",
+            "USD",
+            "PYG",
+            "7290",
+            "7360",
+            modality="reference",
+            kind="market_reference",
+            channel="aggregator",
+            context={"aggregator": "dolarpy", "house": "bcp"},
+        ),
+        evidence_id=None,
+        data_mode="real",
+        captured_at=NOW,
+    )
+    db.flush()
+    r = client.get("/v1/quotes", params={"modality": "reference"})
+    assert r.status_code == 200, r.text
+    rows = r.json()
+    assert len(rows) == 1
+    assert rows[0]["modality"] == "reference" and rows[0]["channel"] == "aggregator"
+    assert rows[0]["kind"] == "market_reference" and rows[0]["series_key"].startswith("dolarpy:digital:USD/PYG:reference")
 
 
 def test_quote_series_key_is_required_and_opens_history(client, db):

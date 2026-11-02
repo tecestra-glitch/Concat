@@ -13,8 +13,8 @@ Cada instância serve um único `data_mode` (`real`, `simulation` ou `demo`); to
 
 - `Currency`: `BRL | USD | PYG`
 - `City`: `CDE` (Ciudad del Este) | `ASU` (Asunción) | `PJC` (Pedro Juan Caballero) | `null` (operação digital, sem cidade)
-- `Channel`: `digital | physical`
-- `Modality`: `cash | transfer | account | card_debit | card_credit | card_virtual`
+- `Channel`: `digital | physical | aggregator` (`aggregator` = agregador de terceiros, ex. dolarPy; nunca executável)
+- `Modality`: `cash | transfer | account | card_debit | card_credit | card_virtual | reference` (`reference` = cotação de referência, só comparação: nunca vira aresta nem entra no ranking)
 - `QuoteKind`: `market_reference | indicative | executable`
 - `SourceMethod`: `official_api | html | browser | manual`
 - `Health`: `ok | degraded | blocked | stale | unknown`

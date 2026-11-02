@@ -14,8 +14,8 @@ DecStr = Annotated[Decimal, PlainSerializer(lambda v: fmt(v), return_type=str, w
 
 Currency = Literal["BRL", "USD", "PYG"]
 City = Literal["CDE", "ASU", "PJC"]
-Channel = Literal["digital", "physical"]
-Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual"]
+Channel = Literal["digital", "physical", "aggregator"]
+Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]
 QuoteKind = Literal["market_reference", "indicative", "executable"]
 SourceMethod = Literal["official_api", "html", "browser", "manual"]
 SourceKind = Literal["exchange_house", "remittance", "bank", "fintech", "central_bank"]

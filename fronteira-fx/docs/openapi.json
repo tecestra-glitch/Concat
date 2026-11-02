@@ -199,7 +199,8 @@
                     "account",
                     "card_debit",
                     "card_credit",
-                    "card_virtual"
+                    "card_virtual",
+                    "reference"
                   ],
                   "type": "string"
                 },
@@ -856,7 +857,8 @@
                 {
                   "enum": [
                     "digital",
-                    "physical"
+                    "physical",
+                    "aggregator"
                   ],
                   "type": "string"
                 },
@@ -4198,7 +4200,8 @@
               "account",
               "card_debit",
               "card_credit",
-              "card_virtual"
+              "card_virtual",
+              "reference"
             ],
             "title": "Modality",
             "default": "account"
@@ -4990,7 +4993,8 @@
               "type": "string",
               "enum": [
                 "digital",
-                "physical"
+                "physical",
+                "aggregator"
               ]
             },
             "type": "array",

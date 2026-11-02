@@ -1,8 +1,10 @@
 /** Mirrors docs/api-contract.md. Money travels as decimal strings. */
 export type Currency = "BRL" | "USD" | "PYG";
 export type City = "CDE" | "ASU" | "PJC" | null;
-export type Channel = "digital" | "physical";
-export type Modality = "cash" | "transfer" | "account" | "card_debit" | "card_credit" | "card_virtual";
+/** `aggregator` = agregador de terceiros (dolarPy): referência, nunca executável. */
+export type Channel = "digital" | "physical" | "aggregator";
+/** `reference` = cotação de referência (BCP, dolarPy): só comparação, nunca aresta nem ranking. */
+export type Modality = "cash" | "transfer" | "account" | "card_debit" | "card_credit" | "card_virtual" | "reference";
 export type QuoteKind = "market_reference" | "indicative" | "executable";
 export type SourceMethod = "official_api" | "html" | "browser" | "manual";
 export type Health = "ok" | "degraded" | "blocked" | "stale" | "unknown";
@@ -195,7 +197,7 @@ export interface OpportunityFilters {
 }
 
 /** D1: edge of the positions graph. Money fields are decimal strings. */
-export type EdgeKind = "quote" | "transfer";
+export type EdgeKind = "quote" | "transfer" | "deposit" | "withdraw";
 
 export interface Edge {
   from: string; // `${currency}@${venue}`
@@ -321,4 +323,5 @@ export const MODALITY_LABEL: Record<Modality, string> = {
   card_debit: "Cartão de débito",
   card_credit: "Cartão de crédito",
   card_virtual: "Cartão virtual",
+  reference: "Referência",
 };

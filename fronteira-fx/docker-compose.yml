@@ -68,6 +68,9 @@ services:
       <<: *backend-env
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       FX_SEED_DEMO: ${FX_SEED_DEMO:-0}
+      # Base de conhecimento do RAG semeada no arranque da api; a imagem copia backend/knowledge para /app/knowledge.
+      SEED_KNOWLEDGE: ${SEED_KNOWLEDGE:-true}
+      KNOWLEDGE_DIR: /app/knowledge
       EVENT_RETENTION: ${EVENT_RETENTION:-20000}
       EVENT_RETENTION_S: ${EVENT_RETENTION_S:-86400}
       STREAM_MAX_DURATION_S: ${STREAM_MAX_DURATION_S:-55}

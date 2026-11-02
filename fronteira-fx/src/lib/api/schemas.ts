@@ -14,8 +14,8 @@ const NullableDecimalString = DecimalString.nullable();
 export const ConfidenceSchema = z.enum(["quoted", "estimated", "incomplete"]);
 export const CurrencySchema = z.enum(["BRL", "USD", "PYG"]);
 export const CitySchema = z.enum(["CDE", "ASU", "PJC"]).nullable();
-export const ChannelSchema = z.enum(["digital", "physical"]);
-export const ModalitySchema = z.enum(["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual"]);
+export const ChannelSchema = z.enum(["digital", "physical", "aggregator"]);
+export const ModalitySchema = z.enum(["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]);
 export const QuoteKindSchema = z.enum(["market_reference", "indicative", "executable"]);
 
 export const FeeSchema = z.object({
@@ -27,7 +27,7 @@ export const FeeSchema = z.object({
 export const EdgeSchema = z.object({
   from: z.string(),
   to: z.string(),
-  kind: z.enum(["quote", "transfer"]),
+  kind: z.enum(["quote", "transfer", "deposit", "withdraw"]),
   rate: DecimalString,
   fee_pct: DecimalString,
   fee_fixed: DecimalString,

@@ -23,6 +23,19 @@ describe("zod schemas mirror the contract", () => {
     void _omit;
     expect(QuoteSchema.safeParse(without).success).toBe(false);
   });
+  it("Quote accepts third-party reference vocabulary (dolarPy: modality=reference, channel=aggregator)", () => {
+    const ref = { id: "r", series_key: "dolarpy:digital:USD/PYG:reference:@dolarpy-bcp:1a2b3c4d", source_id: "dolarpy", branch_id: "dolarpy-bcp", city: null, base: "USD", quote: "PYG", buy: "7290", sell: "7360", unit_note: "referência de terceiro, não executável", amount_base: null, modality: "reference", kind: "market_reference", channel: "aggregator", context: { aggregator: "dolarpy", house: "bcp" }, fees: [], captured_at: "2026-11-02T12:00:00Z", declared_updated_at: null, valid_until: null, evidence_id: null, data_mode: "real" };
+    const parsed = QuoteSchema.parse(ref);
+    expect(parsed.modality).toBe("reference");
+    expect(parsed.channel).toBe("aggregator");
+    expect(QuoteSchema.safeParse({ ...ref, channel: "telepathic" }).success).toBe(false);
+  });
+  it("Edge kinds mirror the contract (quote | transfer | deposit | withdraw)", () => {
+    for (const kind of ["quote", "transfer", "deposit", "withdraw"]) {
+      expect(EdgeSchema.parse({ ...edge, kind }).kind).toBe(kind);
+    }
+    expect(EdgeSchema.safeParse({ ...edge, kind: "teleport" }).success).toBe(false);
+  });
   it("StreamEvent knows source.change and alert.fired", () => {
     for (const type of ["quote.updated", "source.health", "opportunity.updated", "heartbeat", "source.change", "alert.fired"]) {
       expect(StreamEventSchema.parse({ id: "1", type, ts: "2026-11-02T12:00:00Z", payload: {} }).type).toBe(type);
