@@ -1,0 +1,64 @@
+# Fronteira FX: Postgres (+pgvector), API, collector worker.
+# Usage: docker compose up -d --build   (frontend: set NEXT_PUBLIC_API_URL=http://localhost:8000)
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fx}
+      POSTGRES_DB: ${POSTGRES_DB:-fx}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fx} -d ${POSTGRES_DB:-fx}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fx}:${POSTGRES_PASSWORD:-fx}@postgres:5432/${POSTGRES_DB:-fx}
+      DATA_MODE: ${DATA_MODE:-real}
+      FX_SEED_DEMO: ${FX_SEED_DEMO:-0}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      API_KEY: ${API_KEY:-}
+      AUTO_CREATE_SCHEMA: "false"   # schema is managed by alembic (run in the container CMD)
+      EVENT_RETENTION: ${EVENT_RETENTION:-20000}
+      EVENT_RETENTION_S: ${EVENT_RETENTION_S:-86400}
+      STREAM_MAX_DURATION_S: ${STREAM_MAX_DURATION_S:-55}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fx}:${POSTGRES_PASSWORD:-fx}@postgres:5432/${POSTGRES_DB:-fx}
+      DATA_MODE: ${DATA_MODE:-real}
+      AUTO_CREATE_SCHEMA: "false"
+      POLL_INTERVAL_S: ${POLL_INTERVAL_S:-300}
+      WORKER_TICK_S: ${WORKER_TICK_S:-30}
+      EVIDENCE_DIR: /app/var/evidence
+    volumes:
+      - evidence:/app/var/evidence
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+    restart: unless-stopped
+    shm_size: "1gb"   # Chromium
+
+volumes:
+  pgdata:
+  evidence:

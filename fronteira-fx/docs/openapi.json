@@ -1,0 +1,3204 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Fronteira FX API",
+    "description": "Terminal pessoal de câmbio BRL/USD/PYG (Ciudad del Este, Asunción, Pedro Juan Caballero; Western Union, ueno, Nomad, Revolut, casas de câmbio). Valores monetários trafegam como strings decimais.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sources": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "List data sources and their health",
+        "operationId": "list_sources",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Sources"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sources/{source_id}/branches": {
+      "get": {
+        "tags": [
+          "sources"
+        ],
+        "summary": "List Branches",
+        "operationId": "list_branches",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Source Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BranchOut"
+                  },
+                  "title": "Response List Branches"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/quotes": {
+      "get": {
+        "tags": [
+          "quotes"
+        ],
+        "summary": "Latest quote per comparable context",
+        "operationId": "get_quotes",
+        "parameters": [
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "CDE",
+                    "ASU",
+                    "PJC"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "City"
+            }
+          },
+          {
+            "name": "base",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "BRL",
+                    "USD",
+                    "PYG"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Base"
+            }
+          },
+          {
+            "name": "quote",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "BRL",
+                    "USD",
+                    "PYG"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Quote"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "modality",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "cash",
+                    "transfer",
+                    "account",
+                    "card_debit",
+                    "card_credit",
+                    "card_virtual"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Modality"
+            }
+          },
+          {
+            "name": "amount",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Amount"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QuoteOut"
+                  },
+                  "title": "Response Get Quotes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/quotes/request": {
+      "post": {
+        "tags": [
+          "quotes"
+        ],
+        "summary": "Fetch a quote from one source now (or queue it for the worker)",
+        "operationId": "request_quote",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteRequestIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuoteRequestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/history": {
+      "get": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Resampled history for a series key",
+        "operationId": "get_history",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 255,
+              "description": "e.g. chaco:CDE:USD/PYG:cash",
+              "title": "Key"
+            },
+            "description": "e.g. chaco:CDE:USD/PYG:cash"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
+            }
+          },
+          {
+            "name": "grid",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 86400,
+              "minimum": 1,
+              "default": 300,
+              "title": "Grid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistorySeries"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/volatility": {
+      "get": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Get Volatility",
+        "operationId": "get_volatility",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 255,
+              "title": "Key"
+            }
+          },
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "1h",
+                "24h"
+              ],
+              "type": "string",
+              "default": "1h",
+              "title": "Window"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VolatilityOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/accounts": {
+      "get": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "List Accounts",
+        "operationId": "list_accounts",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountOut"
+                  },
+                  "title": "Response List Accounts"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Create Account",
+        "operationId": "create_account",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/accounts/{account_id}": {
+      "patch": {
+        "tags": [
+          "accounts"
+        ],
+        "summary": "Update Account",
+        "operationId": "update_account",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Id"
+            }
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/simulations/routes": {
+      "post": {
+        "tags": [
+          "simulations"
+        ],
+        "summary": "Compare routes for a capital/objective; ranked opportunities + amount search",
+        "operationId": "compare_routes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/simulations/cycle": {
+      "post": {
+        "tags": [
+          "simulations"
+        ],
+        "summary": "Simulate an explicit multi-step route (each step consumes the previous output)",
+        "operationId": "simulate_cycle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CycleSimulationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteResultOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/opportunities": {
+      "get": {
+        "tags": [
+          "opportunities"
+        ],
+        "summary": "Standing ranking (main + secondary)",
+        "operationId": "list_opportunities",
+        "parameters": [
+          {
+            "name": "capital",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0.0
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Capital"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "digital",
+                    "physical"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Channel"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "CDE",
+                    "ASU",
+                    "PJC"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "City"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "cycle",
+                    "remittance_saving",
+                    "purchase_saving"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OpportunityOut"
+                  },
+                  "title": "Response List Opportunities"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/evidence": {
+      "get": {
+        "tags": [
+          "evidence"
+        ],
+        "summary": "Evidence records (what was fetched, hash, excerpt)",
+        "operationId": "search_evidence",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "substring match on excerpt",
+              "title": "Q"
+            },
+            "description": "substring match on excerpt"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvidenceOut"
+                  },
+                  "title": "Response Search Evidence"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/evidence/{evidence_id}": {
+      "get": {
+        "tags": [
+          "evidence"
+        ],
+        "summary": "Get Evidence",
+        "operationId": "get_evidence",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/journal": {
+      "get": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "List Journal",
+        "operationId": "list_journal",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JournalEntryOut"
+                  },
+                  "title": "Response List Journal"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "journal"
+        ],
+        "summary": "Create Journal Entry",
+        "operationId": "create_journal_entry",
+        "parameters": [
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalEntryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/snapshot": {
+      "get": {
+        "tags": [
+          "stream"
+        ],
+        "summary": "Full state + cursor to resume the stream from",
+        "operationId": "get_snapshot",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stream": {
+      "get": {
+        "tags": [
+          "stream"
+        ],
+        "summary": "Stream Events",
+        "operationId": "stream_events",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "replay events with id > cursor",
+              "title": "Cursor"
+            },
+            "description": "replay events with id > cursor"
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "string"
+                    },
+                    "event": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "retry": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "cursor expirado: refazer snapshot"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccountCreate": {
+        "properties": {
+          "institution": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Institution"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "BRL",
+              "USD",
+              "PYG"
+            ],
+            "title": "Currency"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bank",
+              "fintech",
+              "cash",
+              "card_debit",
+              "card_credit",
+              "card_virtual"
+            ],
+            "title": "Kind",
+            "default": "bank"
+          },
+          "location": {
+            "type": "string",
+            "enum": [
+              "ASU",
+              "CDE",
+              "PJC",
+              "digital"
+            ],
+            "title": "Location",
+            "default": "digital"
+          },
+          "balance_free": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Balance Free",
+            "default": "0"
+          },
+          "balance_reserved": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Balance Reserved",
+            "default": "0"
+          },
+          "balance_in_transit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Balance In Transit",
+            "default": "0"
+          }
+        },
+        "type": "object",
+        "required": [
+          "institution",
+          "label",
+          "currency"
+        ],
+        "title": "AccountCreate"
+      },
+      "AccountOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "institution": {
+            "type": "string",
+            "title": "Institution"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location"
+          },
+          "balance_free": {
+            "type": "string",
+            "title": "Balance Free"
+          },
+          "balance_reserved": {
+            "type": "string",
+            "title": "Balance Reserved"
+          },
+          "balance_in_transit": {
+            "type": "string",
+            "title": "Balance In Transit"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode",
+            "default": "real"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "institution",
+          "label",
+          "currency",
+          "kind",
+          "location",
+          "balance_free",
+          "balance_reserved",
+          "balance_in_transit",
+          "updated_at"
+        ],
+        "title": "AccountOut"
+      },
+      "AccountPatch": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ASU",
+                  "CDE",
+                  "PJC",
+                  "digital"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "balance_free": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Free"
+          },
+          "balance_reserved": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance Reserved"
+          },
+          "balance_in_transit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance In Transit"
+          }
+        },
+        "type": "object",
+        "title": "AccountPatch"
+      },
+      "BoundaryOut": {
+        "properties": {
+          "low": {
+            "type": "string",
+            "title": "Low"
+          },
+          "high": {
+            "type": "string",
+            "title": "High"
+          },
+          "low_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low Winner"
+          },
+          "high_winner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High Winner"
+          },
+          "low_roi_sign": {
+            "type": "string",
+            "title": "Low Roi Sign"
+          },
+          "high_roi_sign": {
+            "type": "string",
+            "title": "High Roi Sign"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "refined": {
+            "type": "boolean",
+            "title": "Refined"
+          }
+        },
+        "type": "object",
+        "required": [
+          "low",
+          "high",
+          "low_roi_sign",
+          "high_roi_sign",
+          "reason",
+          "refined"
+        ],
+        "title": "BoundaryOut"
+      },
+      "BranchOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "name"
+        ],
+        "title": "BranchOut"
+      },
+      "Coverage": {
+        "properties": {
+          "cities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cities"
+          },
+          "currencies": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Currencies"
+          }
+        },
+        "type": "object",
+        "title": "Coverage"
+      },
+      "CycleSimulationRequest": {
+        "properties": {
+          "capital": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Capital"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepSpecIn"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Steps"
+          },
+          "valuation_currency": {
+            "type": "string",
+            "enum": [
+              "BRL",
+              "USD",
+              "PYG"
+            ],
+            "title": "Valuation Currency",
+            "default": "BRL"
+          },
+          "valuation_rates": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Valuation Rates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "capital",
+          "steps"
+        ],
+        "title": "CycleSimulationRequest"
+      },
+      "EvidenceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt"
+          },
+          "rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rules"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode",
+            "default": "real"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "kind",
+          "url",
+          "captured_at",
+          "sha256",
+          "excerpt"
+        ],
+        "title": "EvidenceOut"
+      },
+      "FeeIn": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "rate_to_output": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate To Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "currency"
+        ],
+        "title": "FeeIn"
+      },
+      "FeeOut-Input": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "currency"
+        ],
+        "title": "FeeOut"
+      },
+      "FeeOut-Output": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "currency"
+        ],
+        "title": "FeeOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          },
+          "db": {
+            "type": "string",
+            "title": "Db"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Server Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "data_mode",
+          "db",
+          "version",
+          "server_time"
+        ],
+        "title": "HealthOut"
+      },
+      "HistoryPoint": {
+        "properties": {
+          "t": {
+            "type": "string",
+            "format": "date-time",
+            "title": "T"
+          },
+          "buy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy"
+          },
+          "sell": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sell"
+          },
+          "mid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "t"
+        ],
+        "title": "HistoryPoint"
+      },
+      "HistorySeries": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryPoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "HistorySeries"
+      },
+      "JournalEntryCreate": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "note",
+              "operation",
+              "reconciliation"
+            ],
+            "title": "Kind",
+            "default": "note"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Text"
+          },
+          "amounts": {
+            "items": {
+              "$ref": "#/components/schemas/FeeOut-Input"
+            },
+            "type": "array",
+            "title": "Amounts"
+          },
+          "account_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Account Ids"
+          },
+          "ts": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "JournalEntryCreate"
+      },
+      "JournalEntryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "ts": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Ts"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "amounts": {
+            "items": {
+              "$ref": "#/components/schemas/FeeOut-Output"
+            },
+            "type": "array",
+            "title": "Amounts"
+          },
+          "account_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Account Ids"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode",
+            "default": "real"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "ts",
+          "kind",
+          "text"
+        ],
+        "title": "JournalEntryOut"
+      },
+      "OpportunityOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "capital_brl": {
+            "type": "string",
+            "title": "Capital Brl"
+          },
+          "final_value_brl": {
+            "type": "string",
+            "title": "Final Value Brl"
+          },
+          "net_gain_brl": {
+            "type": "string",
+            "title": "Net Gain Brl"
+          },
+          "roi": {
+            "type": "string",
+            "title": "Roi"
+          },
+          "effective_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Rate"
+          },
+          "valuation_currency": {
+            "type": "string",
+            "title": "Valuation Currency",
+            "default": "BRL"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/RouteStepOut"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "quoted",
+              "estimated",
+              "incomplete"
+            ],
+            "title": "Confidence"
+          },
+          "pending_costs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pending Costs"
+          },
+          "in_main_ranking": {
+            "type": "boolean",
+            "title": "In Main Ranking"
+          },
+          "ranking_reason": {
+            "type": "string",
+            "title": "Ranking Reason",
+            "default": ""
+          },
+          "comparable_best_digital_roi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comparable Best Digital Roi"
+          },
+          "computed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Computed At"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode",
+            "default": "real"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "channel",
+          "capital_brl",
+          "final_value_brl",
+          "net_gain_brl",
+          "roi",
+          "confidence",
+          "in_main_ranking",
+          "computed_at"
+        ],
+        "title": "OpportunityOut"
+      },
+      "PositionIn": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "enum": [
+              "BRL",
+              "USD",
+              "PYG"
+            ],
+            "title": "Currency"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "institution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location",
+            "default": "digital"
+          },
+          "modality": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "transfer",
+              "account",
+              "card_debit",
+              "card_credit",
+              "card_virtual"
+            ],
+            "title": "Modality",
+            "default": "account"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency"
+        ],
+        "title": "PositionIn"
+      },
+      "PositionOut": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "institution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Institution"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location"
+          },
+          "modality": {
+            "type": "string",
+            "title": "Modality"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency",
+          "location",
+          "modality"
+        ],
+        "title": "PositionOut"
+      },
+      "QuoteOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "branch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Id"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "base": {
+            "type": "string",
+            "title": "Base"
+          },
+          "quote": {
+            "type": "string",
+            "title": "Quote"
+          },
+          "buy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy"
+          },
+          "sell": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sell"
+          },
+          "unit_note": {
+            "type": "string",
+            "title": "Unit Note",
+            "default": ""
+          },
+          "amount_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Base"
+          },
+          "modality": {
+            "type": "string",
+            "title": "Modality"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "fees": {
+            "items": {
+              "$ref": "#/components/schemas/FeeOut-Output"
+            },
+            "type": "array",
+            "title": "Fees"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "declared_updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Updated At"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "evidence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Id"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode",
+            "default": "real"
+          },
+          "series_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source_id",
+          "base",
+          "quote",
+          "modality",
+          "kind",
+          "channel",
+          "captured_at"
+        ],
+        "title": "QuoteOut"
+      },
+      "QuoteRequestIn": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Params"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id"
+        ],
+        "title": "QuoteRequestIn"
+      },
+      "QuoteRequestOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "done",
+              "queued",
+              "blocked"
+            ],
+            "title": "Status"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuoteOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "QuoteRequestOut"
+      },
+      "RouteResultOut": {
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/RouteStepOut"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "start_currency": {
+            "type": "string",
+            "title": "Start Currency"
+          },
+          "final_currency": {
+            "type": "string",
+            "title": "Final Currency"
+          },
+          "valuation_currency": {
+            "type": "string",
+            "title": "Valuation Currency"
+          },
+          "total_debit": {
+            "type": "string",
+            "title": "Total Debit"
+          },
+          "net_credit": {
+            "type": "string",
+            "title": "Net Credit"
+          },
+          "total_capital_allocated": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Capital Allocated"
+          },
+          "final_available": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Available"
+          },
+          "effective_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Rate"
+          },
+          "cycle_profit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle Profit"
+          },
+          "roi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roi"
+          },
+          "total_fees_valued": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Fees Valued"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "quoted",
+              "estimated",
+              "incomplete"
+            ],
+            "title": "Confidence"
+          },
+          "pending_costs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Pending Costs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "steps",
+          "start_currency",
+          "final_currency",
+          "valuation_currency",
+          "total_debit",
+          "net_credit",
+          "confidence"
+        ],
+        "title": "RouteResultOut"
+      },
+      "RouteStepOut": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "from": {
+            "$ref": "#/components/schemas/PositionOut"
+          },
+          "to": {
+            "$ref": "#/components/schemas/PositionOut"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "rate_note": {
+            "type": "string",
+            "title": "Rate Note",
+            "default": ""
+          },
+          "amount_in": {
+            "type": "string",
+            "title": "Amount In"
+          },
+          "amount_out": {
+            "type": "string",
+            "title": "Amount Out"
+          },
+          "fees": {
+            "items": {
+              "$ref": "#/components/schemas/FeeOut-Output"
+            },
+            "type": "array",
+            "title": "Fees"
+          },
+          "duration": {
+            "type": "string",
+            "title": "Duration",
+            "default": ""
+          },
+          "promo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "quoted",
+              "estimated",
+              "incomplete"
+            ],
+            "title": "Confidence"
+          },
+          "evidence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "description",
+          "from",
+          "to",
+          "amount_in",
+          "amount_out",
+          "confidence"
+        ],
+        "title": "RouteStepOut"
+      },
+      "SearchOut": {
+        "properties": {
+          "amounts_tested": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Amounts Tested"
+          },
+          "boundaries": {
+            "items": {
+              "$ref": "#/components/schemas/BoundaryOut"
+            },
+            "type": "array",
+            "title": "Boundaries"
+          }
+        },
+        "type": "object",
+        "title": "SearchOut"
+      },
+      "SimulationRequest": {
+        "properties": {
+          "capital_brl": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Capital Brl"
+          },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "cycle",
+              "remittance",
+              "purchase"
+            ],
+            "title": "Objective",
+            "default": "cycle"
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PositionIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valuation_currency": {
+            "type": "string",
+            "enum": [
+              "BRL",
+              "USD",
+              "PYG"
+            ],
+            "title": "Valuation Currency",
+            "default": "BRL"
+          },
+          "channels": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "digital",
+                "physical"
+              ]
+            },
+            "type": "array",
+            "title": "Channels"
+          },
+          "amounts": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amounts"
+          },
+          "persist": {
+            "type": "boolean",
+            "title": "Persist",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "capital_brl"
+        ],
+        "title": "SimulationRequest"
+      },
+      "SimulationResponse": {
+        "properties": {
+          "opportunities": {
+            "items": {
+              "$ref": "#/components/schemas/OpportunityOut"
+            },
+            "type": "array",
+            "title": "Opportunities"
+          },
+          "search": {
+            "$ref": "#/components/schemas/SearchOut"
+          },
+          "simulation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Simulation Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "opportunities",
+          "search"
+        ],
+        "title": "SimulationResponse"
+      },
+      "SnapshotOut": {
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "title": "Cursor"
+          },
+          "quotes": {
+            "items": {
+              "$ref": "#/components/schemas/QuoteOut"
+            },
+            "type": "array",
+            "title": "Quotes"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "opportunities": {
+            "items": {
+              "$ref": "#/components/schemas/OpportunityOut"
+            },
+            "type": "array",
+            "title": "Opportunities"
+          },
+          "server_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Server Time"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cursor",
+          "quotes",
+          "sources",
+          "opportunities",
+          "server_time",
+          "data_mode"
+        ],
+        "title": "SnapshotOut"
+      },
+      "SourceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "health": {
+            "type": "string",
+            "title": "Health"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/Coverage"
+          },
+          "poll_interval_s": {
+            "type": "integer",
+            "title": "Poll Interval S",
+            "default": 300
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode",
+            "default": "real"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "method",
+          "url",
+          "health"
+        ],
+        "title": "SourceOut"
+      },
+      "StepSpecIn": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "from": {
+            "$ref": "#/components/schemas/PositionIn"
+          },
+          "to": {
+            "$ref": "#/components/schemas/PositionIn"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "rate_note": {
+            "type": "string",
+            "title": "Rate Note",
+            "default": ""
+          },
+          "fees": {
+            "items": {
+              "$ref": "#/components/schemas/FeeIn"
+            },
+            "type": "array",
+            "title": "Fees"
+          },
+          "duration": {
+            "type": "string",
+            "title": "Duration",
+            "default": ""
+          },
+          "promo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "quoted",
+              "estimated",
+              "incomplete"
+            ],
+            "title": "Confidence",
+            "default": "quoted"
+          },
+          "evidence_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description",
+          "from",
+          "to"
+        ],
+        "title": "StepSpecIn"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VolatilityOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "window": {
+            "type": "string",
+            "title": "Window"
+          },
+          "grid_s": {
+            "type": "integer",
+            "title": "Grid S"
+          },
+          "returns_used": {
+            "type": "integer",
+            "title": "Returns Used"
+          },
+          "min_returns": {
+            "type": "integer",
+            "title": "Min Returns"
+          },
+          "stdev_pct_per_5m": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stdev Pct Per 5M"
+          },
+          "coverage_pct": {
+            "type": "string",
+            "title": "Coverage Pct"
+          },
+          "gaps": {
+            "type": "integer",
+            "title": "Gaps"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "insufficient_data",
+              "stale_input"
+            ],
+            "title": "Status"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "default": "% por intervalo de 5 min"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "window",
+          "grid_s",
+          "returns_used",
+          "min_returns",
+          "coverage_pct",
+          "gaps",
+          "status"
+        ],
+        "title": "VolatilityOut"
+      }
+    }
+  }
+}

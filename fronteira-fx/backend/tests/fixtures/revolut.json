@@ -1,0 +1,26 @@
+{
+ "quotes": [
+  {
+   "sender": {
+    "amount": 100,
+    "currency": "BRL"
+   },
+   "recipient": {
+    "amount": 18,
+    "currency": "USD"
+   },
+   "rate": {
+    "from": "BRL",
+    "to": "USD",
+    "rate": 0.1832458994861666,
+    "timestamp": 1793597410256
+   },
+   "fxTooltip": "Nossas taxas de câmbio ajudam a cobrir o custo de converter moedas incomuns e a incerteza de fazer trocas enquanto o mercado está fechado. Saiba mais em nossa página de <feesLink>taxas</feesLink>"
+  }
+ ],
+ "request": {
+  "country": "BR",
+  "locale": "pt-BR",
+  "amount": "100"
+ }
+}

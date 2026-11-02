@@ -1,0 +1,38 @@
+{
+ "note": "HISTORICAL fixture captured manually from the Western Union BR->PY web simulator; used only by tests, never served as current data.",
+ "historical": true,
+ "captured_at": "2026-10-30T00:00:00Z",
+ "url": "https://www.westernunion.com/br/pt/web/send-money/start",
+ "scenarios": [
+  {
+   "origin": "BR",
+   "destination": "PY",
+   "send_currency": "BRL",
+   "receive_currency": "PYG",
+   "amount_brl": "5000",
+   "payment": "pix",
+   "receive": "bank_account",
+   "bank": null,
+   "channel": "web",
+   "promo": "100% desconto na tarifa",
+   "receive_amount_pyg": "5401871",
+   "fee_brl": "0",
+   "delivery": "0–4 dias úteis"
+  },
+  {
+   "origin": "BR",
+   "destination": "PY",
+   "send_currency": "BRL",
+   "receive_currency": "PYG",
+   "amount_brl": "5000",
+   "payment": "pix",
+   "receive": "cash_pickup",
+   "bank": null,
+   "channel": "web",
+   "promo": "100% desconto na tarifa",
+   "receive_amount_pyg": "5328209",
+   "fee_brl": "0",
+   "delivery": "minutos"
+  }
+ ]
+}

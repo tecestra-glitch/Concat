@@ -1,0 +1,75 @@
+[project]
+name = "fronteira-fx"
+version = "0.1.0"
+description = "Fronteira FX backend: personal BRL/USD/PYG FX terminal (API, engine, collector, MCP)"
+authors = [
+    { name = "Claude", email = "noreply@anthropic.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.20.1",
+    "fastapi-mcp>=0.4.0",
+    "fastapi[standard]>=0.162.0",
+    "httpx>=0.28.1",
+    "mcp>=1.8,<2",
+    "pgvector>=0.5.1",
+    "psycopg[binary]>=3.3.6",
+    "pydantic>=2.14.2",
+    "pydantic-settings>=2.16.2",
+    "python-dateutil>=4.0.0",
+    "selectolax>=1.0.2",
+    "sqlalchemy>=2",
+    "sse-starlette>=3.6.0",
+]
+
+[project.scripts]
+fronteira-fx = "fronteira_fx:main"
+fronteira-fx-worker = "fronteira_fx.services.worker:main"
+
+[project.optional-dependencies]
+browser = [
+    "playwright>=1.64.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "respx>=0.23.1",
+    "ruff>=0.17.3",
+]
+
+[tool.fastapi]
+entrypoint = "fronteira_fx.main:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["ignore::DeprecationWarning:fastapi_mcp.*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+ignore = ["B008", "E731"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]
+"alembic/versions/*" = ["E501", "W291"]
+
+[tool.mypy]
+python_version = "3.13"
+packages = ["fronteira_fx"]
+ignore_missing_imports = true
+check_untyped_defs = true
