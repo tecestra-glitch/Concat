@@ -1,0 +1,495 @@
+[
+  {
+    "id": "ranking-fisico-abaixo-do-limiar",
+    "task": "ranking_rule",
+    "lang": "pt-BR",
+    "input": "O físico de CDE com ROI de 0,85% deve ir para o ranking principal, se o melhor digital tem 0,75%? Explique.",
+    "expected_output": "Não. O físico fica no ranking secundário. Para entrar no principal, ele precisa ficar pelo menos 1 ponto percentual acima do melhor digital comparável: 0,75% + 1 p.p. = 1,75%. Com ROI de 0,85%, ele não chega a esse limiar.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000",
+          "objective": "cycle"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "d1",
+        "title": "Digital ueno/Nomad",
+        "kind": "cycle",
+        "channel": "digital",
+        "city": null,
+        "capital_brl": "5000",
+        "final_value_brl": "5037.5",
+        "net_gain_brl": "37.5",
+        "roi": "0.0075",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": true,
+        "ranking_reason": "digital com ganho líquido positivo",
+        "comparable_best_digital_roi": "0.0075",
+        "rank": 1
+      },
+      {
+        "id": "f1",
+        "title": "Físico CDE",
+        "kind": "cycle",
+        "channel": "physical",
+        "city": "CDE",
+        "capital_brl": "5000",
+        "final_value_brl": "5042.5",
+        "net_gain_brl": "42.5",
+        "roi": "0.0085",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": false,
+        "ranking_reason": "físico abaixo do limiar: roi 0.0085 < melhor digital 0.0075 + 0.01",
+        "comparable_best_digital_roi": "0.0075",
+        "rank": 2
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "0.0085",
+        "0.0075",
+        "0.0175"
+      ],
+      "must_include_any": [
+        [
+          "secundari"
+        ],
+        [
+          "1 ponto percentual",
+          "1 p.p"
+        ],
+        [
+          "limiar",
+          "pelo menos"
+        ]
+      ]
+    },
+    "tags": [
+      "ranking",
+      "fisico",
+      "limiar",
+      "p.p."
+    ]
+  },
+  {
+    "id": "ranking-fisico-acima-do-limiar",
+    "task": "ranking_rule",
+    "lang": "pt-BR",
+    "input": "Um físico com ROI de 2% vence o digital de 0,75% e entra no ranking principal?",
+    "expected_output": "Sim. O físico entra no ranking principal: o ROI de 2% supera o melhor digital comparável (0,75%) em mais de 1 ponto percentual, ou seja, passa do limiar de 1,75%.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000",
+          "objective": "cycle"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "f2",
+        "title": "Físico CDE",
+        "kind": "cycle",
+        "channel": "physical",
+        "city": "CDE",
+        "capital_brl": "5000",
+        "final_value_brl": "5100",
+        "net_gain_brl": "100",
+        "roi": "0.02",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": true,
+        "ranking_reason": "físico supera o melhor digital comparável em >= 1 p.p. (roi 0.02 >= 0.0175)",
+        "comparable_best_digital_roi": "0.0075",
+        "rank": 1
+      },
+      {
+        "id": "d1",
+        "title": "Digital ueno/Nomad",
+        "kind": "cycle",
+        "channel": "digital",
+        "city": null,
+        "capital_brl": "5000",
+        "final_value_brl": "5037.5",
+        "net_gain_brl": "37.5",
+        "roi": "0.0075",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": true,
+        "ranking_reason": "digital com ganho líquido positivo",
+        "comparable_best_digital_roi": "0.0075",
+        "rank": 2
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "0.02",
+        "0.0075",
+        "0.0175"
+      ],
+      "must_include_any": [
+        [
+          "principal"
+        ],
+        [
+          "sim"
+        ],
+        [
+          "1 ponto percentual",
+          "1 p.p"
+        ]
+      ]
+    },
+    "tags": [
+      "ranking",
+      "fisico",
+      "limiar"
+    ]
+  },
+  {
+    "id": "ranking-fisico-exatamente-no-limiar",
+    "task": "ranking_rule",
+    "lang": "pt-BR",
+    "input": "Se o físico ficar exatamente 1 ponto percentual acima do digital, ele entra no principal?",
+    "expected_output": "Sim. A regra exige pelo menos 1 ponto percentual: com ROI de 1,75% contra 0,75% do digital, o físico atinge exatamente o limiar e entra no ranking principal.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000",
+          "objective": "cycle"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "f3",
+        "title": "Físico CDE",
+        "kind": "cycle",
+        "channel": "physical",
+        "city": "CDE",
+        "capital_brl": "5000",
+        "final_value_brl": "5087.5",
+        "net_gain_brl": "87.5",
+        "roi": "0.0175",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": true,
+        "ranking_reason": "físico supera o melhor digital comparável em >= 1 p.p. (roi 0.0175 >= 0.0175)",
+        "comparable_best_digital_roi": "0.0075",
+        "rank": 1
+      },
+      {
+        "id": "d1",
+        "title": "Digital ueno/Nomad",
+        "kind": "cycle",
+        "channel": "digital",
+        "city": null,
+        "capital_brl": "5000",
+        "final_value_brl": "5037.5",
+        "net_gain_brl": "37.5",
+        "roi": "0.0075",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": true,
+        "ranking_reason": "digital com ganho líquido positivo",
+        "comparable_best_digital_roi": "0.0075",
+        "rank": 2
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "0.0175",
+        "0.0075"
+      ],
+      "must_include_any": [
+        [
+          "principal"
+        ],
+        [
+          "pelo menos",
+          "exatamente",
+          "igual"
+        ],
+        [
+          "sim"
+        ]
+      ]
+    },
+    "tags": [
+      "ranking",
+      "fisico",
+      "limite-exato"
+    ]
+  },
+  {
+    "id": "ranking-digital-incompleto-nao-e-regua",
+    "task": "ranking_rule",
+    "lang": "pt-BR",
+    "input": "O digital incompleto de 3% serve de régua para o físico de 1,5%? O físico entra no principal?",
+    "expected_output": "Não serve de régua. O digital tem estimativa incompleta, com custo faltando (taxa de saque desconhecida), então não define o limiar. Sem digital comparável, o físico com ganho positivo de 1,5% entra no ranking principal. O digital de 3% é só estimativa incompleta, não lucro confirmado.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000",
+          "objective": "cycle"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "d2",
+        "title": "Digital incompleto",
+        "kind": "cycle",
+        "channel": "digital",
+        "city": null,
+        "capital_brl": "5000",
+        "final_value_brl": "5150",
+        "net_gain_brl": "150",
+        "roi": "0.03",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "incomplete",
+        "pending_costs": [
+          "taxa de saque desconhecida"
+        ],
+        "in_main_ranking": true,
+        "ranking_reason": "digital com ganho líquido positivo (estimativa incompleta: faltam custos)",
+        "comparable_best_digital_roi": null,
+        "rank": 1
+      },
+      {
+        "id": "f4",
+        "title": "Físico CDE",
+        "kind": "cycle",
+        "channel": "physical",
+        "city": "CDE",
+        "capital_brl": "5000",
+        "final_value_brl": "5075",
+        "net_gain_brl": "75",
+        "roi": "0.015",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": true,
+        "ranking_reason": "físico com ganho líquido positivo; sem digital comparável",
+        "comparable_best_digital_roi": null,
+        "rank": 2
+      }
+    ],
+    "confidence": "incomplete",
+    "rubric": {
+      "must_include_numbers": [
+        "0.03",
+        "0.015"
+      ],
+      "must_include_any": [
+        [
+          "incomplet",
+          "estimativ"
+        ],
+        [
+          "principal"
+        ],
+        [
+          "nao lucro confirmado",
+          "nao e lucro confirmado"
+        ],
+        [
+          "comparavel"
+        ]
+      ]
+    },
+    "tags": [
+      "ranking",
+      "estimativa-incompleta",
+      "regua"
+    ]
+  },
+  {
+    "id": "ranking-microganho-digital",
+    "task": "ranking_rule",
+    "lang": "pt-BR",
+    "input": "Um digital com ganho líquido de 0,02 real entra no ranking principal?",
+    "expected_output": "Sim. Digital com ganho líquido positivo entra no ranking principal, mesmo sendo um microganho de 0,02 real. A regra não exige valor mínimo.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000",
+          "objective": "cycle"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "d3",
+        "title": "Digital microganho",
+        "kind": "cycle",
+        "channel": "digital",
+        "city": null,
+        "capital_brl": "5000",
+        "final_value_brl": "5000.02",
+        "net_gain_brl": "0.02",
+        "roi": "0.000004",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": true,
+        "ranking_reason": "digital com ganho líquido positivo",
+        "comparable_best_digital_roi": "0.000004",
+        "rank": 1
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "0.02"
+      ],
+      "must_include_any": [
+        [
+          "principal"
+        ],
+        [
+          "microganho",
+          "liquido positivo",
+          "positivo"
+        ],
+        [
+          "sim"
+        ]
+      ]
+    },
+    "tags": [
+      "ranking",
+      "digital",
+      "microganho"
+    ]
+  },
+  {
+    "id": "ranking-regra-do-fisico",
+    "task": "ranking_rule",
+    "lang": "pt-BR",
+    "input": "Qual é a regra para um físico entrar no ranking principal?",
+    "expected_output": "Um físico entra no principal só se o ROI dele for pelo menos 1 ponto percentual (0,01 em ROI) acima do melhor digital comparável, com o mesmo capital, objetivo e prazo. Um digital entra no principal se o ganho líquido for positivo, mesmo que pequeno. Estimativas incompletas aparecem como tal.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000",
+          "objective": "cycle"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "d1",
+        "title": "Digital ueno/Nomad",
+        "kind": "cycle",
+        "channel": "digital",
+        "city": null,
+        "capital_brl": "5000",
+        "final_value_brl": "5037.5",
+        "net_gain_brl": "37.5",
+        "roi": "0.0075",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": true,
+        "ranking_reason": "digital com ganho líquido positivo",
+        "comparable_best_digital_roi": "0.0075",
+        "rank": 1
+      },
+      {
+        "id": "f1",
+        "title": "Físico CDE",
+        "kind": "cycle",
+        "channel": "physical",
+        "city": "CDE",
+        "capital_brl": "5000",
+        "final_value_brl": "5042.5",
+        "net_gain_brl": "42.5",
+        "roi": "0.0085",
+        "effective_rate": null,
+        "valuation_currency": "BRL",
+        "steps": [],
+        "confidence": "quoted",
+        "pending_costs": [],
+        "in_main_ranking": false,
+        "ranking_reason": "físico abaixo do limiar: roi 0.0085 < melhor digital 0.0075 + 0.01",
+        "comparable_best_digital_roi": "0.0075",
+        "rank": 2
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "0.01"
+      ],
+      "must_include_any": [
+        [
+          "1 ponto percentual",
+          "1 p.p"
+        ],
+        [
+          "comparavel"
+        ],
+        [
+          "mesmo capital",
+          "capital"
+        ],
+        [
+          "incomplet",
+          "estimativ"
+        ]
+      ]
+    },
+    "tags": [
+      "ranking",
+      "regra",
+      "explicacao"
+    ]
+  }
+]

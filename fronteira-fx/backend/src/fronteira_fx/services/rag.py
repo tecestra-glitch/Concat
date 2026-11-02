@@ -70,8 +70,13 @@ def normalize(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(c))
 
 
+def _stem(token: str) -> str:
+    """Very light pt/es stemming: drop a plural 's' (horarios -> horario, tarifas -> tarifa)."""
+    return token[:-1] if len(token) > 4 and token.endswith("s") else token
+
+
 def tokenize(text: str) -> list[str]:
-    return [t for t in _WORD.findall(normalize(text)) if len(t) > 1 and t not in STOPWORDS]
+    return [_stem(t) for t in _WORD.findall(normalize(text)) if len(t) > 1 and t not in STOPWORDS]
 
 
 def chunk_text(text: str, *, size: int = 800, overlap: int = 120) -> list[str]:

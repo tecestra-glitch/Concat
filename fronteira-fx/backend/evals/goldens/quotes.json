@@ -1,0 +1,986 @@
+[
+  {
+    "id": "quote-venda-usd-cde",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "qual a melhor venda de USD em CDE?",
+    "expected_output": "A melhor casa para vender USD em CDE é a Cambios Chaco (demo): ela compra a 7.290 guaranis por dólar. É uma cotação física, em dinheiro e indicativa. Os dados são ilustrativos.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "city": "CDE",
+          "base": "USD",
+          "quote": "PYG"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-q-001",
+        "source_id": "demo-chaco",
+        "branch_id": "demo-chaco-cde-centro",
+        "city": "CDE",
+        "base": "USD",
+        "quote": "PYG",
+        "buy": "7290",
+        "sell": "7360",
+        "unit_note": "PYG por 1 USD",
+        "amount_base": null,
+        "modality": "cash",
+        "kind": "indicative",
+        "channel": "physical",
+        "context": null,
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      },
+      {
+        "id": "demo-q-002",
+        "source_id": "demo-maxicambios",
+        "branch_id": "demo-maxicambios-cde-km4",
+        "city": "CDE",
+        "base": "USD",
+        "quote": "PYG",
+        "buy": "7285",
+        "sell": "7365",
+        "unit_note": "PYG por 1 USD",
+        "amount_base": null,
+        "modality": "cash",
+        "kind": "indicative",
+        "channel": "physical",
+        "context": null,
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "7290"
+      ],
+      "must_include_any": [
+        [
+          "chaco"
+        ],
+        [
+          "compra"
+        ],
+        [
+          "demo",
+          "ilustrativ"
+        ]
+      ],
+      "must_not_include_numbers": [
+        "7360"
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "cotacao",
+      "venda",
+      "cde",
+      "usd-pyg",
+      "fisico",
+      "demo"
+    ]
+  },
+  {
+    "id": "quote-menor-preco-venda-cde",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "onde eu pago menos em guaranis para comprar USD em CDE?",
+    "expected_output": "Na Cambios Chaco (demo), a casa vende USD a 7.360 guaranis por dólar, que é o menor preço de venda entre as casas de CDE. Os dados são ilustrativos.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "city": "CDE",
+          "base": "USD",
+          "quote": "PYG"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-q-001",
+        "source_id": "demo-chaco",
+        "branch_id": "demo-chaco-cde-centro",
+        "city": "CDE",
+        "base": "USD",
+        "quote": "PYG",
+        "buy": "7290",
+        "sell": "7360",
+        "unit_note": "PYG por 1 USD",
+        "amount_base": null,
+        "modality": "cash",
+        "kind": "indicative",
+        "channel": "physical",
+        "context": null,
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      },
+      {
+        "id": "demo-q-002",
+        "source_id": "demo-maxicambios",
+        "branch_id": "demo-maxicambios-cde-km4",
+        "city": "CDE",
+        "base": "USD",
+        "quote": "PYG",
+        "buy": "7285",
+        "sell": "7365",
+        "unit_note": "PYG por 1 USD",
+        "amount_base": null,
+        "modality": "cash",
+        "kind": "indicative",
+        "channel": "physical",
+        "context": null,
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "7360"
+      ],
+      "must_not_include_numbers": [
+        "7290"
+      ],
+      "must_include_any": [
+        [
+          "vende",
+          "venda"
+        ],
+        [
+          "chaco"
+        ],
+        [
+          "demo",
+          "ilustrativ"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "cotacao",
+      "compra-do-usuario",
+      "cde",
+      "usd-pyg",
+      "perspectiva"
+    ]
+  },
+  {
+    "id": "quote-compra-da-casa-cde",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "A Cambios Chaco em CDE compra dólar por quanto?",
+    "expected_output": "A Cambios Chaco (demo) compra USD a 7.290 guaranis por dólar em CDE. Esse é o valor que ela paga a quem vende dólares. Os dados são ilustrativos.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "city": "CDE",
+          "base": "USD",
+          "quote": "PYG"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-q-001",
+        "source_id": "demo-chaco",
+        "branch_id": "demo-chaco-cde-centro",
+        "city": "CDE",
+        "base": "USD",
+        "quote": "PYG",
+        "buy": "7290",
+        "sell": "7360",
+        "unit_note": "PYG por 1 USD",
+        "amount_base": null,
+        "modality": "cash",
+        "kind": "indicative",
+        "channel": "physical",
+        "context": null,
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      },
+      {
+        "id": "demo-q-002",
+        "source_id": "demo-maxicambios",
+        "branch_id": "demo-maxicambios-cde-km4",
+        "city": "CDE",
+        "base": "USD",
+        "quote": "PYG",
+        "buy": "7285",
+        "sell": "7365",
+        "unit_note": "PYG por 1 USD",
+        "amount_base": null,
+        "modality": "cash",
+        "kind": "indicative",
+        "channel": "physical",
+        "context": null,
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "7290"
+      ],
+      "must_not_include_numbers": [
+        "7360"
+      ],
+      "must_include_any": [
+        [
+          "compra"
+        ],
+        [
+          "chaco"
+        ],
+        [
+          "demo",
+          "ilustrativ"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "cotacao",
+      "perspectiva",
+      "compra-da-casa",
+      "cde"
+    ]
+  },
+  {
+    "id": "quote-chaco-asu-real",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "Quanto a Cambios Chaco de Assunção paga por real em guaranis?",
+    "expected_output": "Na Cambios Chaco (demo) de Assunção, a casa compra real a 1.352 guaranis por real e vende a 1.390 guaranis. Os dados são ilustrativos.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "city": "ASU",
+          "base": "BRL",
+          "quote": "PYG"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-q-003",
+        "source_id": "demo-chaco",
+        "branch_id": "demo-chaco-asu-villa-morra",
+        "city": "ASU",
+        "base": "BRL",
+        "quote": "PYG",
+        "buy": "1352",
+        "sell": "1390",
+        "unit_note": "PYG por 1 BRL",
+        "amount_base": null,
+        "modality": "cash",
+        "kind": "indicative",
+        "channel": "physical",
+        "context": null,
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "1352",
+        "1390"
+      ],
+      "must_include_any": [
+        [
+          "compra"
+        ],
+        [
+          "chaco"
+        ],
+        [
+          "demo",
+          "ilustrativ"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "cotacao",
+      "brl-pyg",
+      "asu",
+      "perspectiva"
+    ]
+  },
+  {
+    "id": "quote-digital-melhor-usd-brl",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "No digital, qual casa paga mais em reais por cada dólar que eu vender?",
+    "expected_output": "A Revolut (demo) paga mais: compra USD a 5,381 reais por dólar, acima dos 5,372 da Nomad (demo). Os dados são ilustrativos.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "base": "USD",
+          "quote": "BRL"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-q-004",
+        "source_id": "demo-nomad",
+        "branch_id": null,
+        "city": null,
+        "base": "USD",
+        "quote": "BRL",
+        "buy": "5.372",
+        "sell": "5.418",
+        "unit_note": "BRL por 1 USD",
+        "amount_base": null,
+        "modality": "account",
+        "kind": "indicative",
+        "channel": "digital",
+        "context": {
+          "payment": "pix"
+        },
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      },
+      {
+        "id": "demo-q-005",
+        "source_id": "demo-revolut",
+        "branch_id": null,
+        "city": null,
+        "base": "USD",
+        "quote": "BRL",
+        "buy": "5.381",
+        "sell": "5.409",
+        "unit_note": "BRL por 1 USD",
+        "amount_base": null,
+        "modality": "account",
+        "kind": "indicative",
+        "channel": "digital",
+        "context": {
+          "plan": "standard"
+        },
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "5.381"
+      ],
+      "must_include_any": [
+        [
+          "revolut"
+        ],
+        [
+          "compra"
+        ],
+        [
+          "demo",
+          "ilustrativ"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "cotacao",
+      "digital",
+      "usd-brl",
+      "venda"
+    ]
+  },
+  {
+    "id": "quote-fonte-desatualizada",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "A cotação da ueno ainda está valendo? Posso usar como referência agora?",
+    "expected_output": "Não com segurança. A fonte ueno (demo) está com status desatualizado (stale): a última atualização bem-sucedida foi às 09:00 UTC e a página não declarou data recente. Confirme a cotação antes de usar como referência.",
+    "expected_tools": [
+      {
+        "name": "list_sources",
+        "arguments": {}
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-ueno",
+        "name": "ueno bank (demo)",
+        "kind": "bank",
+        "method": "browser",
+        "url": "",
+        "health": "stale",
+        "last_success_at": "2026-11-02T09:00:00+00:00",
+        "last_error": "página sem data declarada há mais de 2 horas",
+        "capabilities": [],
+        "limitations": [],
+        "coverage": {
+          "cities": [],
+          "currencies": [
+            "USD",
+            "BRL",
+            "PYG"
+          ]
+        },
+        "poll_interval_s": 300,
+        "data_mode": "demo"
+      },
+      {
+        "id": "demo-chaco",
+        "name": "Cambios Chaco (demo)",
+        "kind": "exchange_house",
+        "method": "html",
+        "url": "",
+        "health": "ok",
+        "last_success_at": "2026-11-02T12:00:00+00:00",
+        "last_error": null,
+        "capabilities": [],
+        "limitations": [],
+        "coverage": {
+          "cities": [
+            "CDE",
+            "ASU"
+          ],
+          "currencies": [
+            "USD",
+            "BRL",
+            "PYG"
+          ]
+        },
+        "poll_interval_s": 300,
+        "data_mode": "demo"
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_any": [
+        [
+          "desatualiz",
+          "stale",
+          "defasad"
+        ],
+        [
+          "confirm"
+        ],
+        [
+          "09:00"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "status",
+      "fonte",
+      "stale",
+      "digital"
+    ]
+  },
+  {
+    "id": "quote-bcp-referencia",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "Qual é a cotação oficial do dólar no Paraguai hoje?",
+    "expected_output": "A referência oficial do Banco Central do Paraguai (demo) está em 7.325 guaranis por dólar. É uma referência diária e não executável: não é o preço de nenhuma casa de câmbio, então não serve para fechar compra ou venda.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "base": "USD",
+          "quote": "PYG",
+          "source": "demo-bcp"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-q-007",
+        "source_id": "demo-bcp",
+        "branch_id": null,
+        "city": null,
+        "base": "USD",
+        "quote": "PYG",
+        "buy": "7325",
+        "sell": "7325",
+        "unit_note": "PYG por 1 USD",
+        "amount_base": null,
+        "modality": "transfer",
+        "kind": "market_reference",
+        "channel": "digital",
+        "context": null,
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "7325"
+      ],
+      "must_include_any": [
+        [
+          "referencia"
+        ],
+        [
+          "nao executavel",
+          "nao e executavel"
+        ],
+        [
+          "demo",
+          "ilustrativ"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "referencia",
+      "bcp",
+      "nao-executavel"
+    ]
+  },
+  {
+    "id": "quote-casas-cde",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "Quais casas têm cotação de dólar em CDE?",
+    "expected_output": "Em CDE há duas casas com cotação de dólar (demo): a Cambios Chaco e a MaxiCambios. Ambas cobrem CDE, e a Chaco também atende Assunção.",
+    "expected_tools": [
+      {
+        "name": "list_sources",
+        "arguments": {}
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-chaco",
+        "name": "Cambios Chaco (demo)",
+        "kind": "exchange_house",
+        "method": "html",
+        "url": "",
+        "health": "ok",
+        "last_success_at": "2026-11-02T12:00:00+00:00",
+        "last_error": null,
+        "capabilities": [],
+        "limitations": [],
+        "coverage": {
+          "cities": [
+            "CDE",
+            "ASU"
+          ],
+          "currencies": [
+            "USD",
+            "BRL",
+            "PYG"
+          ]
+        },
+        "poll_interval_s": 300,
+        "data_mode": "demo"
+      },
+      {
+        "id": "demo-maxicambios",
+        "name": "MaxiCambios (demo)",
+        "kind": "exchange_house",
+        "method": "html",
+        "url": "",
+        "health": "ok",
+        "last_success_at": "2026-11-02T12:00:00+00:00",
+        "last_error": null,
+        "capabilities": [],
+        "limitations": [],
+        "coverage": {
+          "cities": [
+            "ASU",
+            "CDE"
+          ],
+          "currencies": [
+            "USD",
+            "BRL",
+            "PYG"
+          ]
+        },
+        "poll_interval_s": 300,
+        "data_mode": "demo"
+      },
+      {
+        "id": "demo-amambay-pjc",
+        "name": "Casa de Câmbio PJC (demo)",
+        "kind": "exchange_house",
+        "method": "manual",
+        "url": "",
+        "health": "ok",
+        "last_success_at": "2026-11-02T12:00:00+00:00",
+        "last_error": null,
+        "capabilities": [],
+        "limitations": [],
+        "coverage": {
+          "cities": [
+            "PJC"
+          ],
+          "currencies": [
+            "USD",
+            "BRL",
+            "PYG"
+          ]
+        },
+        "poll_interval_s": 300,
+        "data_mode": "demo"
+      },
+      {
+        "id": "demo-ueno",
+        "name": "ueno bank (demo)",
+        "kind": "bank",
+        "method": "browser",
+        "url": "",
+        "health": "ok",
+        "last_success_at": "2026-11-02T12:00:00+00:00",
+        "last_error": null,
+        "capabilities": [],
+        "limitations": [],
+        "coverage": {
+          "cities": [],
+          "currencies": [
+            "USD",
+            "BRL",
+            "PYG"
+          ]
+        },
+        "poll_interval_s": 300,
+        "data_mode": "demo"
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_any": [
+        [
+          "chaco"
+        ],
+        [
+          "maxicambios",
+          "maxi cambios"
+        ],
+        [
+          "cde"
+        ]
+      ]
+    },
+    "tags": [
+      "cobertura",
+      "cde",
+      "fontes"
+    ]
+  },
+  {
+    "id": "quote-pjc-usd-brl",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "Em Pedro Juan Caballero, quanto a casa paga por dólar em reais?",
+    "expected_output": "Em Pedro Juan Caballero, a Casa de Câmbio PJC (demo) compra dólar a 5,33 reais por dólar. Os dados são ilustrativos.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "city": "PJC",
+          "base": "USD",
+          "quote": "BRL"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-q-006",
+        "source_id": "demo-amambay-pjc",
+        "branch_id": "demo-amambay-pjc-centro",
+        "city": "PJC",
+        "base": "USD",
+        "quote": "BRL",
+        "buy": "5.33",
+        "sell": "5.42",
+        "unit_note": "BRL por 1 USD",
+        "amount_base": null,
+        "modality": "cash",
+        "kind": "indicative",
+        "channel": "physical",
+        "context": null,
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "5.33"
+      ],
+      "must_not_include_numbers": [
+        "5.42"
+      ],
+      "must_include_any": [
+        [
+          "compra"
+        ],
+        [
+          "pjc",
+          "casa de cambio"
+        ],
+        [
+          "demo",
+          "ilustrativ"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "cotacao",
+      "pjc",
+      "usd-brl",
+      "perspectiva"
+    ]
+  },
+  {
+    "id": "quote-wu-30-mil-sem-cotacao",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "Quanto a Western Union paga para a ueno se eu mandar 30 mil reais?",
+    "expected_output": "Não há cotação da Western Union para 30.000 reais. As cotações dessa casa dependem do valor e foram levantadas para 5.000, 10.000, 25.000 e 50.000 reais. Para 30.000 reais, peça uma cotação específica antes de decidir.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "source": "demo-wu",
+          "base": "BRL",
+          "quote": "PYG",
+          "amount": "30000"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": {
+      "quotes": [],
+      "note": "sem cotação para amount=30000; montantes com cotação: 5000, 10000, 25000, 50000"
+    },
+    "confidence": null,
+    "rubric": {
+      "must_include_any": [
+        [
+          "nao ha",
+          "nao existe",
+          "sem cotacao",
+          "nao encontrei"
+        ],
+        [
+          "cotacao especifica",
+          "peca",
+          "pedir",
+          "solicit"
+        ],
+        [
+          "25.000",
+          "25000",
+          "50.000",
+          "50000"
+        ]
+      ],
+      "must_not_match": [
+        "30\\.?000[^.]*\\d[\\d.,]*\\s*guaranis"
+      ],
+      "numbers_must_be_sourced": true,
+      "ignore_numbers": [
+        "30000"
+      ]
+    },
+    "tags": [
+      "limite",
+      "montante",
+      "wu",
+      "sem-cotacao"
+    ]
+  },
+  {
+    "id": "quote-ueno-calculo",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "Se eu vender 1.000 USD para a ueno, quantos guaranis recebo antes das taxas?",
+    "expected_output": "Vendendo 1.000 USD para a ueno (demo), você recebe 7.270.000 guaranis antes das taxas, pela compra da casa a 7.270 guaranis por dólar. Os dados são ilustrativos.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "source": "demo-ueno",
+          "base": "USD",
+          "quote": "PYG"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [
+      {
+        "id": "demo-q-008",
+        "source_id": "demo-ueno",
+        "branch_id": null,
+        "city": null,
+        "base": "USD",
+        "quote": "PYG",
+        "buy": "7270",
+        "sell": "7395",
+        "unit_note": "PYG por 1 USD",
+        "amount_base": null,
+        "modality": "account",
+        "kind": "indicative",
+        "channel": "digital",
+        "context": {
+          "product": "conta"
+        },
+        "fees": [],
+        "captured_at": "2026-11-02T12:00:00+00:00",
+        "declared_updated_at": null,
+        "valid_until": null,
+        "evidence_id": null,
+        "data_mode": "demo",
+        "series_key": null
+      }
+    ],
+    "confidence": null,
+    "rubric": {
+      "must_include_numbers": [
+        "7270000",
+        "7270"
+      ],
+      "must_include_any": [
+        [
+          "compra"
+        ],
+        [
+          "demo",
+          "ilustrativ"
+        ],
+        [
+          "antes das taxas",
+          "antes de taxa",
+          "sem taxa"
+        ]
+      ]
+    },
+    "tags": [
+      "calculo",
+      "ueno",
+      "usd-pyg",
+      "conta"
+    ]
+  },
+  {
+    "id": "quote-sem-cotacao-pjc-chaco",
+    "task": "quote_answer",
+    "lang": "pt-BR",
+    "input": "Qual o dólar em Pedro Juan Caballero na Cambios Chaco?",
+    "expected_output": "Não encontrei cotação da Cambios Chaco (demo) para Pedro Juan Caballero. Não vou estimar um preço: consulte a casa ou escolha uma fonte que cubra PJC.",
+    "expected_tools": [
+      {
+        "name": "get_quotes",
+        "arguments": {
+          "city": "PJC",
+          "base": "USD",
+          "quote": "PYG",
+          "source": "demo-chaco"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": [],
+    "confidence": null,
+    "rubric": {
+      "must_include_any": [
+        [
+          "nao encontrei",
+          "nao ha cotacao",
+          "sem cotacao"
+        ],
+        [
+          "pedro juan",
+          "pjc"
+        ],
+        [
+          "consult"
+        ]
+      ],
+      "must_not_match": [
+        "\\d[\\d.,]*\\s*(guaranis|pyg)"
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "sem-cotacao",
+      "pjc",
+      "nao-estimar"
+    ]
+  }
+]

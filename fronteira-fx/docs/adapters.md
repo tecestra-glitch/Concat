@@ -30,11 +30,11 @@ Cada `fetch()` foi executado **uma vez**. Cotações = PYG por 1 unidade da moed
 | `alberdi` Cambios Alberdi | `official_api` (JSON `ws/getTablero.json.php`; fallback HTML `.exchange-table`) | 5 filiais (villamorra=ASU, ciudaddeleste=CDE, km4=CDE, encarnacion, saltodelguaira) → 8 cotações; `timer` = hora declarada (America/Asuncion) | `OK` | villamorra USD 5800/5920, BRL 1070/1155; ciudaddeleste USD 5800/5900, BRL 1070/1120 @2026-11-02T02:07:01-03:00 | Salto del Guairá publica só outras moedas; cross rates (USD→BRL) e cheques ignorados |
 | `bonanza` Bonanza Cambios | `official_api` (JSON `GET /api/board` usado pelo SPA React; home é shell de 954 B) | 4 filiais (Casa Matriz=CDE, Jebai=CDE, Paraná Country=None, Asunción=ASU) → 8 cotações; `actualizado` | `STALE` (declarado 2026-10-31T13:02:45Z, 41 h) | matriz USD 5830/5920, BRL 1080/1140; jebai USD 5800/5900, BRL 1080/1160; asuncion USD 5780/5930, BRL 1050/1150 | Não precisou de Playwright: o endpoint responde a HTTP simples; `/api/calcular` (POST origen/destino/monto) existe para conversão |
 | `norte` Norte Cambios | `html` (tabela da filial ativa + `wire:snapshot`; outras filiais via replay Livewire `POST /livewire/update setActiveBranch(id)`) | sem bundle: `ERROR` "TLS chain invalid; set FX_NORTE_CA_BUNDLE or allow insecure explicitly" (comprovado). Com `FX_NORTE_CA_BUNDLE` (CAs do sistema + intermediária Sectigo DV R36): PJC + ASU + CDE → 6 cotações | `ERROR` (default) / `STALE` com bundle (latestUpdate 2026-10-31T14:24:14Z, 39,7 h) | norte-1 (PJC) USD 5760/5950, BRL 1080/1140; norte-2 (ASU) USD 5760/5910, BRL 1110/1200; norte-3 (CDE) USD 5770/5950, BRL 1070/1145 | servidor não envia a intermediária → verificação padrão falha; `FX_NORTE_INSECURE=1` desliga a verificação e marca a mensagem; fragmentos Livewire não trazem timestamp (herdam o status da home) |
-| `bcp` Banco Central del Paraguay | `html` (`#cotizacion-interbancaria`, data em `#dp_cotizacion`/cabeçalho) | USD e BRL referenciais (`kind=market_reference`), data declarada | `OK` (planilha 30/10/2026; stale só após 4 dias) | USD 5.944,76; BRL 1.100,01 (PYG por unidade) | valor único por moeda: `buy == sell`; dias úteis apenas |
+| `bcp` Banco Central del Paraguay | `official_api` (Frankfurter `GET https://api.frankfurter.dev/v2/providers/bcp/rates?base=USD&quotes=PYG` e `?base=BRL&quotes=PYG`, sem chave; parâmetro é `quotes`, não `symbols`) com fallback HTML `#cotizacion-interbancaria` (td[3] = ₲ por unidade; td[2] é ME/USD e **não** deve ser lido) | USD e BRL referenciais (`kind=market_reference`), `declared_updated_at` = `date`; BRL/PYG derivado de USD/PYG ÷ USD/BRL se a perna BRL faltar | `OK` (JSON verificado 2026-11-02: `[{"date":"2026-10-30","base":"USD","quote":"PYG","rate":5944.76}]`; HTML ao vivo também `OK`, planilha 30/10/2026; stale só após 4 dias) | USD/PYG 5944,76; BRL/PYG 1100,01; USD/BRL 5,4043 (data 2026-10-30) | valor único por moeda: `buy == sell`; dias úteis apenas; o feed é um espelho de terceiro (Frankfurter) — se cair, usa bcp.gov.py |
 | `ueno` ueno bank | `html` (cards `.divisas-card[data-currency][data-subtitle]`) + AJAX `admin-ajax.php?action=get_fresh_currency_data` (nonce da página) | USD "en tu app" (account/digital) e "en efectivo" (cash/physical); `last_updated` do AJAX | `OK` (nota: "BRL not published on the page") | USD app 5720/6050; USD efectivo 5700/6060 @2026-11-02T02:07:32Z | **BRL não publicado** na página pública (só USD/EUR em 2026-11); sem cidade |
 | `nomad` Nomad | `official_api` (`GET https://api.benomad.us/forex-rates-s3/v1/exchanges:90-days`, URL exposta em `data-api` da página) | USD/BRL "dólar comercial" da calculadora pública (`kind=indicative`), histórico 90 d, timestamp | `OK` | USD/BRL 5,4437 @2026-11-02T06:07:01Z | a página **não exibe o spread** da Nomad (só promo "taxa zero na 1ª conversão", "2% de cashback"); proposta efetiva depende da conta — registrar spread manualmente; sem PYG |
 | `revolut` Revolut | `official_api` (`GET /api/exchange/quote?...&localeCode=pt-BR`, duas pernas USD→BRL e BRL→USD) | compra = rate(USD→BRL), venda = 1/rate(BRL→USD); timestamp; 403 → `BLOCKED` (testado com respx) | `OK` (ao vivo respondeu 200; a página HTML do conversor dá 403 a clientes não-navegador) | USD/BRL buy 5,419179 / sell 5,457750 @2026-11-02T06:07:11Z (amount 1000) | sem `localeCode` o endpoint devolve 400; taxas por plano/franquia/markup de fim de semana não vêm na resposta; **região/disponibilidade da conta devem ser registradas manualmente** |
-| `westernunion` Western Union BR→PY | `browser` (Playwright, Chromium headless) | WU_RESULT_PLACEHOLDER | WU_STATUS_PLACEHOLDER | WU_SAMPLE_PLACEHOLDER | preço vem de `POST /wuconnect/prices/catalog` com fingerprint do navegador (sem request HTTP reproduzível); pix e transferência compartilham o tile "PIX ou transferência bancária"; só o simulador público (valor final só no checkout logado) |
+| `westernunion` Western Union BR→PY | `browser` (Playwright, Chromium headless) | fluxo completo 5000 BRL → PY (pix / bank_account **e** pix / cash_pickup): valor recebido, taxa exibida, tarifa, desconto promo, prazo; screenshot full-page como evidência; contexto completo em `QuoteDraft.context` | `OK` nas duas execuções finais (06:15–06:16 UTC, 35 s e 33 s cada). Antes disso 3 execuções deram `DEGRADED` (ver abaixo) — nunca números inventados | bank_account: recebe 5.401.871,00 PYG → **1080,3742 PYG/BRL**, tarifa 0,00 BRL ("100% de desconto 45.00 BRL"), "0-4 Dias úteis", taxa exibida 1,080.3741. cash_pickup: 5.328.209,00 PYG → **1065,6418 PYG/BRL**, "Em minutos", promo "100% de desconto 55.00 BRL" (tarifa pós-desconto não capturada no texto desse cenário → `fees=[]`) | preço vem de `POST /wuconnect/prices/catalog` com fingerprint do navegador (sem request HTTP reproduzível); pix e transferência compartilham o tile "PIX ou transferência bancária"; só o simulador público (valor final só no checkout logado) |
 
 ### Western Union — fluxo e evidência
 
@@ -47,7 +47,17 @@ Fluxo observado (pt-BR, 2026-11-02): tile `button[amplitude-id="tile-country-sel
 (chamada de limites → "Enviar até 25,000.00 BRL"); um valor digitado antes disso volta a `0.00`. O adapter espera o texto
 "Enviar até", digita e confirma que o valor ficou e que os tiles apareceram (até 3 tentativas) antes de clicar.
 
-WU_FLOW_PLACEHOLDER
+Histórico das execuções do adapter (headless Chromium `/opt/pw-browsers/chromium`, locale pt-BR):
+
+| tentativa | resultado | causa / correção |
+|---|---|---|
+| 1–2 (06:05) | `DEGRADED` "payment option not offered" / "receive option not found" | o valor digitado voltava a `0.00`: o SPA reinicializa o formulário após a chamada de limites → corrigido esperando "Enviar até" e confirmando que o valor ficou (até 3 tentativas) |
+| 3 (06:10) | `DEGRADED` "payment option for 'pix' not offered" (screenshot: formulário zerado) | o clique no tile de recebimento recém-renderizado era perdido → corrigido com 2,5 s de assentamento e re-clique quando os tiles de pagamento não aparecem em 5 s |
+| 4 (06:15) | `OK` bank_account **e** cash_pickup | screenshots `backend/var/evidence/wu_20261102T061540Z_5000_pix_bank_account.png` e `wu_20261102T061614Z_5000_pix_cash_pickup.png` |
+
+Blocos conhecidos: o site carrega Akamai Bot Manager (POST `/M2yvHc/...`) e Quantum Metric; nesta sessão não houve bloqueio,
+mas um 403/captcha na página inicial devolve `BLOCKED`. `card` só é selecionável se o tile `tile-fundsin-cc/dc` existir
+(não apareceu para BR→PY sem login).
 
 Screenshots ficam em `backend/var/evidence/wu_<ts>_<amount>_<payment>_<receive>.png` (`backend/var/.gitignore` = `*`).
 Fixture histórica `tests/fixtures/westernunion_5000_brl_pyg.json` (5000 BRL, pix, bank_account → 5.401.871 PYG "0–4 dias úteis";
@@ -64,12 +74,14 @@ taxa efetiva 1080,3742 PYG/BRL = recebido/enviado e que os dois métodos geram c
 | `FX_PW_CHROMIUM=/caminho/chromium` | binário do Chromium para o Playwright quando o download padrão não existe (fallback automático: `/opt/pw-browsers/chromium`) |
 | `FX_EVIDENCE_DIR` | diretório das screenshots (default `backend/var/evidence`) |
 
+`backend/var/.gitignore` contém `*` (+ `!.gitignore` para o próprio arquivo ser versionável).
+
 ## Testes
 
 `cd backend && uv run pytest tests/adapters -q` — offline, baseados em fixtures em `tests/fixtures/` (HTML/JSON reais
 capturados 2026-10-30..11-02). Cobrem: números concretos por filial/moeda, direção base/quote e `unit_note`, mapa de cidades,
 payload vazio / layout alterado → `ERROR`, parcial → `DEGRADED`, timestamp velho → `STALE`, e para `bonanza`/`revolut`
-o `fetch()` com respx (200 → OK, 403 → BLOCKED, timeout → ERROR, 500 → ERROR). `uv run ruff check src/fronteira_fx/adapters tests/adapters` limpo.
+o `fetch()` com respx (200 → OK, 403 → BLOCKED, timeout → ERROR, 500 → ERROR); para `bcp`, Frankfurter preferido, fallback HTML quando o feed falha, e os dois fora → BLOCKED/ERROR. Fixtures: `chaco.json`/`chaco.html`/`chaco_branches.json`, `alberdi.json`/`alberdi.html`, `bonanza.json`/`bonanza_shell.html`, `norte.html`, `bcp.html`/`bcp_frankfurter.json`, `ueno.html`/`ueno_ajax.json`, `nomad.json`, `revolut.json`, `westernunion_5000_brl_pyg.json`. `uv run ruff check src/fronteira_fx/adapters tests/adapters` limpo.
 
 ## Dependências pendentes
 

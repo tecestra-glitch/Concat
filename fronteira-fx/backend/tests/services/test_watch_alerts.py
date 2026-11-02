@@ -20,7 +20,7 @@ def test_after_run_adapts_interval():
     watch_svc.after_run(ws, now=NOW, ok=True, changed=True, status="ok", content_hash="b")
     watch_svc.after_run(ws, now=NOW, ok=True, changed=True, status="ok", content_hash="c")
     assert ws.interval_s == 60  # floor
-    for _ in range(6):
+    for _ in range(8):
         watch_svc.after_run(ws, now=NOW, ok=True, changed=False, status="ok", content_hash="c")
     assert ws.interval_s == 900 and ws.errors_in_row == 0  # ceiling
     watch_svc.after_run(ws, now=NOW, ok=False, changed=False, status="blocked", content_hash=None, backoff_max_s=3600)

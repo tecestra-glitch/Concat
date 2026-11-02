@@ -1,4 +1,4 @@
-import { BookOpenText, Building2, CandlestickChart, Database, LayoutDashboard, Settings, Sparkles, Calculator, type LucideIcon } from "lucide-react";
+import { Activity, BellRing, BookOpenText, Building2, CandlestickChart, Database, LayoutDashboard, Settings, Sparkles, Calculator, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -14,6 +14,8 @@ export const NAV: NavItem[] = [
   { href: "/simulador", label: "Simulador", short: "Simular", icon: Calculator },
   { href: "/contas", label: "Contas e cartões", short: "Contas", icon: Building2 },
   { href: "/fontes", label: "Fontes", short: "Fontes", icon: Database },
+  { href: "/monitor", label: "Monitor ao vivo", short: "Monitor", icon: Activity },
+  { href: "/alertas", label: "Alertas", short: "Alertas", icon: BellRing },
   { href: "/diario", label: "Diário", short: "Diário", icon: BookOpenText },
   { href: "/configuracoes", label: "Configurações", short: "Config.", icon: Settings },
 ];

@@ -320,9 +320,8 @@ class SqlStore:
         scored.sort(key=lambda item: (-item[1], item[0]))
         return scored[:limit]
 
-def nearest_statement_pgvector(
-    vector: Sequence[float], *, model: str, limit: int, ids: Collection[str] | None
-) -> Any:
+
+def nearest_statement_pgvector(vector: Sequence[float], *, model: str, limit: int, ids: Collection[str] | None) -> Any:
     """SELECT id, 1 - (embedding <=> :vector) ORDER BY distância. Usa o operador de cosseno do pgvector."""
     distance = ChunkRow.embedding.op("<=>", return_type=Float)(list(vector))
     stmt = (

@@ -128,7 +128,7 @@ class HybridRetriever:
 
         documents = {doc.id: doc for doc in self._store.list_documents()}
         allowed: set[str] | None = None
-        if tag is not None:
+        if tag is not None and tag.strip():  # tag vazia significa "sem filtro"
             wanted = normalize_tag(tag)
             allowed = {doc.id for doc in documents.values() if any(normalize_tag(t) == wanted for t in doc.tags)}
             if not allowed:

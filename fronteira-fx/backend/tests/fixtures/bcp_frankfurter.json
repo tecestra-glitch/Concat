@@ -1,0 +1,20 @@
+[
+ {
+  "date": "2026-10-30",
+  "base": "USD",
+  "quote": "BRL",
+  "rate": 5.4043
+ },
+ {
+  "date": "2026-10-30",
+  "base": "USD",
+  "quote": "PYG",
+  "rate": 5944.76
+ },
+ {
+  "date": "2026-10-30",
+  "base": "BRL",
+  "quote": "PYG",
+  "rate": 1100.01
+ }
+]

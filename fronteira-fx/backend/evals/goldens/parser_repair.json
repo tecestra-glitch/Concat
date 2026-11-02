@@ -1,0 +1,122 @@
+[
+  {
+    "id": "parser-tabela-virou-divs",
+    "task": "parser_repair",
+    "lang": "pt-BR",
+    "input": "Você classifica mudanças em páginas de cotação para o parser do Fronteira FX.\nResponda somente com JSON no formato {\"kind\": \"layout_change\" ou \"no_change\", \"motivo\": \"...\"}.\n- layout_change: os seletores do parser deixam de encontrar os dados (estrutura, classes ou posição das colunas mudaram).\n- no_change: os seletores continuam encontrando os dados; só valores ou textos mudaram.\n\nSeletores do parser: table.tabela-cotacoes tbody tr td\nHTML anterior:\n<table class=\"tabela-cotacoes\"><tbody><tr><td>USD/PYG</td><td>7290</td><td>7360</td></tr></tbody></table>\nHTML atual:\n<div class=\"grade-cotacoes\"><div class=\"linha\"><span>USD/PYG</span><span>7290</span><span>7360</span></div></div>",
+    "expected_output": "{\"kind\": \"layout_change\", \"motivo\": \"A tabela virou divs: o seletor table.tabela-cotacoes não encontra mais nada.\"}",
+    "expected_tools": [],
+    "tool_policy": "none",
+    "tool_output": null,
+    "confidence": null,
+    "rubric": {
+      "json_equals": {
+        "kind": "layout_change"
+      }
+    },
+    "tags": [
+      "parser",
+      "layout_change"
+    ]
+  },
+  {
+    "id": "parser-so-valores-mudaram",
+    "task": "parser_repair",
+    "lang": "pt-BR",
+    "input": "Você classifica mudanças em páginas de cotação para o parser do Fronteira FX.\nResponda somente com JSON no formato {\"kind\": \"layout_change\" ou \"no_change\", \"motivo\": \"...\"}.\n- layout_change: os seletores do parser deixam de encontrar os dados (estrutura, classes ou posição das colunas mudaram).\n- no_change: os seletores continuam encontrando os dados; só valores ou textos mudaram.\n\nSeletores do parser: table.tabela-cotacoes tbody tr td\nHTML anterior:\n<table class=\"tabela-cotacoes\"><tbody><tr><td>USD/PYG</td><td>7290</td><td>7360</td></tr></tbody></table>\nHTML atual:\n<table class=\"tabela-cotacoes\"><tbody><tr><td>USD/PYG</td><td>7300</td><td>7370</td></tr></tbody></table>",
+    "expected_output": "{\"kind\": \"no_change\", \"motivo\": \"Mesma tabela e mesmas células; só os valores mudaram.\"}",
+    "expected_tools": [],
+    "tool_policy": "none",
+    "tool_output": null,
+    "confidence": null,
+    "rubric": {
+      "json_equals": {
+        "kind": "no_change"
+      }
+    },
+    "tags": [
+      "parser",
+      "no_change"
+    ]
+  },
+  {
+    "id": "parser-coluna-nova",
+    "task": "parser_repair",
+    "lang": "pt-BR",
+    "input": "Você classifica mudanças em páginas de cotação para o parser do Fronteira FX.\nResponda somente com JSON no formato {\"kind\": \"layout_change\" ou \"no_change\", \"motivo\": \"...\"}.\n- layout_change: os seletores do parser deixam de encontrar os dados (estrutura, classes ou posição das colunas mudaram).\n- no_change: os seletores continuam encontrando os dados; só valores ou textos mudaram.\n\nSeletores do parser: table.tabela-cotacoes tbody tr td:nth-child(3)\nHTML anterior:\n<table class=\"tabela-cotacoes\"><tbody><tr><td>USD/PYG</td><td>7290</td><td>7360</td></tr></tbody></table>\nHTML atual:\n<table class=\"tabela-cotacoes\"><tbody><tr><td>USD/PYG</td><td>PYG</td><td>7290</td><td>7360</td></tr></tbody></table>",
+    "expected_output": "{\"kind\": \"layout_change\", \"motivo\": \"Entrou uma coluna nova; nth-child(3) agora pega a compra, não a venda.\"}",
+    "expected_tools": [],
+    "tool_policy": "none",
+    "tool_output": null,
+    "confidence": null,
+    "rubric": {
+      "json_equals": {
+        "kind": "layout_change"
+      }
+    },
+    "tags": [
+      "parser",
+      "layout_change"
+    ]
+  },
+  {
+    "id": "parser-hora-mudou",
+    "task": "parser_repair",
+    "lang": "pt-BR",
+    "input": "Você classifica mudanças em páginas de cotação para o parser do Fronteira FX.\nResponda somente com JSON no formato {\"kind\": \"layout_change\" ou \"no_change\", \"motivo\": \"...\"}.\n- layout_change: os seletores do parser deixam de encontrar os dados (estrutura, classes ou posição das colunas mudaram).\n- no_change: os seletores continuam encontrando os dados; só valores ou textos mudaram.\n\nSeletores do parser: div.atualizacao span\nHTML anterior:\n<div class=\"atualizacao\"><span>Atualizado há 5 min</span></div>\nHTML atual:\n<div class=\"atualizacao\"><span>Atualizado há 1 min</span></div>",
+    "expected_output": "{\"kind\": \"no_change\", \"motivo\": \"O seletor continua encontrando o span; só o texto da hora mudou.\"}",
+    "expected_tools": [],
+    "tool_policy": "none",
+    "tool_output": null,
+    "confidence": null,
+    "rubric": {
+      "json_equals": {
+        "kind": "no_change"
+      }
+    },
+    "tags": [
+      "parser",
+      "no_change"
+    ]
+  },
+  {
+    "id": "parser-classe-renomeada",
+    "task": "parser_repair",
+    "lang": "pt-BR",
+    "input": "Você classifica mudanças em páginas de cotação para o parser do Fronteira FX.\nResponda somente com JSON no formato {\"kind\": \"layout_change\" ou \"no_change\", \"motivo\": \"...\"}.\n- layout_change: os seletores do parser deixam de encontrar os dados (estrutura, classes ou posição das colunas mudaram).\n- no_change: os seletores continuam encontrando os dados; só valores ou textos mudaram.\n\nSeletores do parser: table.tabela-cotacoes tbody tr\nHTML anterior:\n<table class=\"tabela-cotacoes\"><tbody><tr><td>USD/PYG</td><td>7290</td><td>7360</td></tr></tbody></table>\nHTML atual:\n<table class=\"tabela-cotacoes-v2\"><tbody><tr><td>USD/PYG</td><td>7290</td><td>7360</td></tr></tbody></table>",
+    "expected_output": "{\"kind\": \"layout_change\", \"motivo\": \"A classe mudou de tabela-cotacoes para tabela-cotacoes-v2; o seletor não encontra a tabela.\"}",
+    "expected_tools": [],
+    "tool_policy": "none",
+    "tool_output": null,
+    "confidence": null,
+    "rubric": {
+      "json_equals": {
+        "kind": "layout_change"
+      }
+    },
+    "tags": [
+      "parser",
+      "layout_change"
+    ]
+  },
+  {
+    "id": "parser-banner-fora-da-tabela",
+    "task": "parser_repair",
+    "lang": "pt-BR",
+    "input": "Você classifica mudanças em páginas de cotação para o parser do Fronteira FX.\nResponda somente com JSON no formato {\"kind\": \"layout_change\" ou \"no_change\", \"motivo\": \"...\"}.\n- layout_change: os seletores do parser deixam de encontrar os dados (estrutura, classes ou posição das colunas mudaram).\n- no_change: os seletores continuam encontrando os dados; só valores ou textos mudaram.\n\nSeletores do parser: table.tabela-cotacoes tbody tr\nHTML anterior:\n<table class=\"tabela-cotacoes\"><tbody><tr><td>USD/PYG</td><td>7290</td><td>7360</td></tr></tbody></table>\nHTML atual:\n<div class=\"banner\">Promoção de fim de semana: tarifa zero no Pix</div><table class=\"tabela-cotacoes\"><tbody><tr><td>USD/PYG</td><td>7290</td><td>7360</td></tr></tbody></table>",
+    "expected_output": "{\"kind\": \"no_change\", \"motivo\": \"Apareceu um banner fora da tabela; os seletores da tabela continuam válidos.\"}",
+    "expected_tools": [],
+    "tool_policy": "none",
+    "tool_output": null,
+    "confidence": null,
+    "rubric": {
+      "json_equals": {
+        "kind": "no_change"
+      }
+    },
+    "tags": [
+      "parser",
+      "no_change"
+    ]
+  }
+]

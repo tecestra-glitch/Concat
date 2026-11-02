@@ -1,0 +1,930 @@
+[
+  {
+    "id": "route-taxa-efetiva-wu-5000",
+    "task": "route_explanation",
+    "lang": "pt-BR",
+    "input": "Qual é a taxa efetiva da rota Pix → Western Union → conta ueno para 5.000 reais, e como ela é calculada?",
+    "expected_output": "A taxa efetiva é 1.363,79 guaranis por real. Ela é o crédito líquido dividido pelo débito total: 6.818.971,65 guaranis recebidos ÷ 5.000 reais enviados. A tarifa de 9,90 reais já foi descontada, mas o IOF não tem valor confirmado e a conversão do resultado para reais está pendente. Por isso é uma estimativa incompleta, não lucro confirmado.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": {
+      "steps": [
+        {
+          "n": 1,
+          "description": "Pix BRL → Western Union → conta ueno (PYG)",
+          "from": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "pix",
+            "location": "digital",
+            "modality": "transfer",
+            "amount": "5000"
+          },
+          "to": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "6818971.65"
+          },
+          "rate": "1366.5",
+          "rate_note": "PYG por 1 BRL",
+          "amount_in": "5000",
+          "amount_out": "6818971.65",
+          "fees": [
+            {
+              "label": "tarifa",
+              "amount": "9.9",
+              "currency": "BRL"
+            },
+            {
+              "label": "IOF",
+              "amount": null,
+              "currency": "BRL"
+            }
+          ],
+          "duration": "0–4 dias úteis",
+          "promo": null,
+          "confidence": "incomplete",
+          "evidence_id": null
+        }
+      ],
+      "start_currency": "BRL",
+      "final_currency": "PYG",
+      "valuation_currency": "BRL",
+      "total_debit": "5000",
+      "net_credit": "6818971.65",
+      "total_capital_allocated": "5000",
+      "final_available": null,
+      "effective_rate": "1363.79433",
+      "cycle_profit": null,
+      "roi": null,
+      "total_fees_valued": null,
+      "confidence": "incomplete",
+      "pending_costs": [
+        "IOF (BRL): valor desconhecido",
+        "cotação PYG->BRL para valorar o resultado"
+      ]
+    },
+    "confidence": "incomplete",
+    "rubric": {
+      "must_include_numbers": [
+        "1363.79",
+        "6818971.65",
+        "9.90"
+      ],
+      "must_include_any": [
+        [
+          "taxa efetiva"
+        ],
+        [
+          "credito liquido"
+        ],
+        [
+          "debito total"
+        ],
+        [
+          "iof"
+        ],
+        [
+          "incomplet",
+          "estimativa"
+        ],
+        [
+          "pendent",
+          "falta",
+          "confirm"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "rota",
+      "taxa-efetiva",
+      "incompleto",
+      "wu",
+      "ueno"
+    ]
+  },
+  {
+    "id": "route-ciclo-negativo-digital",
+    "task": "route_explanation",
+    "lang": "pt-BR",
+    "input": "A rota BRL → PYG → USD → BRL no digital deu lucro com 5.000 reais? Mostre o resultado final.",
+    "expected_output": "Não. A simulação termina com 4.953,55 reais a partir de 5.000 reais enviados: prejuízo de 46,45 reais, ROI de -0,93%. A taxa efetiva da rota é 0,99071 real por real. Mesmo sendo simulação, o resultado é negativo e não deve ser apresentado como ganho.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": {
+      "steps": [
+        {
+          "n": 1,
+          "description": "Pix BRL → WU → conta ueno (PYG)",
+          "from": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "pix",
+            "location": "digital",
+            "modality": "transfer",
+            "amount": "5000"
+          },
+          "to": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "6818971.65"
+          },
+          "rate": "1366.5",
+          "rate_note": "PYG por 1 BRL",
+          "amount_in": "5000",
+          "amount_out": "6818971.65",
+          "fees": [
+            {
+              "label": "tarifa",
+              "amount": "9.9",
+              "currency": "BRL"
+            }
+          ],
+          "duration": "0–4 dias úteis",
+          "promo": null,
+          "confidence": "quoted",
+          "evidence_id": null
+        },
+        {
+          "n": 2,
+          "description": "ueno: compra USD com PYG",
+          "from": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "6818971.65"
+          },
+          "to": {
+            "currency": "USD",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "922.1056998"
+          },
+          "rate": "0.00013523",
+          "rate_note": "USD por 1 PYG",
+          "amount_in": "6818971.65",
+          "amount_out": "922.1056998",
+          "fees": [],
+          "duration": "1 dia útil",
+          "promo": null,
+          "confidence": "estimated",
+          "evidence_id": null
+        },
+        {
+          "n": 3,
+          "description": "Nomad: vende USD por BRL (Pix)",
+          "from": {
+            "currency": "USD",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "922.1056998"
+          },
+          "to": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "nomad",
+            "location": "digital",
+            "modality": "account",
+            "amount": "4953.55181931"
+          },
+          "rate": "5.372",
+          "rate_note": "BRL por 1 USD",
+          "amount_in": "922.1056998",
+          "amount_out": "4953.55181931",
+          "fees": [],
+          "duration": "imediato",
+          "promo": null,
+          "confidence": "estimated",
+          "evidence_id": null
+        }
+      ],
+      "start_currency": "BRL",
+      "final_currency": "BRL",
+      "valuation_currency": "BRL",
+      "total_debit": "5000",
+      "net_credit": "4953.55181931",
+      "total_capital_allocated": "5000",
+      "final_available": "4953.55181931",
+      "effective_rate": "0.99071036",
+      "cycle_profit": "-46.44818069",
+      "roi": "-0.00928964",
+      "total_fees_valued": "9.82749103",
+      "confidence": "estimated",
+      "pending_costs": []
+    },
+    "confidence": "estimated",
+    "rubric": {
+      "must_include_numbers": [
+        "4953.55",
+        "46.45",
+        "0.99071"
+      ],
+      "must_include_any": [
+        [
+          "prejuizo",
+          "perda",
+          "negativ"
+        ],
+        [
+          "nao"
+        ],
+        [
+          "taxa efetiva"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "rota",
+      "ciclo",
+      "prejuizo",
+      "digital"
+    ]
+  },
+  {
+    "id": "route-custos-pendentes-wu",
+    "task": "route_explanation",
+    "lang": "pt-BR",
+    "input": "O que são os custos pendentes nesta rota da Western Union?",
+    "expected_output": "São custos que o simulador ainda não consegue calcular. Nesta rota há dois: o IOF, que está sem valor informado, e a conversão do resultado de guaranis para reais, porque falta a cotação de PYG para BRL. Enquanto eles não forem confirmados, a rota é uma estimativa incompleta, não um lucro confirmado.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": {
+      "steps": [
+        {
+          "n": 1,
+          "description": "Pix BRL → Western Union → conta ueno (PYG)",
+          "from": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "pix",
+            "location": "digital",
+            "modality": "transfer",
+            "amount": "5000"
+          },
+          "to": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "6818971.65"
+          },
+          "rate": "1366.5",
+          "rate_note": "PYG por 1 BRL",
+          "amount_in": "5000",
+          "amount_out": "6818971.65",
+          "fees": [
+            {
+              "label": "tarifa",
+              "amount": "9.9",
+              "currency": "BRL"
+            },
+            {
+              "label": "IOF",
+              "amount": null,
+              "currency": "BRL"
+            }
+          ],
+          "duration": "0–4 dias úteis",
+          "promo": null,
+          "confidence": "incomplete",
+          "evidence_id": null
+        }
+      ],
+      "start_currency": "BRL",
+      "final_currency": "PYG",
+      "valuation_currency": "BRL",
+      "total_debit": "5000",
+      "net_credit": "6818971.65",
+      "total_capital_allocated": "5000",
+      "final_available": null,
+      "effective_rate": "1363.79433",
+      "cycle_profit": null,
+      "roi": null,
+      "total_fees_valued": null,
+      "confidence": "incomplete",
+      "pending_costs": [
+        "IOF (BRL): valor desconhecido",
+        "cotação PYG->BRL para valorar o resultado"
+      ]
+    },
+    "confidence": "incomplete",
+    "rubric": {
+      "must_include_any": [
+        [
+          "pendent"
+        ],
+        [
+          "iof"
+        ],
+        [
+          "conversao",
+          "converter",
+          "convert"
+        ],
+        [
+          "incomplet",
+          "estimativa"
+        ],
+        [
+          "confirm"
+        ]
+      ]
+    },
+    "tags": [
+      "custos-pendentes",
+      "explicacao",
+      "incompleto"
+    ]
+  },
+  {
+    "id": "route-wu-10-mil",
+    "task": "route_explanation",
+    "lang": "pt-BR",
+    "input": "Quanto eu recebo em guaranis se mandar 10.000 reais pela Western Union para a ueno?",
+    "expected_output": "Você recebe cerca de 13.698.425,12 guaranis. O cálculo usa a taxa de 1.371,2 guaranis por real sobre 9.990,10 reais, que é o valor de 10.000 reais menos a tarifa de 9,90 reais. A taxa efetiva fica em 1.369,84 guaranis por real. A cotação para converter o resultado em reais ainda está pendente.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "10000"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": {
+      "steps": [
+        {
+          "n": 1,
+          "description": "Pix BRL → Western Union → conta ueno (PYG)",
+          "from": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "pix",
+            "location": "digital",
+            "modality": "transfer",
+            "amount": "10000"
+          },
+          "to": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "13698425.12"
+          },
+          "rate": "1371.2",
+          "rate_note": "PYG por 1 BRL",
+          "amount_in": "10000",
+          "amount_out": "13698425.12",
+          "fees": [
+            {
+              "label": "tarifa",
+              "amount": "9.9",
+              "currency": "BRL"
+            }
+          ],
+          "duration": "0–4 dias úteis",
+          "promo": null,
+          "confidence": "quoted",
+          "evidence_id": null
+        }
+      ],
+      "start_currency": "BRL",
+      "final_currency": "PYG",
+      "valuation_currency": "BRL",
+      "total_debit": "10000",
+      "net_credit": "13698425.12",
+      "total_capital_allocated": "10000",
+      "final_available": null,
+      "effective_rate": "1369.842512",
+      "cycle_profit": null,
+      "roi": null,
+      "total_fees_valued": null,
+      "confidence": "incomplete",
+      "pending_costs": [
+        "cotação PYG->BRL para valorar o resultado"
+      ]
+    },
+    "confidence": "incomplete",
+    "rubric": {
+      "must_include_numbers": [
+        "13698425.12",
+        "1371.2",
+        "1369.84"
+      ],
+      "must_include_any": [
+        [
+          "taxa efetiva"
+        ],
+        [
+          "tarifa"
+        ],
+        [
+          "pendent"
+        ]
+      ],
+      "numbers_must_be_sourced": true,
+      "ignore_numbers": [
+        "9990.1"
+      ]
+    },
+    "tags": [
+      "calculo",
+      "wu",
+      "taxa-efetiva"
+    ]
+  },
+  {
+    "id": "route-wu-25-mil-promocao",
+    "task": "route_explanation",
+    "lang": "pt-BR",
+    "input": "Pela Western Union, quanto eu recebo em guaranis com 25.000 reais? Tem alguma promoção?",
+    "expected_output": "Você recebe 34.735.000 guaranis, a 1.389,4 guaranis por real. Há promoção: a tarifa está zerada para esse valor (promo fee_100_off). Como a tarifa é zero, a taxa efetiva é igual à taxa nominal. Falta a cotação para converter o resultado em reais, então o ganho em reais não está calculado.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "25000"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": {
+      "steps": [
+        {
+          "n": 1,
+          "description": "Pix BRL → Western Union → conta ueno (PYG)",
+          "from": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "pix",
+            "location": "digital",
+            "modality": "transfer",
+            "amount": "25000"
+          },
+          "to": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "34735000"
+          },
+          "rate": "1389.4",
+          "rate_note": "PYG por 1 BRL",
+          "amount_in": "25000",
+          "amount_out": "34735000",
+          "fees": [
+            {
+              "label": "tarifa",
+              "amount": "0",
+              "currency": "BRL"
+            }
+          ],
+          "duration": "0–4 dias úteis",
+          "promo": "fee_100_off",
+          "confidence": "quoted",
+          "evidence_id": null
+        }
+      ],
+      "start_currency": "BRL",
+      "final_currency": "PYG",
+      "valuation_currency": "BRL",
+      "total_debit": "25000",
+      "net_credit": "34735000",
+      "total_capital_allocated": "25000",
+      "final_available": null,
+      "effective_rate": "1389.4",
+      "cycle_profit": null,
+      "roi": null,
+      "total_fees_valued": null,
+      "confidence": "incomplete",
+      "pending_costs": [
+        "cotação PYG->BRL para valorar o resultado"
+      ]
+    },
+    "confidence": "incomplete",
+    "rubric": {
+      "must_include_numbers": [
+        "34735000",
+        "1389.4"
+      ],
+      "must_include_any": [
+        [
+          "promocao",
+          "promo"
+        ],
+        [
+          "tarifa"
+        ],
+        [
+          "zer",
+          "isent",
+          "100%"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "promocao",
+      "wu",
+      "taxa-efetiva"
+    ]
+  },
+  {
+    "id": "route-nominal-vs-efetiva",
+    "task": "route_explanation",
+    "lang": "pt-BR",
+    "input": "Qual a diferença entre taxa nominal e taxa efetiva na rota de 5.000 reais pela Western Union?",
+    "expected_output": "A taxa nominal é 1.366,5 guaranis por real, a cotação da tabela. A taxa efetiva é 1.363,79 guaranis por real, porque a tarifa de 9,90 reais sai do valor enviado antes da conversão. A efetiva é o que você realmente recebe por real enviado: crédito líquido dividido pelo débito total.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": {
+      "steps": [
+        {
+          "n": 1,
+          "description": "Pix BRL → Western Union → conta ueno (PYG)",
+          "from": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "pix",
+            "location": "digital",
+            "modality": "transfer",
+            "amount": "5000"
+          },
+          "to": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "6818971.65"
+          },
+          "rate": "1366.5",
+          "rate_note": "PYG por 1 BRL",
+          "amount_in": "5000",
+          "amount_out": "6818971.65",
+          "fees": [
+            {
+              "label": "tarifa",
+              "amount": "9.9",
+              "currency": "BRL"
+            },
+            {
+              "label": "IOF",
+              "amount": null,
+              "currency": "BRL"
+            }
+          ],
+          "duration": "0–4 dias úteis",
+          "promo": null,
+          "confidence": "incomplete",
+          "evidence_id": null
+        }
+      ],
+      "start_currency": "BRL",
+      "final_currency": "PYG",
+      "valuation_currency": "BRL",
+      "total_debit": "5000",
+      "net_credit": "6818971.65",
+      "total_capital_allocated": "5000",
+      "final_available": null,
+      "effective_rate": "1363.79433",
+      "cycle_profit": null,
+      "roi": null,
+      "total_fees_valued": null,
+      "confidence": "incomplete",
+      "pending_costs": [
+        "IOF (BRL): valor desconhecido",
+        "cotação PYG->BRL para valorar o resultado"
+      ]
+    },
+    "confidence": "incomplete",
+    "rubric": {
+      "must_include_numbers": [
+        "1366.5",
+        "1363.79"
+      ],
+      "must_include_any": [
+        [
+          "nominal"
+        ],
+        [
+          "efetiv"
+        ],
+        [
+          "tarifa"
+        ],
+        [
+          "debito total",
+          "credito liquido"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "taxa-efetiva",
+      "nominal",
+      "explicacao"
+    ]
+  },
+  {
+    "id": "route-ganho-em-reais-indefinido",
+    "task": "route_explanation",
+    "lang": "pt-BR",
+    "input": "Essa rota de 5.000 reais dá quantos reais de ganho líquido?",
+    "expected_output": "Não dá para afirmar um ganho em reais. O simulador não converte os guaranis de volta para reais, porque falta a cotação de PYG para BRL, e o IOF também está sem valor. A taxa efetiva é 1.363,79 guaranis por real, mas o ganho líquido não está calculado e não deve ser apresentado como lucro.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": {
+      "steps": [
+        {
+          "n": 1,
+          "description": "Pix BRL → Western Union → conta ueno (PYG)",
+          "from": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "pix",
+            "location": "digital",
+            "modality": "transfer",
+            "amount": "5000"
+          },
+          "to": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "6818971.65"
+          },
+          "rate": "1366.5",
+          "rate_note": "PYG por 1 BRL",
+          "amount_in": "5000",
+          "amount_out": "6818971.65",
+          "fees": [
+            {
+              "label": "tarifa",
+              "amount": "9.9",
+              "currency": "BRL"
+            },
+            {
+              "label": "IOF",
+              "amount": null,
+              "currency": "BRL"
+            }
+          ],
+          "duration": "0–4 dias úteis",
+          "promo": null,
+          "confidence": "incomplete",
+          "evidence_id": null
+        }
+      ],
+      "start_currency": "BRL",
+      "final_currency": "PYG",
+      "valuation_currency": "BRL",
+      "total_debit": "5000",
+      "net_credit": "6818971.65",
+      "total_capital_allocated": "5000",
+      "final_available": null,
+      "effective_rate": "1363.79433",
+      "cycle_profit": null,
+      "roi": null,
+      "total_fees_valued": null,
+      "confidence": "incomplete",
+      "pending_costs": [
+        "IOF (BRL): valor desconhecido",
+        "cotação PYG->BRL para valorar o resultado"
+      ]
+    },
+    "confidence": "incomplete",
+    "rubric": {
+      "must_include_numbers": [
+        "1363.79"
+      ],
+      "must_include_any": [
+        [
+          "nao da para",
+          "nao e possivel",
+          "nao consigo",
+          "nao ha como",
+          "nao foi possivel"
+        ],
+        [
+          "cotacao"
+        ],
+        [
+          "iof"
+        ]
+      ],
+      "must_not_match": [
+        "ganho (liquido )?de \\d"
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "limite",
+      "ganho-indefinido",
+      "cotacao-pyg-brl"
+    ]
+  },
+  {
+    "id": "route-taxa-efetiva-ciclo",
+    "task": "route_explanation",
+    "lang": "pt-BR",
+    "input": "Como a taxa efetiva do ciclo BRL → PYG → USD → BRL é calculada, e qual é o valor?",
+    "expected_output": "A taxa efetiva é o crédito líquido dividido pelo débito total. Aqui, o crédito final é 4.953,55 reais e o débito inicial é 5.000 reais: 4.953,55 ÷ 5.000 = 0,99071 real por real.",
+    "expected_tools": [
+      {
+        "name": "compare_routes",
+        "arguments": {
+          "capital_brl": "5000"
+        }
+      }
+    ],
+    "tool_policy": "subset",
+    "tool_output": {
+      "steps": [
+        {
+          "n": 1,
+          "description": "Pix BRL → WU → conta ueno (PYG)",
+          "from": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "pix",
+            "location": "digital",
+            "modality": "transfer",
+            "amount": "5000"
+          },
+          "to": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "6818971.65"
+          },
+          "rate": "1366.5",
+          "rate_note": "PYG por 1 BRL",
+          "amount_in": "5000",
+          "amount_out": "6818971.65",
+          "fees": [
+            {
+              "label": "tarifa",
+              "amount": "9.9",
+              "currency": "BRL"
+            }
+          ],
+          "duration": "0–4 dias úteis",
+          "promo": null,
+          "confidence": "quoted",
+          "evidence_id": null
+        },
+        {
+          "n": 2,
+          "description": "ueno: compra USD com PYG",
+          "from": {
+            "currency": "PYG",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "6818971.65"
+          },
+          "to": {
+            "currency": "USD",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "922.1056998"
+          },
+          "rate": "0.00013523",
+          "rate_note": "USD por 1 PYG",
+          "amount_in": "6818971.65",
+          "amount_out": "922.1056998",
+          "fees": [],
+          "duration": "1 dia útil",
+          "promo": null,
+          "confidence": "estimated",
+          "evidence_id": null
+        },
+        {
+          "n": 3,
+          "description": "Nomad: vende USD por BRL (Pix)",
+          "from": {
+            "currency": "USD",
+            "account_id": null,
+            "institution": "ueno",
+            "location": "digital",
+            "modality": "account",
+            "amount": "922.1056998"
+          },
+          "to": {
+            "currency": "BRL",
+            "account_id": null,
+            "institution": "nomad",
+            "location": "digital",
+            "modality": "account",
+            "amount": "4953.55181931"
+          },
+          "rate": "5.372",
+          "rate_note": "BRL por 1 USD",
+          "amount_in": "922.1056998",
+          "amount_out": "4953.55181931",
+          "fees": [],
+          "duration": "imediato",
+          "promo": null,
+          "confidence": "estimated",
+          "evidence_id": null
+        }
+      ],
+      "start_currency": "BRL",
+      "final_currency": "BRL",
+      "valuation_currency": "BRL",
+      "total_debit": "5000",
+      "net_credit": "4953.55181931",
+      "total_capital_allocated": "5000",
+      "final_available": "4953.55181931",
+      "effective_rate": "0.99071036",
+      "cycle_profit": "-46.44818069",
+      "roi": "-0.00928964",
+      "total_fees_valued": "9.82749103",
+      "confidence": "estimated",
+      "pending_costs": []
+    },
+    "confidence": "estimated",
+    "rubric": {
+      "must_include_numbers": [
+        "0.99071",
+        "4953.55"
+      ],
+      "must_include_any": [
+        [
+          "credito liquido"
+        ],
+        [
+          "debito total"
+        ],
+        [
+          "taxa efetiva"
+        ]
+      ],
+      "numbers_must_be_sourced": true
+    },
+    "tags": [
+      "taxa-efetiva",
+      "ciclo",
+      "formula"
+    ]
+  }
+]

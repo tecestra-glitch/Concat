@@ -294,7 +294,9 @@ class WatchService:
             for sid in sorted(self.adapters())
         ]
 
-    def update_source(self, source_id: str, *, interval_s: int | None = None, enabled: bool | None = None) -> WatchStatus:
+    def update_source(
+        self, source_id: str, *, interval_s: int | None = None, enabled: bool | None = None
+    ) -> WatchStatus:
         adapter = self._adapter(source_id)
         now = self.clock()
         sched = self.scheduler.override(source_id, interval_s=interval_s, enabled=enabled, now=now)

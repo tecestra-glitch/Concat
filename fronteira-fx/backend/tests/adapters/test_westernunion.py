@@ -116,3 +116,25 @@ def test_evidence_dir_is_gitignored() -> None:
     gitignore = wu.evidence_dir().parent / ".gitignore"
     assert gitignore.read_text().splitlines()[0].strip() == "*"  # everything under var/ is ignored
     assert wu.evidence_dir().parts[-2:] == ("var", "evidence")
+
+
+# visible page text captured live on 2026-11-02 after choosing Conta Bancaria + PIX for 5000 BRL
+LIVE_BODY = (
+    "Valor a enviar\nBRL\nValor a receber\nPYG\nUSD\nEnviar até 25,000.00 BRL\n\n1.00 BRL = 1,080.3741 Paraguay Guarani "
+    "(PYG) 2\n\nComo o seu destinatário quer receber o dinheiro?\nReceber em dinheiro\nem uma loja\nConta Bancaria10\n"
+    "Como você gostaria de pagar?\nPIX ou transferência bancária4\n0-4 Dias úteis1, 8, 12\nTarifa2 0.00\xa0 BRL\n\n"
+    "Tenho um código promocional\nContinuar\nRESUMO\nTAXA DE CÂMBIO2\n1.00 BRL = 1,080.3741 PYG\nValor da transferência\n"
+    "5,000.00 BRL\n100% de desconto 45.00 BRL\nTaxa de transferência2\n+ 0.00 BRL\nTotal da transferência\n5,000.00 BRL\n"
+    "Total  O destinatário recebe\n5,401,871.00PYG\nTempo de atendimento:1, 8, 12\n0-4 Dias úteis\n0 to 4 Dia"
+)
+
+
+def test_extract_summary_from_live_text() -> None:
+    summary = wu.extract_summary(LIVE_BODY)
+    assert summary["fee_brl"] == "0.00"
+    assert summary["fee_before_discount_brl"] == "45.00"
+    assert summary["exchange_rate"] == "1,080.3741"
+    assert summary["delivery"] == "0-4 Dias úteis"
+    assert summary["promo"] == "100% de desconto 45.00 BRL"
+    assert summary["summary_text"].startswith("RESUMO")
+    assert wu.extract_summary("nothing here")["fee_brl"] is None

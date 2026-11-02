@@ -109,7 +109,9 @@ def test_openai_compatible_request_shape_and_result_order():
             },
         )
     )
-    emb = OpenAICompatibleEmbedder("https://emb.example.test/v1/", "text-embedding-test", api_key="sekret", dimensions=4)
+    emb = OpenAICompatibleEmbedder(
+        "https://emb.example.test/v1/", "text-embedding-test", api_key="sekret", dimensions=4
+    )
 
     vectors = emb.embed(["primeiro", "segundo"])
 
@@ -125,9 +127,7 @@ def test_dimensions_field_is_sent_only_when_configured():
     route = respx.post(ENDPOINT).mock(
         return_value=httpx.Response(200, json={"data": [{"index": 0, "embedding": [1.0, 0.0, 0.0, 0.0]}]})
     )
-    emb = OpenAICompatibleEmbedder(
-        "https://emb.example.test/v1", "m", dimensions=4, send_dimensions=True
-    )
+    emb = OpenAICompatibleEmbedder("https://emb.example.test/v1", "m", dimensions=4, send_dimensions=True)
     emb.embed(["x"])
     assert json.loads(route.calls.last.request.content)["dimensions"] == 4
 
@@ -136,7 +136,9 @@ def test_dimensions_field_is_sent_only_when_configured():
 def test_requests_are_batched():
     def handler(request: httpx.Request) -> httpx.Response:
         count = len(json.loads(request.content)["input"])
-        return httpx.Response(200, json={"data": [{"index": i, "embedding": [1.0, 0.0, 0.0, 0.0]} for i in range(count)]})
+        return httpx.Response(
+            200, json={"data": [{"index": i, "embedding": [1.0, 0.0, 0.0, 0.0]} for i in range(count)]}
+        )
 
     route = respx.post(ENDPOINT).mock(side_effect=handler)
     emb = OpenAICompatibleEmbedder("https://emb.example.test/v1", "m", dimensions=4, batch_size=2)
@@ -179,7 +181,9 @@ def test_non_json_response_becomes_embedding_error():
 
 @respx.mock
 def test_wrong_vector_count_becomes_embedding_error():
-    respx.post(ENDPOINT).mock(return_value=httpx.Response(200, json={"data": [{"index": 0, "embedding": [1, 0, 0, 0]}]}))
+    respx.post(ENDPOINT).mock(
+        return_value=httpx.Response(200, json={"data": [{"index": 0, "embedding": [1, 0, 0, 0]}]})
+    )
     emb = OpenAICompatibleEmbedder("https://emb.example.test/v1", "m", dimensions=4)
     with pytest.raises(EmbeddingError, match="1 vetores para 2 textos"):
         emb.embed(["a", "b"])

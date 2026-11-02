@@ -1,8 +1,9 @@
 """Rotas HTTP do RAG (`/v1/rag/...`), conforme docs/api-contract.md.
 
-- POST /v1/rag/documents      -> rag_add_document   body {title, text, source, tags[], metadata?} -> {id, chunks}
-- GET  /v1/rag/search         -> search_knowledge   ?q=&k=5&tag=  -> [{id, document_id, title, snippet, score, source, tags}]
-- GET  /v1/rag/documents      -> rag_list_documents -> resumo dos documentos
+- POST /v1/rag/documents  -> rag_add_document    body {title, text, source, tags[], metadata?} -> {id, chunks}
+- GET  /v1/rag/search     -> search_knowledge    ?q=&k=5&tag=
+                             -> [{id, document_id, title, snippet, score, source, tags}]
+- GET  /v1/rag/documents  -> rag_list_documents  resumo dos documentos
 
 O serviço vem de `get_service()`. O núcleo sobrescreve essa dependência com `app.dependency_overrides`
 (ex.: um RagService com SqlStore). Autenticação das rotas de escrita fica a cargo do núcleo, ao incluir
@@ -82,7 +83,7 @@ def rag_add_document(body: AddDocumentIn, service: ServiceDep) -> AddDocumentOut
     try:
         doc_id, chunks = service.add_document(body.title, body.text, body.source, body.tags, body.metadata)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     except EmbeddingError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     return AddDocumentOut(id=doc_id, chunks=chunks)

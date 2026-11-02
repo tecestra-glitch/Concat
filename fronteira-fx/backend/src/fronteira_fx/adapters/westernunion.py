@@ -391,11 +391,24 @@ class WesternUnionAdapter:
                         trail.append(f"amount-reset(try {attempt})")
                 if not amount_ok:
                     return await fail(AdapterStatus.DEGRADED,
-                                      "amount did not stick / receive tiles never rendered (form reset by the SPA)", page)
+                                      "amount did not stick / receive tiles never rendered (form reset by the SPA)",
+                                      page)
+                # let Angular bind the tile handlers before clicking (a click on a freshly rendered tile is lost)
+                await page.wait_for_timeout(2_500)
 
                 # 3) receive method, then payment method
                 if not await click_first(RECEIVE_TILES[receive], RECEIVE_LABELS[receive], "receive"):
                     return await fail(AdapterStatus.DEGRADED, f"receive option for {receive!r} not found", page)
+                # a click on a tile the SPA is still wiring is lost (observed live): the payment tiles only
+                # render once the receive method is really selected, so re-click up to twice if they do not show
+                for attempt in range(3):
+                    try:
+                        await page.wait_for_selector('[amplitude-id^="tile-fundsin"]', timeout=5_000)
+                        trail.append("payment-tiles:visible")
+                        break
+                    except PWTimeout:
+                        if attempt < 2:
+                            await click_first(RECEIVE_TILES[receive], RECEIVE_LABELS[receive], "receive-again")
                 if not await click_first(PAYMENT_TILES[payment], PAYMENT_LABELS[payment], "payment"):
                     return await fail(AdapterStatus.DEGRADED, f"payment option for {payment!r} not offered", page)
                 if bank and not await click_first((), (bank,), "bank"):
