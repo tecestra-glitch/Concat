@@ -164,6 +164,34 @@ describe("BookLadder", () => {
     expect(noNow).toContain(">—</td>");
   });
 
+  it("Idade curta na célula ('1 min', sem quebra) e a forma longa no title e para leitor de tela", () => {
+    const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={[houseA]} now={NOW} />);
+    const row = rowsOf(html, "pregao-book-row")[0];
+    expect(row.body).toMatch(/<td class="[^"]*whitespace-nowrap[^"]*" title="há 1 min"><span aria-hidden="true">1 min<\/span><span class="sr-only">há 1 min<\/span><\/td>/);
+  });
+
+  it("filiais da mesma casa em cidades diferentes levam a sigla da cidade; digital fica sem cidade", () => {
+    const chacoCde = mkLevel({ key: "chaco:CDE", house: "Cambios Chaco", source_id: "chaco", city: "CDE", buy: "7320", sell: "7380" });
+    const chacoAsu = mkLevel({ key: "chaco:ASU", house: "Cambios Chaco", source_id: "chaco", city: "ASU", buy: "7310", sell: "7390" });
+    const alberdiPjc = mkLevel({ key: "alberdi:PJC", house: "Cambios Alberdi", source_id: "alberdi", city: "PJC", buy: "7300", sell: "7400" });
+    const ueno = mkLevel({ key: "ueno", house: "ueno", source_id: "ueno", city: null, channel: "digital", buy: "7290", sell: "7410" });
+    const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={[chacoCde, chacoAsu, alberdiPjc, ueno]} />);
+    const rows = rowsOf(between(html, "pregao-book-side-buy", "pregao-book-side-sell"), "pregao-book-row");
+    const cityOf = (key: string) => {
+      const row = rows.find((r) => r.open.includes(`data-key="${key}"`));
+      expect(row, key).toBeDefined();
+      return row!.body.match(/data-testid="pregao-book-city"[^>]*title="([^"]+)">([A-Z]{3})/)?.slice(1);
+    };
+    expect(cityOf("chaco:CDE")).toEqual(["Ciudad del Este", "CDE"]);
+    expect(cityOf("chaco:ASU")).toEqual(["Asunción", "ASU"]);
+    expect(cityOf("alberdi:PJC")).toEqual(["Pedro Juan Caballero", "PJC"]);
+    expect(rows.find((r) => r.open.includes('data-key="ueno"'))?.body).not.toContain("pregao-book-city");
+    // A mesma casa em duas cidades vira duas linhas distinguíveis pelo texto visível.
+    const visible = rows.map((r) => r.body.replace(/<span class="sr-only">[^<]*<\/span>/g, "").replace(/<[^>]+>/g, ""));
+    expect(visible.filter((t) => t.startsWith("Cambios ChacoCDE"))).toHaveLength(1);
+    expect(visible.filter((t) => t.startsWith("Cambios ChacoASU"))).toHaveLength(1);
+  });
+
   it("sem casas (vazio ou só referências) → data-state empty e mensagem exata", () => {
     const empty = renderToStaticMarkup(<BookLadder {...baseProps} levels={[]} />);
     expect(empty).toContain('data-state="empty"');

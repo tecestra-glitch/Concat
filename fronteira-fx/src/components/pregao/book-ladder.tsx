@@ -6,7 +6,7 @@ import { ReferenceBadge } from "@/components/pregao/reference-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Currency } from "@/lib/api/types";
+import { CITY_LABEL, type City, type Currency } from "@/lib/api/types";
 import { formatAge, formatRate, toNumber } from "@/lib/format";
 import type { BookLevel, PairKey } from "@/lib/pregao/types";
 import { cn } from "@/lib/utils";
@@ -44,6 +44,33 @@ export function splitBook(levels: BookLevel[]): BookSides {
   const asks = houses.filter((l) => l.sell !== null).sort((a, b) => Number(a.sell) - Number(b.sell) || byHouse(a, b));
   const refs = levels.filter((l) => l.kind === "market_reference");
   return { bids, asks, refs };
+}
+
+/**
+ * Cidade da filial logo abaixo do nome (na linha dos selos), com a sigla usada no resto do app (CDE, ASU, PJC). A mesma casa aparece
+ * uma vez por filial; sem a cidade o livro mostraria "Cambios Chaco" duas vezes. Digital: sem cidade.
+ */
+export function HouseCity({ city }: { city: City }): ReactElement | null {
+  if (city === null) return null;
+  return (
+    <span data-testid="pregao-book-city" className="whitespace-nowrap text-xs font-normal text-muted" title={CITY_LABEL[city]}>
+      {city}
+      <span className="sr-only">, {CITY_LABEL[city]}</span>
+    </span>
+  );
+}
+
+/** Idade curta ("5 min") na célula, com a forma longa ("há 5 min") no title e para leitor de tela. */
+function AgeCell({ iso, now }: { iso: string; now: number }): ReactElement {
+  if (now <= 0) return <td className="tnum whitespace-nowrap pl-2 text-right text-muted max-sm:hidden">—</td>;
+  const long = formatAge(iso, now);
+  const short = long.replace(/^há /, "");
+  return (
+    <td className="tnum whitespace-nowrap pl-2 text-right text-muted max-sm:hidden" title={long}>
+      <span aria-hidden>{short}</span>
+      <span className="sr-only">{long}</span>
+    </td>
+  );
 }
 
 function refValue(level: BookLevel, quote: Currency): string {
@@ -93,19 +120,26 @@ function BookRow({ level, side, best, quote, selected, now, onSelect }: BookRowP
       onKeyDown={onKeyDown}
     >
       <td className="pr-2">
-        <span className="inline-flex flex-wrap items-center gap-1">
-          <Store size={12} aria-hidden />
-          {level.house}
-          {best && <Badge variant="accent">melhor</Badge>}
-          {closed && <Badge variant="outline">fechada</Badge>}
-          {level.incomplete && <Badge variant="warn">incompleta</Badge>}
+        <span className="flex flex-col gap-0.5 py-0.5">
+          <span className="inline-flex items-center gap-1">
+            <Store size={12} aria-hidden className="shrink-0" />
+            {level.house}
+          </span>
+          {level.city !== null || best || closed || level.incomplete ? (
+            <span className="flex flex-wrap items-center gap-1">
+              <HouseCity city={level.city} />
+              {best && <Badge variant="accent">melhor</Badge>}
+              {closed && <Badge variant="outline">fechada</Badge>}
+              {level.incomplete && <Badge variant="warn">incompleta</Badge>}
+            </span>
+          ) : null}
         </span>
       </td>
-      <td className="tnum text-right text-foreground">{formatRate(price, quote)}</td>
-      <td className="text-right">
+      <td className="tnum whitespace-nowrap text-right text-foreground">{formatRate(price, quote)}</td>
+      <td className="whitespace-nowrap pl-2 text-right">
         <AgioBadge value={agio} />
       </td>
-      <td className="tnum text-right text-muted max-sm:hidden">{now > 0 ? formatAge(level.captured_at, now) : "—"}</td>
+      <AgeCell iso={level.captured_at} now={now} />
     </tr>
   );
 }
@@ -127,8 +161,8 @@ function SideTable({ side, rows, quote, selectedKey, onSelect, now }: SideTableP
         <tr className="text-left text-muted">
           <th scope="col" className="font-medium">Casa</th>
           <th scope="col" className="text-right font-medium">Preço</th>
-          <th scope="col" className="text-right font-medium">Ágio vs BCP</th>
-          <th scope="col" className="text-right font-medium max-sm:hidden">Idade</th>
+          <th scope="col" className="pl-2 text-right font-medium">Ágio vs BCP</th>
+          <th scope="col" className="pl-2 text-right font-medium max-sm:hidden">Idade</th>
         </tr>
       </thead>
       <tbody>
@@ -157,7 +191,7 @@ function RefTable({ rows, quote, now }: { rows: BookLevel[]; quote: Currency; no
         <tr className="text-left text-muted">
           <th scope="col" className="font-medium">Casa</th>
           <th scope="col" className="text-right font-medium">Valor</th>
-          <th scope="col" className="text-right font-medium max-sm:hidden">Idade</th>
+          <th scope="col" className="pl-2 text-right font-medium max-sm:hidden">Idade</th>
         </tr>
       </thead>
       <tbody>
@@ -167,11 +201,12 @@ function RefTable({ rows, quote, now }: { rows: BookLevel[]; quote: Currency; no
               <span className="inline-flex flex-wrap items-center gap-1">
                 <Landmark size={12} aria-hidden />
                 {level.house}
+                <HouseCity city={level.city} />
                 <ReferenceBadge compact source={level.source_id} />
               </span>
             </td>
-            <td className="tnum text-right text-muted">{`≈ ${refValue(level, quote)}`}</td>
-            <td className="tnum text-right text-muted max-sm:hidden">{now > 0 ? formatAge(level.captured_at, now) : "—"}</td>
+            <td className="tnum whitespace-nowrap text-right text-muted">{`≈ ${refValue(level, quote)}`}</td>
+            <AgeCell iso={level.captured_at} now={now} />
           </tr>
         ))}
       </tbody>
