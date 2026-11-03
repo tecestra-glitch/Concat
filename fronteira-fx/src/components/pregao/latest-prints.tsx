@@ -218,7 +218,7 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
           <div
             aria-hidden
             data-testid="pregao-prints-fade"
-            className="pointer-events-none sticky bottom-0 left-0 hidden h-8 bg-linear-to-t from-background to-transparent md:block xl:hidden"
+            className="pointer-events-none sticky bottom-0 left-0 hidden h-8 bg-linear-to-t from-background to-transparent md:block"
           />
         </div>
       ) : null}

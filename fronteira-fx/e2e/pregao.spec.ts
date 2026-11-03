@@ -147,6 +147,17 @@ test.describe("Pregão", () => {
         const printsBottom = await bottomOf(page, "#pregao-panel-ultimas");
         expect(Math.abs(printsBottom - tallest), "coluna das últimas × coluna mais alta").toBeLessThanOrEqual(24);
         expect((await topOf(page, "#pregao-panel-lista")) - printsBottom, "vão antes da lista").toBeLessThanOrEqual(40);
+        // Aqui a lista rola por dentro do painel: se houver mais linhas que a altura, o degradê avisa e fica colado à borda de baixo.
+        const xlFade = await page.getByTestId("pregao-prints").evaluate((root) => {
+          const sc = root.querySelector("table")!.parentElement!;
+          const box = sc.getBoundingClientRect();
+          const f = root.querySelector('[data-testid="pregao-prints-fade"]')!.getBoundingClientRect();
+          return { overflow: sc.scrollHeight > sc.clientHeight + 1, gap: Math.abs(box.bottom - f.bottom), height: f.height };
+        });
+        if (xlFade.overflow) {
+          expect(xlFade.height, "degradê visível quando a lista continua").toBeGreaterThan(0);
+          expect(xlFade.gap).toBeLessThanOrEqual(1);
+        }
       } else {
         // lg: "Últimas" ocupa as duas colunas logo abaixo da mais alta.
         expect((await topOf(page, "#pregao-panel-ultimas")) - tallest, "vão antes das últimas").toBeLessThanOrEqual(40);
@@ -185,6 +196,32 @@ test.describe("Pregão", () => {
     await page.getByRole("tab", { name: "Lista" }).click();
     await expect(page.getByRole("tab", { name: "Lista" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByTestId("pregao-watchlist")).toBeVisible();
+  });
+
+  test("foco por teclado no livro não fica atrás do cabeçalho, das abas nem da barra inferior (WCAG 2.4.11)", async ({ page }) => {
+    test.skip(test.info().project.name !== "mobile-390", "abas grudadas e barra inferior só existem no celular");
+    await page.getByRole("tab", { name: "Livro" }).click();
+    await expect(page.getByTestId("pregao-book")).toHaveAttribute("data-state", "ready");
+    const rows = page.getByTestId("pregao-book-row");
+    const n = await rows.count();
+    expect(n).toBeGreaterThan(3);
+    await rows.nth(n - 1).focus();
+    let checked = 0;
+    for (let i = 0; i < Math.min(n - 1, 10); i++) {
+      await page.keyboard.press("Shift+Tab");
+      const r = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement;
+        const tabs = document.querySelector('[data-testid="pregao-tabs"]')!.getBoundingClientRect();
+        const nav = document.querySelector('[data-testid="mobile-nav"]')!.getBoundingClientRect();
+        const b = el.getBoundingClientRect();
+        return { row: el.dataset.testid === "pregao-book-row", top: b.top, bottom: b.bottom, tabsBottom: tabs.bottom, navTop: nav.top };
+      });
+      if (!r.row) continue;
+      checked += 1;
+      expect(r.top, "linha focada abaixo das abas").toBeGreaterThanOrEqual(r.tabsBottom - 1);
+      expect(r.bottom, "linha focada acima da barra inferior").toBeLessThanOrEqual(r.navTop + 1);
+    }
+    expect(checked, "linhas do livro percorridas com Shift+Tab").toBeGreaterThan(2);
   });
 
   test("botão visível pausa e retoma a fita, e a escolha sobrevive ao recarregar", async ({ page }, info) => {

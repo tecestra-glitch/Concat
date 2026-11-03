@@ -106,6 +106,20 @@
   }
   html {
     color-scheme: light;
+    /* Rolagem por foco (Tab e Shift+Tab) não deixa o item focado atrás do cabeçalho fixo (h-14). WCAG 2.4.11. */
+    scroll-padding-top: 3.5rem;
+  }
+  /* Abaixo de lg há a barra de navegação fixa no rodapé. */
+  @media (width < 64rem) {
+    html {
+      scroll-padding-bottom: 4.5rem;
+    }
+  }
+  /* No celular, o pregão também tem a lista de abas grudada abaixo do cabeçalho (termina perto de y = 104 px). */
+  @media (width < 48rem) {
+    html:has([data-testid="pregao-tabs"]) {
+      scroll-padding-top: 7rem;
+    }
   }
   html.dark {
     color-scheme: dark;
