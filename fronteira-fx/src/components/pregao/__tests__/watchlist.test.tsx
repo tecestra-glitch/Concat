@@ -238,7 +238,7 @@ describe("Watchlist: larguras estreitas", () => {
     if (!casa?.city) throw new Error("demo sem casa presencial");
     const sub = rowHtml(html, casa.key).match(/data-testid="pregao-watchlist-house-sub"[^>]*>(.*?)<\/span><\/span><\/td>/)?.[0] ?? "";
     expect(sub).toContain("sm:hidden");
-    expect(sub).toMatch(new RegExp(`data-testid="pregao-watchlist-city"[^>]*title="[^"]+">${casa.city}<span class="sr-only">, `));
+    expect(sub).toMatch(new RegExp(`data-testid="pregao-watchlist-city"[^>]*title="[^"]+"><span aria-hidden="true">${casa.city}</span><span class="sr-only">[^,<]+</span>`));
     expect(sub).toContain('data-testid="pregao-watchlist-status"');
   });
 

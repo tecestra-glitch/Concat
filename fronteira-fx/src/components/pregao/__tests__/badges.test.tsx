@@ -49,6 +49,16 @@ describe("Delta", () => {
     expect(html).toContain('title="— sem variação disponível"');
   });
 
+  it("sem valor: um único '—' apagado, sem o ícone neutro; 0,00 % mantém o ícone", () => {
+    const none = renderToStaticMarkup(<Delta value={null} />);
+    expect(none).not.toContain("<svg");
+    expect(none).toContain("text-muted");
+    expect(textOf(none).replace(/sem variação disponível/, "").match(/—/g)).toHaveLength(1);
+    const zero = renderToStaticMarkup(<Delta value={0} />);
+    expect(zero).toContain("<svg");
+    expect(textOf(zero)).toContain("0,00 %");
+  });
+
   it("valor string não numérico é tratado como null", () => {
     const html = renderToStaticMarkup(<Delta value="abc" />);
     expect(html).toContain('data-direction="none"');

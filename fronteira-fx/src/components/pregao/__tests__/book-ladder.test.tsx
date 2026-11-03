@@ -180,12 +180,16 @@ describe("BookLadder", () => {
     const cityOf = (key: string) => {
       const row = rows.find((r) => r.open.includes(`data-key="${key}"`));
       expect(row, key).toBeDefined();
-      return row!.body.match(/data-testid="pregao-book-city"[^>]*title="([^"]+)">([A-Z]{3})/)?.slice(1);
+      return row!.body.match(/data-testid="pregao-book-city"[^>]*title="([^"]+)"><span aria-hidden="true">([A-Z]{3})<\/span>/)?.slice(1);
     };
     expect(cityOf("chaco:CDE")).toEqual(["Ciudad del Este", "CDE"]);
     expect(cityOf("chaco:ASU")).toEqual(["Asunción", "ASU"]);
     expect(cityOf("alberdi:PJC")).toEqual(["Pedro Juan Caballero", "PJC"]);
     expect(rows.find((r) => r.open.includes('data-key="ueno"'))?.body).not.toContain("pregao-book-city");
+    // Leitor de tela: um nó só com o nome da cidade (sigla aria-hidden), sem "CDE , Ciudad del Este".
+    const cde = rows.find((r) => r.open.includes('data-key="chaco:CDE"'))!.body;
+    expect(cde).toContain('<span aria-hidden="true">CDE</span><span class="sr-only">Ciudad del Este</span>');
+    expect(cde).not.toContain('<span class="sr-only">, ');
     // A mesma casa em duas cidades vira duas linhas distinguíveis pelo texto visível.
     const visible = rows.map((r) => r.body.replace(/<span class="sr-only">[^<]*<\/span>/g, "").replace(/<[^>]+>/g, ""));
     expect(visible.filter((t) => t.startsWith("Cambios ChacoCDE"))).toHaveLength(1);

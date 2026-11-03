@@ -54,6 +54,15 @@ export function Delta({ value, kind = "pct", quote, className }: DeltaProps): Re
   const dir = directionOf(effectiveValue(value, kind, quote));
   const Icon = ICON[dir];
   const text = deltaText(value, kind, quote);
+  // Sem valor: um único "—" apagado. O ícone neutro ao lado do travessão viraria "— —" (o 0,00 % mantém o ícone).
+  if (dir === "none") {
+    return (
+      <span className={cn("tnum text-muted", className)} data-testid="pregao-delta" data-direction={dir} title={`${text}${SR_TEXT[dir]}`}>
+        <span aria-hidden>{text}</span>
+        <span className="sr-only">{SR_TEXT[dir].trim()}</span>
+      </span>
+    );
+  }
   return (
     <span
       className={cn("tnum inline-flex items-center gap-0.5", COLOR[dir], className)}

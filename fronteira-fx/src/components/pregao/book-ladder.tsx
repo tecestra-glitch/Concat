@@ -50,13 +50,16 @@ export function splitBook(levels: BookLevel[]): BookSides {
 /** Cidade da filial logo abaixo do nome (na linha dos selos); componente compartilhado com a lista. */
 export { HouseCity };
 
-/** Idade curta ("5 min") na célula, com a forma longa ("há 5 min") no title e para leitor de tela. */
+/**
+ * Idade curta ("5 min") na célula, com a forma longa ("há 5 min") no title e para leitor de tela. `pr-1`: o "n"
+ * não encosta no anel (`ring-inset`) da linha selecionada.
+ */
 function AgeCell({ iso, now }: { iso: string; now: number }): ReactElement {
-  if (now <= 0) return <td className="tnum whitespace-nowrap pl-2 text-right text-muted max-sm:hidden">—</td>;
+  if (now <= 0) return <td className="tnum whitespace-nowrap pl-2 pr-1 text-right text-muted max-sm:hidden">—</td>;
   const long = formatAge(iso, now);
   const short = long.replace(/^há /, "");
   return (
-    <td className="tnum whitespace-nowrap pl-2 text-right text-muted max-sm:hidden" title={long}>
+    <td className="tnum whitespace-nowrap pl-2 pr-1 text-right text-muted max-sm:hidden" title={long}>
       <span aria-hidden>{short}</span>
       <span className="sr-only">{long}</span>
     </td>
@@ -154,7 +157,7 @@ function SideTable({ side, rows, quote, selectedKey, onSelect, now }: SideTableP
         <col />
         <col className="w-[3.5rem]" />
         <col className="w-[5rem]" />
-        <col className="w-[3rem] max-sm:hidden" />
+        <col className="w-[3.75rem] max-sm:hidden" />
       </colgroup>
       <thead>
         <tr className="whitespace-nowrap text-left text-muted">
