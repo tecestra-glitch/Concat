@@ -141,7 +141,7 @@ export function SpreadHeatmap({
   return (
     <div data-testid="pregao-heatmap" data-state="ready" className={cn("grid gap-2", className)}>
       {/*
-        Tabela de layout fixo na largura do painel (20rem em lg+): coluna da casa com nome truncado (nome
+        Tabela de layout fixo na largura do painel (sob o gráfico em lg+): coluna da casa com nome truncado (nome
         inteiro no title) e uma coluna igual por par, sem cortar cabeçalho nem célula. A rolagem horizontal
         fica só como rede de segurança para nomes de par mais longos.
       */}

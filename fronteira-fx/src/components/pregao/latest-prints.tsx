@@ -107,7 +107,7 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
       data-state={state}
       data-mode={demo ? "demo" : undefined}
       aria-busy={loading ? true : undefined}
-      className={cn("grid gap-2", className)}
+      className={cn("flex flex-col gap-2", className)}
     >
       <p className="text-xs text-muted">Cotações publicadas pelas casas. Não são negócios fechados.</p>
 
@@ -134,8 +134,9 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
       {state === "ready" ? (
         /* Consulta de contêiner: em xl o painel tem 18rem. Abaixo de @md (28rem) o par e a cidade viram
            subtítulo da casa, a variação desce para baixo da venda e a hora perde os segundos (que ficam no
-           title); a rolagem nos dois eixos é só a rede de segurança. */
-        <div className="@container relative max-h-[22rem] overflow-auto">
+           title); a rolagem nos dois eixos é só a rede de segurança. Em xl o painel vai até o fim do livro:
+           sem teto de altura, a tabela ocupa o que sobra (flex-1) e rola dentro. */
+        <div className="@container relative max-h-[22rem] min-h-0 flex-1 overflow-auto xl:max-h-none">
           <table className="w-full text-[12px] @md:text-[13px] [&_td]:px-1 [&_th]:px-1 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0 [&_td:last-child]:pr-0 [&_th:last-child]:pr-0">
             <caption className="sr-only">Últimas atualizações de cotação</caption>
             <thead>

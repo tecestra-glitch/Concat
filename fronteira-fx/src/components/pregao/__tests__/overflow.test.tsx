@@ -11,7 +11,7 @@ import { demoBook, demoHeat, demoPrints, demoStats } from "@/lib/pregao/demo";
  * - texto `sr-only` é `position: absolute`; dentro de um contêiner com rolagem que não é posicionado,
  *   ele escapa do recorte e alarga a página. Todo contêiner com rolagem leva `relative`, como o
  *   `Table` de `src/components/ui/table.tsx`;
- * - o livro mora numa coluna de 20rem em `lg+`: os dois lados lado a lado dependem da largura do
+ * - o livro mora numa coluna de 21rem em `lg+`: os dois lados lado a lado dependem da largura do
  *   próprio bloco (consulta de contêiner), não da largura da janela.
  */
 const NOW = new Date(Date.UTC(2026, 10, 2, 12, 0));

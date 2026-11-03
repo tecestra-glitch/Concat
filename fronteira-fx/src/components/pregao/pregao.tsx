@@ -199,18 +199,20 @@ export function Pregao() {
           />
         }
         book={
+          <BookLadder
+            levels={levels}
+            pair={pair}
+            quote={quote}
+            selectedKey={effectiveKey}
+            onSelect={onSelect}
+            now={now}
+            loading={quotesLoading}
+            error={quotesError}
+            onRetry={quotesQ.refetch}
+          />
+        }
+        bookExtra={
           <div className="grid grid-cols-1 gap-4">
-            <BookLadder
-              levels={levels}
-              pair={pair}
-              quote={quote}
-              selectedKey={effectiveKey}
-              onSelect={onSelect}
-              now={now}
-              loading={quotesLoading}
-              error={quotesError}
-              onRetry={quotesQ.refetch}
-            />
             <section aria-labelledby="pregao-h-mapa" className="grid grid-cols-1 gap-2">
               <h3 id="pregao-h-mapa" className="text-sm font-medium">
                 Mapa de spread
@@ -220,7 +222,7 @@ export function Pregao() {
             <CrossRateCard house={cross.house} usdPyg={cross.usdPyg} usdBrl={cross.usdBrl} direct={cross.direct} now={now} />
           </div>
         }
-        prints={<LatestPrints prints={prints} limit={PRINTS_LIMIT} onSelect={onSelect} loading={!ready} />}
+        prints={<LatestPrints prints={prints} limit={PRINTS_LIMIT} onSelect={onSelect} loading={!ready} className="xl:min-h-0 xl:flex-1" />}
         watchlist={<Watchlist rows={rows} selectedKey={effectiveKey} onSelect={onSelect} loading={quotesLoading} error={quotesError} onRetry={quotesQ.refetch} />}
         clocks={
           <div className="flex flex-wrap items-center gap-3">

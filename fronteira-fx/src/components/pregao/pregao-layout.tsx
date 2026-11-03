@@ -35,7 +35,8 @@ export interface PregaoLayoutProps {
   controls: ReactNode;
   stats: ReactNode;
   chart: ReactNode;
-  book: ReactNode; // BookLadder + SpreadHeatmap + CrossRateCard, empilhados pelo container
+  book: ReactNode; // BookLadder
+  bookExtra: ReactNode; // SpreadHeatmap + CrossRateCard: aba Livro no celular, sob o gráfico em lg+
   prints: ReactNode;
   watchlist: ReactNode;
   clocks: ReactNode; // SessionClock + MarketStatus
@@ -56,6 +57,7 @@ export function PregaoLayout({
   stats,
   chart,
   book,
+  bookExtra,
   prints,
   watchlist,
   clocks,
@@ -84,28 +86,26 @@ export function PregaoLayout({
       </section>
 
       {/*
-        Controles, sessão e painéis numa grade só. Em lg+ a sessão ocupa as linhas 1–2 da coluna da direita
-        e o painel do gráfico começa na linha 2: a linha 1 fica com a altura dos controles e a coluna esquerda
-        não herda a altura da sessão (sem vão entre os controles e o resumo). A linha 2 só existe para a
-        sobra da sessão; a linha `1fr` absorve a altura dos painéis que a atravessam (gráfico e, em xl, livro),
-        senão o algoritmo da grade repartiria essa altura com a linha 2 e empurraria "Últimas" para baixo.
-        `items-start` impede que um painel estique até a altura do vizinho.
+        Controles, sessão e painéis numa grade só (trilhas explícitas; `items-start` impede que um painel estique
+        até a altura do vizinho). Nenhuma coluna fica com vão ao lado do livro:
+        - lg (2 colunas): esquerda = controles, gráfico, mapa + cruzado; direita = sessão, livro; "Últimas" na
+          linha 5, nas duas colunas. A sessão ocupa as linhas 1–2 (a linha 1 fica com a altura dos controles, sem
+          vão acima do resumo) e o gráfico atravessa a linha `1fr` (3): a sobra do livro vai só para ela.
+        - xl (3 colunas): esquerda = controles (até a coluna 2), gráfico, mapa + cruzado; meio = livro; direita =
+          sessão e "Últimas", empilhadas num bloco que vai da linha 1 à última e estica até o fim da grade.
+          "Últimas" não pede altura (`contain: size`): ela ocupa o que sobra ao lado do livro, com rolagem própria.
+        Abaixo de xl o bloco da direita é `contents` e cada filho é item da grade.
       */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:grid-rows-[auto_auto_1fr_auto] lg:items-start xl:grid-cols-[minmax(0,1fr)_20rem_18rem] xl:grid-rows-[auto_auto_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem] lg:grid-rows-[auto_auto_1fr_auto_auto] lg:items-start xl:grid-cols-[minmax(0,1fr)_21rem_18rem] xl:grid-rows-[auto_auto_1fr]">
         <section aria-labelledby="pregao-h-controles" className="min-w-0 lg:col-start-1 lg:row-start-1 xl:col-end-3">
           <h3 id="pregao-h-controles" className="sr-only">
             Controles
           </h3>
           {controls}
         </section>
-        <section aria-labelledby="pregao-h-sessao" className="min-w-0 max-md:order-first lg:col-start-2 lg:row-span-2 lg:row-start-1 xl:col-start-3">
-          <h3 id="pregao-h-sessao" className="text-sm font-medium">
-            Sessão
-          </h3>
-          {clocks}
-        </section>
 
-        <div role="tablist" aria-label="Seções do pregão" data-testid="pregao-tabs" onKeyDown={onTablistKeyDown} className="sticky top-0 z-10 flex gap-1 bg-background py-1 md:hidden">
+        {/* Fica abaixo do cabeçalho fixo do app (h-14) ao rolar; z abaixo do cabeçalho (z-30). */}
+        <div role="tablist" aria-label="Seções do pregão" data-testid="pregao-tabs" onKeyDown={onTablistKeyDown} className="sticky top-14 z-20 flex gap-1 bg-background py-1 md:hidden">
           {MOBILE_TABS.map(({ id, label }) => (
             <button
               key={id}
@@ -113,7 +113,7 @@ export function PregaoLayout({
               role="tab"
               id={`pregao-tab-${id}`}
               aria-selected={id === tab}
-              aria-controls={`pregao-panel-${id}`}
+              aria-controls={id === "livro" ? "pregao-panel-livro pregao-panel-livro-extra" : `pregao-panel-${id}`}
               tabIndex={id === tab ? 0 : -1}
               className={cn("h-10 flex-1 rounded-md text-sm", id === tab ? "bg-surface-2 text-foreground" : "text-muted")}
               onClick={() => setTab(id)}
@@ -125,7 +125,10 @@ export function PregaoLayout({
 
         <div
           id="pregao-panel-grafico"
-          className={cn("grid grid-cols-1 content-start gap-3 min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-2", tab !== "grafico" && "max-md:hidden")}
+          className={cn(
+            "grid grid-cols-1 content-start gap-3 min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-2 xl:row-span-1",
+            tab !== "grafico" && "max-md:hidden",
+          )}
         >
           <section aria-labelledby="pregao-h-resumo">
             <h3 id="pregao-h-resumo" className="text-sm font-medium">
@@ -144,7 +147,7 @@ export function PregaoLayout({
         <section
           id="pregao-panel-livro"
           aria-labelledby="pregao-h-livro"
-          className={cn("min-w-0 lg:col-start-2 lg:row-start-3 xl:row-span-2 xl:row-start-2", tab !== "livro" && "max-md:hidden")}
+          className={cn("min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-3 xl:row-start-2", tab !== "livro" && "max-md:hidden")}
         >
           <h3 id="pregao-h-livro" className="text-sm font-medium">
             Livro de casas
@@ -152,16 +155,37 @@ export function PregaoLayout({
           {book}
         </section>
 
-        <section
-          id="pregao-panel-ultimas"
-          aria-labelledby="pregao-h-ultimas"
-          className={cn("min-w-0 lg:col-span-2 lg:col-start-1 lg:row-start-4 xl:col-span-1 xl:col-start-3 xl:row-start-3", tab !== "ultimas" && "max-md:hidden")}
+        {/* Mapa de spread e cruzado: aba Livro no celular; em lg+ sob o gráfico, ao lado do livro. */}
+        <div
+          id="pregao-panel-livro-extra"
+          data-testid="pregao-book-extra"
+          className={cn("min-w-0 lg:col-start-1 lg:row-start-4 xl:row-start-3", tab !== "livro" && "max-md:hidden")}
         >
-          <h3 id="pregao-h-ultimas" className="text-sm font-medium">
-            Últimas atualizações
-          </h3>
-          {prints}
-        </section>
+          {bookExtra}
+        </div>
+
+        <div data-testid="pregao-side" className="contents xl:col-start-3 xl:row-span-3 xl:row-start-1 xl:flex xl:min-w-0 xl:flex-col xl:gap-4 xl:self-stretch">
+          <section aria-labelledby="pregao-h-sessao" className="min-w-0 max-lg:order-first lg:col-start-2 lg:row-span-2 lg:row-start-1">
+            <h3 id="pregao-h-sessao" className="text-sm font-medium">
+              Sessão
+            </h3>
+            {clocks}
+          </section>
+
+          <section
+            id="pregao-panel-ultimas"
+            aria-labelledby="pregao-h-ultimas"
+            className={cn(
+              "min-w-0 lg:col-span-2 lg:col-start-1 lg:row-start-5 xl:flex xl:min-h-[18rem] xl:flex-1 xl:flex-col xl:[contain:size]",
+              tab !== "ultimas" && "max-md:hidden",
+            )}
+          >
+            <h3 id="pregao-h-ultimas" className="text-sm font-medium">
+              Últimas atualizações
+            </h3>
+            {prints}
+          </section>
+        </div>
       </div>
 
       <section id="pregao-panel-lista" aria-labelledby="pregao-h-lista" className={cn("min-w-0", tab !== "lista" && "max-md:hidden")}>

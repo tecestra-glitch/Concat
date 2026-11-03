@@ -65,7 +65,7 @@ describe("LatestPrints: painel estreito (18rem em xl)", () => {
     const html = render({ prints: [p] });
     expect(html).toMatch(/<span title="Cambios Chaco · Asunción" class="[^"]*\btruncate\b[^"]*">Cambios Chaco<\/span>/);
     expect(html).toContain(`>${p.pair} · ASU</span>`);
-    expect(html).toMatch(/class="@container relative max-h-\[22rem\] overflow-auto"/);
+    expect(html).toMatch(/class="@container relative max-h-\[22rem\] min-h-0 flex-1 overflow-auto xl:max-h-none"/);
     const priceCells = [...html.matchAll(/<td class="(tnum[^"]*text-right[^"]*)"/g)].map((m) => m[1]);
     expect(priceCells.length).toBeGreaterThanOrEqual(2);
     for (const c of priceCells) expect(c).toContain("whitespace-nowrap");

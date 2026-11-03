@@ -1,4 +1,31 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/**
+ * Nenhuma tabela do bloco passa da borda dele, nem esconde conteúdo numa rolagem horizontal interna
+ * (a rolagem existe só como rede de segurança; um scroller sem pista visual cortaria colunas).
+ */
+async function expectTablesFit(page: Page, id: string): Promise<void> {
+  const overflow = await page.getByTestId(id).evaluate((root) => {
+    const box = root.getBoundingClientRect();
+    return [...root.querySelectorAll("table")].map((t) => {
+      const scroller = t.parentElement!;
+      return { tableRight: t.getBoundingClientRect().right - box.right, hidden: scroller.scrollWidth - scroller.clientWidth };
+    });
+  });
+  expect(overflow.length, id).toBeGreaterThan(0);
+  for (const o of overflow) {
+    expect(o.tableRight, `${id}: tabela além da borda`).toBeLessThanOrEqual(1);
+    expect(o.hidden, `${id}: conteúdo escondido na rolagem horizontal`).toBeLessThanOrEqual(1);
+  }
+}
+
+/** Borda inferior (px, relativa à página) de um elemento por seletor CSS. */
+function bottomOf(page: Page, selector: string): Promise<number> {
+  return page.locator(selector).first().evaluate((el) => el.getBoundingClientRect().bottom + window.scrollY);
+}
+function topOf(page: Page, selector: string): Promise<number> {
+  return page.locator(selector).first().evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+}
 
 /**
  * Tela de pregão em modo demo (sem backend), nos 3 projetos (1440 / 1024 / 390).
@@ -28,31 +55,43 @@ test.describe("Pregão", () => {
       await expect(page.getByTestId("pregao-book")).toBeVisible();
       await expect(page.getByTestId("pregao-heatmap")).toBeVisible();
       await expect(page.getByTestId("pregao-cross")).toBeVisible();
+      for (const id of ["pregao-book", "pregao-heatmap"]) await expectTablesFit(page, id);
+      await page.screenshot({ path: "dev/screenshots/pregao-mobile-390-livro.png", fullPage: true });
       await page.getByRole("tab", { name: "Lista" }).click();
-      await expect(page.getByTestId("pregao-watchlist")).toBeVisible();
+      await expect(page.getByTestId("pregao-watchlist")).toHaveAttribute("data-state", "ready");
+      await expectTablesFit(page, "pregao-watchlist");
+      // Mesma casa em duas filiais: a sigla da cidade vem sob o nome (a coluna Cidade some no celular).
+      await expect(page.getByTestId("pregao-watchlist").getByTestId("pregao-watchlist-city").first()).toBeVisible();
+      await expect(page.getByTestId("pregao-watchlist").getByTestId("pregao-watchlist-status").first()).toBeVisible();
+      await page.screenshot({ path: "dev/screenshots/pregao-mobile-390-lista.png", fullPage: true });
       await page.getByRole("tab", { name: "Últimas" }).click();
       await expect(page.getByTestId("pregao-prints")).toBeVisible();
+      await expect(page.getByTestId("pregao-print-row").first()).toBeVisible();
+      await expectTablesFit(page, "pregao-prints");
+      await page.screenshot({ path: "dev/screenshots/pregao-mobile-390-ultimas.png", fullPage: true });
       await page.getByRole("tab", { name: "Gráfico" }).click();
       await expect(page.getByTestId("pregao-chart")).toBeVisible();
     } else {
       await expect(page.getByTestId("pregao-tabs")).toBeHidden();
       for (const id of ["pregao-book", "pregao-heatmap", "pregao-cross", "pregao-prints", "pregao-watchlist"]) await expect(page.getByTestId(id)).toBeVisible();
-      // Livro, mapa e últimas cabem no próprio painel: nenhuma tabela passa da borda do painel (nem com rolagem interna).
+      // Livro, mapa, últimas e lista cabem no próprio painel: nenhuma tabela passa da borda do painel (nem com rolagem interna).
       await expect(page.getByTestId("pregao-print-row").first()).toBeVisible();
-      for (const id of ["pregao-book", "pregao-heatmap", "pregao-prints"]) {
-        const overflow = await page.getByTestId(id).evaluate((root) => {
-          const box = root.getBoundingClientRect();
-          return [...root.querySelectorAll("table")].map((t) => {
-            const scroller = t.parentElement!;
-            return { tableRight: t.getBoundingClientRect().right - box.right, hidden: scroller.scrollWidth - scroller.clientWidth };
+      await expect(page.getByTestId("pregao-watchlist")).toHaveAttribute("data-state", "ready");
+      for (const id of ["pregao-book", "pregao-heatmap", "pregao-prints", "pregao-watchlist"]) await expectTablesFit(page, id);
+      // Compra e Venda empilhadas no livro: mesmas colunas (x e largura de cada cabeçalho) e nomes de casa sem corte.
+      const sides = await page.getByTestId("pregao-book").evaluate((root) => {
+        const heads = (side: string) =>
+          [...root.querySelectorAll(`[data-testid="pregao-book-side-${side}"] thead th`)].map((th) => {
+            const r = th.getBoundingClientRect();
+            return [Math.round(r.left), Math.round(r.width), Math.round(r.height)];
           });
-        });
-        expect(overflow.length, id).toBeGreaterThan(0);
-        for (const o of overflow) {
-          expect(o.tableRight, `${id}: tabela além da borda`).toBeLessThanOrEqual(1);
-          expect(o.hidden, `${id}: conteúdo escondido na rolagem horizontal`).toBeLessThanOrEqual(1);
-        }
-      }
+        const spill = [...root.querySelectorAll<HTMLElement>('[data-testid="pregao-book-row"] td')].filter((td) => td.scrollWidth > td.clientWidth + 1).map((td) => td.textContent);
+        const cut = [...root.querySelectorAll<HTMLElement>('[data-testid="pregao-book-row"] .truncate')].filter((el) => el.scrollWidth > el.clientWidth + 1).map((el) => el.textContent);
+        return { buy: heads("buy"), sell: heads("sell"), cut, spill };
+      });
+      expect(sides.sell).toEqual(sides.buy);
+      expect(sides.cut, "nomes cortados no livro").toEqual([]);
+      expect(sides.spill, "conteúdo invadindo a coluna vizinha no livro").toEqual([]);
       // Sem vão entre os controles e o resumo: o resumo começa logo abaixo dos controles.
       const gap = await page.evaluate(() => {
         const controls = document.querySelector('[aria-labelledby="pregao-h-controles"]')!.getBoundingClientRect();
@@ -60,10 +99,50 @@ test.describe("Pregão", () => {
         return resumo.top - controls.bottom;
       });
       expect(gap).toBeLessThanOrEqual(24);
+      // Sem vão ao lado do livro: a coluna da esquerda (gráfico + mapa + cruzado) termina perto do fim do livro,
+      // o mapa começa logo abaixo do gráfico, e o que vem depois começa logo abaixo da coluna mais alta.
+      const chartBottom = await bottomOf(page, "#pregao-panel-grafico");
+      const extraTop = await topOf(page, "#pregao-panel-livro-extra");
+      const leftBottom = await bottomOf(page, "#pregao-panel-livro-extra");
+      const bookBottom = await bottomOf(page, "#pregao-panel-livro");
+      expect(extraTop - chartBottom, "vão entre o gráfico e o mapa").toBeLessThanOrEqual(24);
+      expect(Math.abs(leftBottom - bookBottom), "coluna do gráfico × fim do livro").toBeLessThanOrEqual(200);
+      const tallest = Math.max(leftBottom, bookBottom);
+      if (info.project.name === "desktop-1440") {
+        // xl: "Últimas" vai da sessão até o fim da grade (sem teto de 22rem) e a lista vem logo depois.
+        const printsBottom = await bottomOf(page, "#pregao-panel-ultimas");
+        expect(Math.abs(printsBottom - tallest), "coluna das últimas × coluna mais alta").toBeLessThanOrEqual(24);
+        expect((await topOf(page, "#pregao-panel-lista")) - printsBottom, "vão antes da lista").toBeLessThanOrEqual(40);
+      } else {
+        // lg: "Últimas" ocupa as duas colunas logo abaixo da mais alta.
+        expect((await topOf(page, "#pregao-panel-ultimas")) - tallest, "vão antes das últimas").toBeLessThanOrEqual(40);
+      }
     }
     const { scrollWidth, clientWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
     await page.screenshot({ path: `dev/screenshots/pregao-${info.project.name}.png`, fullPage: true });
+  });
+
+  test("abas do celular grudam abaixo do cabeçalho do app ao rolar", async ({ page }) => {
+    test.skip(test.info().project.name !== "mobile-390", "abas só existem abaixo de md");
+    await page.getByRole("tab", { name: "Livro" }).click();
+    await expect(page.getByTestId("pregao-book")).toHaveAttribute("data-state", "ready");
+    await page.evaluate(() => window.scrollTo(0, 1500));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(1000);
+    const pos = await page.evaluate(() => {
+      const header = document.querySelector("header")!.getBoundingClientRect();
+      const tabs = document.querySelector('[data-testid="pregao-tabs"]')!;
+      const r = tabs.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { headerBottom: header.bottom, tabsTop: r.top, onTop: hit !== null && tabs.contains(hit) };
+    });
+    expect(pos.tabsTop, "abas abaixo do cabeçalho").toBeGreaterThanOrEqual(pos.headerBottom - 0.5);
+    expect(pos.tabsTop, "abas grudadas no topo da área visível").toBeLessThanOrEqual(pos.headerBottom + 8);
+    expect(pos.onTop, "abas visíveis, não cobertas pelo cabeçalho").toBe(true);
+    // Troca de aba dali mesmo, sem voltar ao topo.
+    await page.getByRole("tab", { name: "Lista" }).click();
+    await expect(page.getByRole("tab", { name: "Lista" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("pregao-watchlist")).toBeVisible();
   });
 
   test("referência nunca entra nos lados do livro", async ({ page }) => {

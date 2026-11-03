@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MOBILE_TABS, PregaoLayout, nextTab, type PregaoLayoutProps } from "../pregao-layout";
 
-const SLOT_NAMES = ["banner", "ticker", "controls", "stats", "chart", "book", "prints", "watchlist", "clocks"] as const;
+const SLOT_NAMES = ["banner", "ticker", "controls", "stats", "chart", "book", "bookExtra", "prints", "watchlist", "clocks"] as const;
 
 function slotNodes(): Record<(typeof SLOT_NAMES)[number], ReactNode> {
   return {
@@ -14,6 +14,7 @@ function slotNodes(): Record<(typeof SLOT_NAMES)[number], ReactNode> {
     stats: <div data-testid="slot-stats" />,
     chart: <div data-testid="slot-chart" />,
     book: <div data-testid="slot-book" />,
+    bookExtra: <div data-testid="slot-bookExtra" />,
     prints: <div data-testid="slot-prints" />,
     watchlist: <div data-testid="slot-watchlist" />,
     clocks: <div data-testid="slot-clocks" />,
@@ -42,12 +43,12 @@ function tabTag(html: string, id: PregaoLayoutProps["defaultTab"] & string): str
 }
 
 describe("PregaoLayout — slots", () => {
-  it("renderiza os 9 slots", () => {
+  it("renderiza os 10 slots", () => {
     const html = render();
     for (const name of SLOT_NAMES) {
       expect(html).toContain(`data-testid="slot-${name}"`);
     }
-    expect(html.match(/data-testid="slot-/g)?.length).toBe(9);
+    expect(html.match(/data-testid="slot-/g)?.length).toBe(10);
   });
 
   it("envolve o banner em pregao-banner", () => {
@@ -72,11 +73,13 @@ describe("PregaoLayout — abas do celular", () => {
   it("renderiza quatro role=tab com id e aria-controls correspondentes", () => {
     const html = render();
     expect(html.match(/role="tab"/g)?.length).toBe(4);
-    for (const id of ["grafico", "livro", "lista", "ultimas"] as const) {
+    for (const id of ["grafico", "lista", "ultimas"] as const) {
       const tag = tabTag(html, id);
       expect(tag).toContain(`aria-controls="pregao-panel-${id}"`);
       expect(tag).toContain('role="tab"');
     }
+    // A aba Livro controla o livro e o bloco do mapa + cruzado (que em lg+ mora sob o gráfico).
+    expect(tabTag(html, "livro")).toContain('aria-controls="pregao-panel-livro pregao-panel-livro-extra"');
   });
 
   it("por padrão só Gráfico está selecionada e é a única com tabIndex 0", () => {
@@ -135,18 +138,42 @@ describe("PregaoLayout — painéis", () => {
   it("em lg+ a sessão ocupa as linhas 1–2 da direita e o gráfico começa na linha 2: a esquerda não herda a altura da sessão", () => {
     const html = render();
     const sessao = classesOf(tagWith(html, 'aria-labelledby="pregao-h-sessao"'));
-    expect(sessao).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:row-span-2", "lg:col-start-2", "xl:col-start-3"]));
+    expect(sessao).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:row-span-2", "lg:col-start-2", "max-lg:order-first"]));
     const controles = classesOf(tagWith(html, 'aria-labelledby="pregao-h-controles"'));
     expect(controles).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:col-start-1", "xl:col-end-3"]));
     const grafico = classesOf(tagWith(html, 'id="pregao-panel-grafico"'));
-    expect(grafico).toEqual(expect.arrayContaining(["lg:row-start-2", "lg:row-span-2"]));
+    expect(grafico).toEqual(expect.arrayContaining(["lg:row-start-2", "lg:row-span-2", "xl:row-span-1"]));
     const livro = classesOf(tagWith(html, 'id="pregao-panel-livro"'));
-    expect(livro).toEqual(expect.arrayContaining(["lg:row-start-3", "xl:row-start-2", "xl:row-span-2"]));
-    // controles, sessão, abas e painéis na mesma grade, com a linha 1fr que absorve a altura dos painéis
+    expect(livro).toEqual(expect.arrayContaining(["lg:col-start-2", "lg:row-start-3", "lg:row-span-2", "xl:row-start-2"]));
+    // controles, sessão, abas e painéis na mesma grade, com a linha 1fr que absorve a altura do livro
     const grade = tagWith(html, 'data-testid="pregao-tabs"');
-    expect(html.indexOf("lg:grid-rows-[auto_auto_1fr_auto]")).toBeLessThan(html.indexOf(grade));
+    expect(html.indexOf("lg:grid-rows-[auto_auto_1fr_auto_auto]")).toBeLessThan(html.indexOf(grade));
     expect(html).toContain("xl:grid-rows-[auto_auto_1fr]");
     expect(html).toContain("lg:items-start");
+  });
+
+  it("mapa + cruzado ficam sob o gráfico em lg+ e escondidos fora da aba Livro no celular", () => {
+    const extra = classesOf(tagWith(render(), 'id="pregao-panel-livro-extra"'));
+    expect(extra).toEqual(expect.arrayContaining(["lg:col-start-1", "lg:row-start-4", "xl:row-start-3", "max-md:hidden"]));
+    expect(classesOf(tagWith(render({ defaultTab: "livro" }), 'id="pregao-panel-livro-extra"'))).not.toContain("max-md:hidden");
+  });
+
+  it("Últimas: em lg na linha 5 nas duas colunas; em xl na coluna da direita, sob a sessão, esticando até o fim do livro", () => {
+    const html = render();
+    const lado = classesOf(tagWith(html, 'data-testid="pregao-side"'));
+    expect(lado).toEqual(expect.arrayContaining(["contents", "xl:flex", "xl:col-start-3", "xl:row-start-1", "xl:row-span-3", "xl:self-stretch"]));
+    const ultimas = classesOf(tagWith(html, 'id="pregao-panel-ultimas"'));
+    expect(ultimas).toEqual(expect.arrayContaining(["lg:row-start-5", "lg:col-span-2", "xl:flex-1", "xl:[contain:size]"]));
+    // sessão e Últimas dentro do bloco da direita
+    const start = html.indexOf('data-testid="pregao-side"');
+    expect(html.indexOf('aria-labelledby="pregao-h-sessao"')).toBeGreaterThan(start);
+    expect(html.indexOf('id="pregao-panel-ultimas"')).toBeGreaterThan(start);
+  });
+
+  it("o tablist gruda abaixo do cabeçalho fixo do app (top-14), sob o z-30 dele", () => {
+    const tabs = classesOf(tagWith(render(), 'data-testid="pregao-tabs"'));
+    expect(tabs).toEqual(expect.arrayContaining(["sticky", "top-14", "z-20"]));
+    expect(tabs).not.toContain("top-0");
   });
 
   it("o contêiner do gráfico tem altura por breakpoint, até xl:h-[420px]", () => {
