@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { LineStyle, TickMarkType, type Time, type UTCTimestamp } from "lightweight-charts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CandleChart } from "@/components/pregao/candle-chart";
+import { ATTRIBUTION_TITLE, CandleChart, referenceLineTitle } from "@/components/pregao/candle-chart";
 import {
   FALLBACK_TOKENS,
   TOKEN_VARS,
@@ -302,8 +302,28 @@ describe("CandleChart — três estados (§0.12)", () => {
     expect(html).not.toContain("EMA 9");
   });
 
+  it("legenda traz a referência com o valor (a linha tracejada não tem rótulo no eixo)", () => {
+    const html = renderToStaticMarkup(<CandleChart {...BASE} series={SERIES} reference={{ value: "7345.2", label: "≈ BCP (referência)" }} />);
+    expect(html).toMatch(/≈ BCP \(referência\)<\/span><span class="tnum text-foreground">7\.345<\/span>/);
+    expect(renderToStaticMarkup(<CandleChart {...BASE} series={SERIES} />)).not.toContain("referência");
+  });
+
   it("demo marca data-mode na raiz", () => {
     const html = renderToStaticMarkup(<CandleChart {...BASE} series={SERIES} demo />);
     expect(html).toContain('data-mode="demo"');
+  });
+});
+
+describe("CandleChart: linha de referência e atribuição", () => {
+  it("o valor da referência vai no título da linha (PYG sem casas), não no rótulo do eixo", () => {
+    expect(referenceLineTitle({ value: "5945.4", label: "≈ BCP (referência)" }, "PYG")).toBe("≈ BCP (referência) 5.945");
+    const src = readFileSync(fileURLToPath(new URL("../candle-chart.tsx", import.meta.url)), "utf8");
+    const priceLine = src.slice(src.indexOf("createPriceLine({"), src.indexOf("});", src.indexOf("createPriceLine({")));
+    expect(priceLine).toContain("axisLabelVisible: false");
+    expect(priceLine).toContain("title: referenceLineTitle(reference, quote)");
+  });
+
+  it("o link do logotipo ganha título em português (a licença exige o link)", () => {
+    expect(ATTRIBUTION_TITLE).toBe("Gráfico por TradingView");
   });
 });

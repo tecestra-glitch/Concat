@@ -79,6 +79,19 @@ function formatDerived(v: number | null | undefined, quote: Currency): string {
   return formatRate(quote === "PYG" ? Math.round(v) : v, quote);
 }
 
+/** Título da linha de referência com o valor ("≈ BCP (referência) 5.945"): o rótulo do eixo fica desligado. */
+export function referenceLineTitle(reference: ReferenceLine, quote: Currency): string {
+  return `${reference.label} ${formatRate(reference.value, quote)}`;
+}
+
+/** Título em português do link do logotipo que a biblioteca põe no gráfico (a licença exige o link). */
+export const ATTRIBUTION_TITLE = "Gráfico por TradingView";
+
+function localizeAttribution(root: HTMLElement): void {
+  const link = root.querySelector<HTMLAnchorElement>("a#tv-attr-logo");
+  if (link && link.title !== ATTRIBUTION_TITLE) link.title = ATTRIBUTION_TITLE;
+}
+
 /** Gráfico de velas do `mid`. Cria o gráfico uma vez e atualiza séries, opções e marcas depois. */
 export function CandleChart({
   series,
@@ -113,6 +126,11 @@ export function CandleChart({
     const el = containerRef.current;
     if (!el) return;
     const chart = createChart(el, { autoSize: true });
+    // A licença pede o link do logotipo, não o texto em inglês: a biblioteca recria o link quando o tema muda,
+    // então o título é trocado sempre que ele (re)aparece no contêiner.
+    localizeAttribution(el);
+    const attribution = new MutationObserver(() => localizeAttribution(el));
+    attribution.observe(el, { childList: true, subtree: true });
     const candles = chart.addSeries(CandlestickSeries, buildCandleOptions(FALLBACK_TOKENS, "PYG"));
     const volume = chart.addSeries(HistogramSeries, buildVolumeOptions(FALLBACK_TOKENS));
     chart.priceScale("volume").applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
@@ -123,6 +141,7 @@ export function CandleChart({
     chart.subscribeCrosshairMove((p) => setHoverTime(p.time === undefined ? null : Number(p.time)));
     handlesRef.current = { chart, candles, volume, sma, ema, bbUpper, bbLower };
     return () => {
+      attribution.disconnect();
       chart.remove();
       handlesRef.current = null;
       priceLineRef.current = null;
@@ -186,7 +205,9 @@ export function CandleChart({
     h.volume.applyOptions({ visible: indicators.volume });
   }, [indicators]);
 
-  // 5. Linha de referência (BCP/dolarPy) como linha de preço, sempre tracejada.
+  // 5. Linha de referência (BCP/dolarPy) como linha de preço, sempre tracejada. Sem rótulo no eixo: ele cobriria
+  //    as marcas da escala (5.940, 5.920) junto com o do último preço; o valor vai no título da própria linha. A
+  //    biblioteca só desenha o título junto do rótulo do eixo, então nome e valor também ficam na legenda.
   React.useEffect(() => {
     const h = handlesRef.current;
     if (!h) return;
@@ -200,11 +221,11 @@ export function CandleChart({
         color: tokensRef.current.muted,
         lineWidth: 1,
         lineStyle: LineStyle.LargeDashed,
-        axisLabelVisible: true,
-        title: reference.label,
+        axisLabelVisible: false,
+        title: referenceLineTitle(reference, quote),
       });
     }
-  }, [reference]);
+  }, [reference, quote]);
 
   // 6. Marca d'água "DEMONSTRAÇÃO" no modo demo.
   React.useEffect(() => {
@@ -272,6 +293,10 @@ export function CandleChart({
     const upper = formatDerived(overlays?.bbUpper?.[idx], quote);
     const lower = formatDerived(overlays?.bbLower?.[idx], quote);
     legend.push({ name: "Bollinger 20/2", value: `${upper} / ${lower}`, swatch: { background: "var(--chart-band)" } });
+  }
+  if (reference) {
+    // A linha tracejada não tem rótulo no eixo: nome e valor da referência ficam aqui.
+    legend.push({ name: reference.label, value: formatRate(reference.value, quote), swatch: { background: "transparent", border: "1px dashed var(--muted)" } });
   }
 
   // <figure> + <figcaption>, sem papel de imagem (como em charts/price-chart.tsx): a biblioteca põe um link
