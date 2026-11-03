@@ -90,6 +90,28 @@ describe("tokens do pregão em globals.css", () => {
     }
   });
 
+  it("selos gain/accent: texto -strong sobre o próprio matiz a 15 % passa 4,5:1 nos dois temas", () => {
+    // Mistura em sRGB (o Tailwind mistura em oklab; a diferença não muda a conclusão com esta folga).
+    const mix = (fg: string, bg: string, a: number) =>
+      "#" +
+      [1, 3, 5]
+        .map((i) => Math.round(parseInt(fg.slice(i, i + 2), 16) * a + parseInt(bg.slice(i, i + 2), 16) * (1 - a)))
+        .map((n) => n.toString(16).padStart(2, "0"))
+        .join("");
+    for (const theme of [light, dark]) {
+      for (const [text, hue] of [["--gain-strong", "--gain"], ["--accent-strong", "--accent"]]) {
+        for (const base of ["--background", "--surface", "--surface-2"]) {
+          const bg = mix(theme.get(hue)!, theme.get(base)!, 0.15);
+          const r = ratio(theme.get(text)!, bg);
+          expect(r, `${theme === light ? "claro" : "escuro"} ${text} sobre ${hue}/15 em ${base}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
+    const theme = block("@theme inline");
+    expect(theme).toContain("--color-gain-strong: var(--gain-strong);");
+    expect(theme).toContain("--color-accent-strong: var(--accent-strong);");
+  });
+
   it("keyframes da fita e do destaque; a fita pausa em hover e foco", () => {
     expect(CSS).toMatch(/@keyframes pregao-marquee\s*\{[^}]*translateX\(0\)[^}]*\}[^}]*translateX\(-50%\)/);
     expect(CSS).toMatch(/\.pregao-marquee\s*\{[^}]*animation:\s*pregao-marquee var\(--tape-duration, 40s\) linear infinite;/);

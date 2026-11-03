@@ -2,13 +2,13 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-/** DS10: 12 px; `reference` (não executável) e `incomplete` (custo desconhecido) têm contorno tracejado. */
+/** DS10: 12 px; `gain`/`accent` usam o tom `-strong` no texto (4,5:1 sobre o fundo a 15 % no tema claro); `reference` (não executável) e `incomplete` (custo desconhecido) têm contorno tracejado. */
 const badgeVariants = cva("inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-xs font-medium leading-4 whitespace-nowrap", {
   variants: {
     variant: {
       default: "border-transparent bg-surface-2 text-foreground",
-      accent: "border-transparent bg-accent/15 text-accent",
-      gain: "border-transparent bg-gain/15 text-gain",
+      accent: "border-transparent bg-accent/15 text-accent-strong",
+      gain: "border-transparent bg-gain/15 text-gain-strong",
       loss: "border-transparent bg-loss/15 text-loss",
       warn: "border-transparent bg-warn/15 text-warn",
       outline: "border-border text-muted",

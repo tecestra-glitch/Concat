@@ -17,6 +17,9 @@
   --gain: #047857;
   --loss: #be123c;
   --warn: #92400e;
+  /* Texto de selo sobre o próprio matiz a 15 % (bg-gain/15, bg-accent/15): ≥ 4,5:1 no claro */
+  --gain-strong: #065f46;
+  --accent-strong: #1d4ed8;
   --ring: #2563eb;
   --radius: 0.5rem;
   --border-strong: #7c8597;
@@ -50,6 +53,8 @@
   --gain: #34d399;
   --loss: #fb7185;
   --warn: #fbbf24;
+  --gain-strong: #34d399;
+  --accent-strong: #60a5fa;
   --ring: #60a5fa;
   --border-strong: #64748b;
   --surface-3: #1f2a40;
@@ -80,6 +85,8 @@
   --color-gain: var(--gain);
   --color-loss: var(--loss);
   --color-warn: var(--warn);
+  --color-gain-strong: var(--gain-strong);
+  --color-accent-strong: var(--accent-strong);
   --color-ring: var(--ring);
   --color-border-strong: var(--border-strong);
   --color-surface-3: var(--surface-3);
