@@ -49,7 +49,8 @@ function rateText(value: string | null, p: Print): string {
 
 /**
  * Nome da casa numa linha só (`truncate`, nome inteiro e cidade no `title`) e, embaixo, o par e a cidade
- * quando a coluna Par está oculta (painel estreito). O nome nunca empurra as colunas de preço para fora.
+ * quando a coluna Par está oculta (painel estreito), com o selo "incompleta" ao lado deles. Na linha do nome o
+ * selo fica só quando há espaço (`@md`). O nome nunca empurra as colunas de preço para fora.
  */
 function houseCell(p: Print, onSelect?: (key: string) => void): ReactElement {
   const isRef = p.kind === "market_reference";
@@ -83,10 +84,23 @@ function houseCell(p: Print, onSelect?: (key: string) => void): ReactElement {
           </span>
         ) : null}
         {isRef ? <ReferenceBadge compact /> : null}
-        {p.incomplete ? <Badge variant="warn">incompleta</Badge> : null}
+        {p.incomplete ? (
+          <Badge variant="warn" className="@max-md:hidden">
+            incompleta
+          </Badge>
+        ) : null}
       </span>
-      <span data-testid="pregao-print-sub" className="truncate text-[11px] text-muted @md:hidden">
-        {printSubtitle(p)}
+      {/* Painel estreito: o selo "incompleta" desce para a linha do par · cidade e o nome da casa fica inteiro; sem
+          espaço ao lado do subtítulo, o selo quebra para baixo dele (nada é cortado). */}
+      <span className="flex min-w-0 flex-wrap items-center gap-x-1 @md:hidden">
+        <span data-testid="pregao-print-sub" className="truncate text-[11px] text-muted">
+          {printSubtitle(p)}
+        </span>
+        {p.incomplete ? (
+          <Badge variant="warn" className="shrink-0">
+            incompleta
+          </Badge>
+        ) : null}
       </span>
     </span>
   );
@@ -135,8 +149,9 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
         /* Consulta de contêiner: em xl o painel tem 18rem. Abaixo de @md (28rem) o par e a cidade viram
            subtítulo da casa, a variação desce para baixo da venda e a hora perde os segundos (que ficam no
            title); a rolagem nos dois eixos é só a rede de segurança. Em xl o painel vai até o fim do livro:
-           sem teto de altura, a tabela ocupa o que sobra (flex-1) e rola dentro. */
-        <div className="@container relative max-h-[22rem] min-h-0 flex-1 overflow-auto xl:max-h-none">
+           sem teto de altura, a tabela ocupa o que sobra (flex-1) e rola dentro. Abaixo de md (aba Últimas do
+           celular) também não há teto: a página rola sozinha, sem rolagem dentro da rolagem. */
+        <div className="@container relative min-h-0 flex-1 overflow-auto md:max-h-[22rem] xl:max-h-none">
           <table className="w-full text-[12px] @md:text-[13px] [&_td]:px-1 [&_th]:px-1 [&_td:first-child]:pl-0 [&_th:first-child]:pl-0 [&_td:last-child]:pr-0 [&_th:last-child]:pr-0">
             <caption className="sr-only">Últimas atualizações de cotação</caption>
             <thead>
@@ -198,6 +213,13 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
               ))}
             </tbody>
           </table>
+          {/* md–lg: com o teto de 22rem a última linha visível sai cortada ao meio; o degradê no rodapé do scroller
+              assume o corte e avisa que a lista continua. No fim da rolagem ele fica abaixo da tabela, sem cobrir nada. */}
+          <div
+            aria-hidden
+            data-testid="pregao-prints-fade"
+            className="pointer-events-none sticky bottom-0 left-0 hidden h-8 bg-linear-to-t from-background to-transparent md:block xl:hidden"
+          />
         </div>
       ) : null}
     </div>

@@ -54,6 +54,17 @@ describe("printTime", () => {
 });
 
 describe("LatestPrints: painel estreito (18rem em xl)", () => {
+  it("selo 'incompleta' na linha do nome só com espaço (@md); abaixo disso, na linha do par · cidade", () => {
+    const p: Print = { ...prints[0], house: "Nomad", city: null, pair: "USD/BRL", kind: "indicative", incomplete: true };
+    const html = render({ prints: [p] });
+    const badges = [...html.matchAll(/<span class="([^"]*)"[^>]*>incompleta<\/span>/g)].map((m) => m[1]);
+    expect(badges).toHaveLength(2);
+    expect(badges[0]).toContain("@max-md:hidden");
+    const sub = html.match(/<span class="flex min-w-0 flex-wrap items-center gap-x-1 @md:hidden">(.*?)<\/span><\/span><\/td>/)?.[1] ?? "";
+    expect(sub).toContain('data-testid="pregao-print-sub"');
+    expect(sub).toContain(">incompleta</span>");
+  });
+
   it("printTimeShort dá HH:mm e printSubtitle junta par e sigla da cidade (digital só o par)", () => {
     expect(printTimeShort("2026-11-02T15:04:05Z")).toBe("12:04");
     expect(printSubtitle({ pair: "USD/PYG", city: "CDE" })).toBe("USD/PYG · CDE");
@@ -65,7 +76,9 @@ describe("LatestPrints: painel estreito (18rem em xl)", () => {
     const html = render({ prints: [p] });
     expect(html).toMatch(/<span title="Cambios Chaco · Asunción" class="[^"]*\btruncate\b[^"]*">Cambios Chaco<\/span>/);
     expect(html).toContain(`>${p.pair} · ASU</span>`);
-    expect(html).toMatch(/class="@container relative max-h-\[22rem\] min-h-0 flex-1 overflow-auto xl:max-h-none"/);
+    // Teto de altura só de md a lg; no celular a página rola sozinha (sem rolagem dentro da rolagem).
+    expect(html).toMatch(/class="@container relative min-h-0 flex-1 overflow-auto md:max-h-\[22rem\] xl:max-h-none"/);
+    expect(html).not.toMatch(/[\s"]max-h-\[22rem\]/);
     const priceCells = [...html.matchAll(/<td class="(tnum[^"]*text-right[^"]*)"/g)].map((m) => m[1]);
     expect(priceCells.length).toBeGreaterThanOrEqual(2);
     for (const c of priceCells) expect(c).toContain("whitespace-nowrap");
