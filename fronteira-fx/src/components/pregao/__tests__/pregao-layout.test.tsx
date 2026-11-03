@@ -4,13 +4,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MOBILE_TABS, PregaoLayout, nextTab, type PregaoLayoutProps } from "../pregao-layout";
 
-const SLOT_NAMES = ["banner", "ticker", "controls", "stats", "chart", "book", "bookExtra", "prints", "watchlist", "clocks"] as const;
+const SLOT_NAMES = ["banner", "ticker", "controls", "timeframe", "indicators", "stats", "chart", "book", "bookExtra", "prints", "watchlist", "clocks"] as const;
 
 function slotNodes(): Record<(typeof SLOT_NAMES)[number], ReactNode> {
   return {
     banner: <div data-testid="slot-banner" />,
     ticker: <div data-testid="slot-ticker" />,
     controls: <div data-testid="slot-controls" />,
+    timeframe: <div data-testid="slot-timeframe" />,
+    indicators: <div data-testid="slot-indicators" />,
     stats: <div data-testid="slot-stats" />,
     chart: <div data-testid="slot-chart" />,
     book: <div data-testid="slot-book" />,
@@ -43,17 +45,21 @@ function tabTag(html: string, id: PregaoLayoutProps["defaultTab"] & string): str
 }
 
 describe("PregaoLayout — slots", () => {
-  it("renderiza os 10 slots", () => {
+  it("renderiza os 12 slots", () => {
     const html = render();
     for (const name of SLOT_NAMES) {
       expect(html).toContain(`data-testid="slot-${name}"`);
     }
-    expect(html.match(/data-testid="slot-/g)?.length).toBe(10);
+    expect(html.match(/data-testid="slot-/g)?.length).toBe(12);
   });
 
   it("envolve o banner em pregao-banner", () => {
     const html = render();
-    expect(html).toMatch(/data-testid="pregao-banner">\s*<div data-testid="slot-banner"/);
+    expect(html).toMatch(/data-testid="pregao-banner"[^>]*>\s*<div data-testid="slot-banner"/);
+  });
+
+  it("a nota do pregão some abaixo de md (a faixa global de demonstração já avisa)", () => {
+    expect(classesOf(tagWith(render(), 'data-testid="pregao-banner"'))).toContain("max-md:hidden");
   });
 
   it("sem banner (null) não renderiza pregao-banner e mantém os demais slots", () => {
@@ -106,6 +112,38 @@ describe("PregaoLayout — abas do celular", () => {
   it("sem defaultTab a raiz começa em grafico", () => {
     const html = render();
     expect(tagWith(html, 'data-testid="pregao-layout"')).toContain('data-mobile-tab="grafico"');
+  });
+});
+
+describe("PregaoLayout — controles do gráfico", () => {
+  it("intervalo e indicadores só aparecem no celular com a aba Gráfico; o par vale para todas as abas", () => {
+    const grafico = render();
+    for (const id of ["pregao-controls-tf", "pregao-controls-ind"]) {
+      expect(classesOf(tagWith(grafico, `data-testid="${id}"`))).toEqual(["contents"]);
+    }
+    for (const tab of ["livro", "lista", "ultimas"] as const) {
+      const html = render({ defaultTab: tab });
+      for (const id of ["pregao-controls-tf", "pregao-controls-ind"]) {
+        expect(classesOf(tagWith(html, `data-testid="${id}"`)), `${tab} ${id}`).toContain("max-md:hidden");
+      }
+      expect(classesOf(tagWith(html, 'data-testid="pregao-controls-pair"'))).not.toContain("max-md:hidden");
+    }
+  });
+
+  it("abas antes dos controles (no celular sobem para a primeira metade da tela); par primeiro no celular", () => {
+    const html = render();
+    expect(html.indexOf('data-testid="pregao-tabs"')).toBeLessThan(html.indexOf('aria-labelledby="pregao-h-controles"'));
+    expect(classesOf(tagWith(html, 'data-testid="pregao-controls-pair"'))).toContain("max-md:order-first");
+  });
+
+  it("ordem no md+: intervalo, par, indicadores numa linha só", () => {
+    const html = render();
+    const tf = html.indexOf('data-testid="slot-timeframe"');
+    const pair = html.indexOf('data-testid="slot-controls"');
+    const ind = html.indexOf('data-testid="slot-indicators"');
+    expect(tf).toBeGreaterThan(-1);
+    expect(pair).toBeGreaterThan(tf);
+    expect(ind).toBeGreaterThan(pair);
   });
 });
 

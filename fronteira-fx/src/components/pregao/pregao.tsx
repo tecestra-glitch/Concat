@@ -70,6 +70,7 @@ export function remotePanel(
 
 const setTimeframe = (tf: Timeframe) => updatePregaoPrefs({ tf });
 const setIndicators = (indicators: IndicatorState) => updatePregaoPrefs({ indicators });
+const setTapePaused = (tapePaused: boolean) => updatePregaoPrefs({ tapePaused });
 
 export function Pregao() {
   const { mode } = useSettings();
@@ -153,7 +154,8 @@ export function Pregao() {
   return (
     <div data-testid="pregao-root" data-mode={mode}>
       <PageHeader title="Pregão" description="Cotações publicadas pelas casas de câmbio. Referências do BCP só para comparar.">
-        <Button type="button" variant="outline" size="sm" onClick={toggleHelp}>
+        {/* Atalhos de teclado não servem no toque: abaixo de md o botão sai e as abas sobem (a tecla "?" segue valendo). */}
+        <Button type="button" variant="outline" size="sm" onClick={toggleHelp} className="max-md:hidden">
           Atalhos <kbd className="tnum ml-1 rounded border border-border px-1 text-xs">?</kbd>
         </Button>
       </PageHeader>
@@ -165,14 +167,19 @@ export function Pregao() {
             </p>
           ) : null
         }
-        ticker={<TickerTape items={ticker} selectedKey={effectiveKey} onSelect={onSelect} loading={quotesLoading} />}
-        controls={
-          <div className="flex flex-wrap items-center gap-2">
-            <TimeframeBar value={tf} onChange={setTimeframe} />
-            <PairSelector value={pair} onChange={choosePair} />
-            <IndicatorToggles value={indicators} onChange={setIndicators} />
-          </div>
+        ticker={
+          <TickerTape
+            items={ticker}
+            selectedKey={effectiveKey}
+            onSelect={onSelect}
+            loading={quotesLoading}
+            paused={prefs.tapePaused}
+            onPausedChange={setTapePaused}
+          />
         }
+        timeframe={<TimeframeBar value={tf} onChange={setTimeframe} />}
+        controls={<PairSelector value={pair} onChange={choosePair} />}
+        indicators={<IndicatorToggles value={indicators} onChange={setIndicators} />}
         stats={
           <StatsStrip
             stats={stats}

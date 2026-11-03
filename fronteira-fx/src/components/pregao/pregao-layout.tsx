@@ -30,9 +30,11 @@ export function nextTab(current: PregaoMobileTab, key: string): PregaoMobileTab 
 }
 
 export interface PregaoLayoutProps {
-  banner: ReactNode; // null = sem faixa
+  banner: ReactNode; // null = sem faixa; só md+ (no celular a faixa global do app já avisa)
   ticker: ReactNode;
-  controls: ReactNode;
+  controls: ReactNode; // seletor de par: vale para todas as abas
+  timeframe: ReactNode; // TimeframeBar: no celular só na aba Gráfico
+  indicators: ReactNode; // IndicatorToggles: no celular só na aba Gráfico
   stats: ReactNode;
   chart: ReactNode;
   book: ReactNode; // BookLadder
@@ -54,6 +56,8 @@ export function PregaoLayout({
   banner,
   ticker,
   controls,
+  timeframe,
+  indicators,
   stats,
   chart,
   book,
@@ -76,7 +80,12 @@ export function PregaoLayout({
 
   return (
     <div data-testid="pregao-layout" data-mobile-tab={tab} className={cn("grid grid-cols-1 gap-4", className)}>
-      {banner != null && <div data-testid="pregao-banner">{banner}</div>}
+      {/* No celular a nota repetiria a faixa global de demonstração e empurraria as abas para baixo. */}
+      {banner != null && (
+        <div data-testid="pregao-banner" className="max-md:hidden">
+          {banner}
+        </div>
+      )}
 
       <section aria-labelledby="pregao-h-fita">
         <h3 id="pregao-h-fita" className="sr-only">
@@ -97,14 +106,8 @@ export function PregaoLayout({
         Abaixo de xl o bloco da direita é `contents` e cada filho é item da grade.
       */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem] lg:grid-rows-[auto_auto_1fr_auto_auto] lg:items-start xl:grid-cols-[minmax(0,1fr)_21rem_18rem] xl:grid-rows-[auto_auto_1fr]">
-        <section aria-labelledby="pregao-h-controles" className="min-w-0 lg:col-start-1 lg:row-start-1 xl:col-end-3">
-          <h3 id="pregao-h-controles" className="sr-only">
-            Controles
-          </h3>
-          {controls}
-        </section>
-
-        {/* Fica abaixo do cabeçalho fixo do app (h-14) ao rolar; z abaixo do cabeçalho (z-30). */}
+        {/* Fica abaixo do cabeçalho fixo do app (h-14) ao rolar; z abaixo do cabeçalho (z-30). Vem antes dos controles:
+            no celular as abas ficam na primeira metade da tela, logo depois da fita e da sessão. */}
         <div role="tablist" aria-label="Seções do pregão" data-testid="pregao-tabs" onKeyDown={onTablistKeyDown} className="sticky top-14 z-20 flex gap-1 bg-background py-1 md:hidden">
           {MOBILE_TABS.map(({ id, label }) => (
             <button
@@ -122,6 +125,26 @@ export function PregaoLayout({
             </button>
           ))}
         </div>
+
+        <section aria-labelledby="pregao-h-controles" className="min-w-0 lg:col-start-1 lg:row-start-1 xl:col-end-3">
+          <h3 id="pregao-h-controles" className="sr-only">
+            Controles
+          </h3>
+          {/* Intervalo e indicadores só valem para o gráfico: no celular aparecem só na aba Gráfico. O par vale para
+              todas as abas e, no celular, vem primeiro, logo abaixo das abas. Em md+ a ordem é intervalo, par,
+              indicadores numa linha só (`contents` não cria caixa: os três ficam na mesma linha flexível). */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div data-testid="pregao-controls-tf" className={cn("contents", tab !== "grafico" && "max-md:hidden")}>
+              {timeframe}
+            </div>
+            <div data-testid="pregao-controls-pair" className="max-md:order-first">
+              {controls}
+            </div>
+            <div data-testid="pregao-controls-ind" className={cn("contents", tab !== "grafico" && "max-md:hidden")}>
+              {indicators}
+            </div>
+          </div>
+        </section>
 
         <div
           id="pregao-panel-grafico"
