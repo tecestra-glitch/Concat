@@ -22,7 +22,7 @@ afterEach(() => {
 
 describe("parsePrefs (D47: nunca confia no que está gravado)", () => {
   it("sem valor ou JSON inválido → padrão (1 h, só o nº de cotações)", () => {
-    expect(DEFAULT_PREFS).toEqual({ tf: "1h", indicators: INDICATOR_DEFAULTS });
+    expect(DEFAULT_PREFS).toEqual({ tf: "1h", indicators: INDICATOR_DEFAULTS, tapePaused: false });
     expect(PREFS_KEY).toBe("fx.pregao.prefs");
     expect(parsePrefs(null)).toEqual(DEFAULT_PREFS);
     expect(parsePrefs("{")).toEqual(DEFAULT_PREFS);
@@ -31,7 +31,7 @@ describe("parsePrefs (D47: nunca confia no que está gravado)", () => {
 
   it("aceita intervalo e indicadores válidos", () => {
     const raw = JSON.stringify({ tf: "4h", indicators: { sma: true, ema: false, bollinger: true, volume: false } });
-    expect(parsePrefs(raw)).toEqual({ tf: "4h", indicators: { sma: true, ema: false, bollinger: true, volume: false } });
+    expect(parsePrefs(raw)).toEqual({ tf: "4h", indicators: { sma: true, ema: false, bollinger: true, volume: false }, tapePaused: false });
   });
 
   it("intervalo fora da lista (piso de 60 s → nada abaixo de 15m) volta ao padrão", () => {
@@ -39,9 +39,15 @@ describe("parsePrefs (D47: nunca confia no que está gravado)", () => {
     expect(parsePrefs(JSON.stringify({ tf: 15 })).tf).toBe("1h");
   });
 
+  it("fita pausada só vale como booleano; o resto volta a rodando", () => {
+    expect(parsePrefs(JSON.stringify({ tapePaused: true })).tapePaused).toBe(true);
+    expect(parsePrefs(JSON.stringify({ tapePaused: "sim" })).tapePaused).toBe(false);
+    expect(parsePrefs(JSON.stringify({ tf: "4h" })).tapePaused).toBe(false);
+  });
+
   it("indicador não booleano volta ao padrão daquele indicador, sem chaves extras", () => {
     const p = parsePrefs(JSON.stringify({ tf: "15m", indicators: { sma: "sim", ema: true, extra: true } }));
-    expect(p).toEqual({ tf: "15m", indicators: { ...INDICATOR_DEFAULTS, ema: true } });
+    expect(p).toEqual({ tf: "15m", indicators: { ...INDICATOR_DEFAULTS, ema: true }, tapePaused: false });
   });
 });
 
@@ -54,7 +60,7 @@ describe("store de preferências", () => {
 
   it("lê o que está gravado na chave fx.pregao.prefs", () => {
     vi.stubGlobal("localStorage", memoryStorage({ [PREFS_KEY]: JSON.stringify({ tf: "15m" }) }));
-    expect(readPregaoPrefs()).toEqual({ tf: "15m", indicators: INDICATOR_DEFAULTS });
+    expect(readPregaoPrefs()).toEqual({ tf: "15m", indicators: INDICATOR_DEFAULTS, tapePaused: false });
   });
 
   it("updatePregaoPrefs mescla, grava e avisa os inscritos", () => {
@@ -64,8 +70,8 @@ describe("store de preferências", () => {
     const unsubscribe = subscribePregaoPrefs(listener);
     updatePregaoPrefs({ indicators: { ...INDICATOR_DEFAULTS, sma: true } });
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(readPregaoPrefs()).toEqual({ tf: "1h", indicators: { ...INDICATOR_DEFAULTS, sma: true } });
-    expect(JSON.parse(storage.data.get(PREFS_KEY) ?? "null")).toEqual({ tf: "1h", indicators: { ...INDICATOR_DEFAULTS, sma: true } });
+    expect(readPregaoPrefs()).toEqual({ tf: "1h", indicators: { ...INDICATOR_DEFAULTS, sma: true }, tapePaused: false });
+    expect(JSON.parse(storage.data.get(PREFS_KEY) ?? "null")).toEqual({ tf: "1h", indicators: { ...INDICATOR_DEFAULTS, sma: true }, tapePaused: false });
     unsubscribe();
     updatePregaoPrefs({ tf: "4h" });
     expect(listener).toHaveBeenCalledTimes(1);

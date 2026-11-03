@@ -1,6 +1,6 @@
 "use client";
 /**
- * Preferências da tela de pregão (D32, D47): só o intervalo e os indicadores, em `localStorage`
+ * Preferências da tela de pregão (D32, D47): o intervalo, os indicadores e a fita pausada, em `localStorage`
  * (chave `fx.pregao.prefs`). Store externo com `useSyncExternalStore`, mesmo padrão de
  * `src/lib/settings.tsx`: o servidor e a hidratação veem `DEFAULT_PREFS`; a gravação acontece só
  * nos handlers (`updatePregaoPrefs`), nunca num efeito.
@@ -11,9 +11,11 @@ import { INDICATOR_DEFAULTS, TIMEFRAMES, type IndicatorState, type Timeframe } f
 export interface PregaoPrefs {
   tf: Timeframe;
   indicators: IndicatorState;
+  /** Fita de cotações parada pelo botão "Pausar fita" (WCAG 2.2.2: no toque não há hover nem foco para pausar). */
+  tapePaused: boolean;
 }
 
-export const DEFAULT_PREFS: PregaoPrefs = { tf: "1h", indicators: INDICATOR_DEFAULTS };
+export const DEFAULT_PREFS: PregaoPrefs = { tf: "1h", indicators: INDICATOR_DEFAULTS, tapePaused: false };
 export const PREFS_KEY = "fx.pregao.prefs";
 
 const INDICATOR_IDS = Object.keys(INDICATOR_DEFAULTS) as (keyof IndicatorState)[];
@@ -37,7 +39,8 @@ export function parsePrefs(raw: string | null): PregaoPrefs {
     const v = stored[id];
     if (typeof v === "boolean") indicators[id] = v;
   }
-  return { tf, indicators };
+  const tapePaused = typeof parsed.tapePaused === "boolean" ? parsed.tapePaused : DEFAULT_PREFS.tapePaused;
+  return { tf, indicators, tapePaused };
 }
 
 let current: PregaoPrefs | null = null;

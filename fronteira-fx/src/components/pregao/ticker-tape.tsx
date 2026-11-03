@@ -1,6 +1,6 @@
 "use client";
 import type { CSSProperties, ReactElement } from "react";
-import { TriangleAlert } from "lucide-react";
+import { Pause, Play, TriangleAlert } from "lucide-react";
 import { Delta } from "@/components/pregao/delta";
 import { ReferenceBadge } from "@/components/pregao/reference-badge";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,10 @@ export interface TickerTapeProps {
   /** Segundos por volta do laço; padrão 40. */
   durationS?: number;
   loading?: boolean;
+  /** Fita parada pelo botão "Pausar fita" (preferência `tapePaused`). */
+  paused?: boolean;
+  /** Sem handler, o botão não aparece (a fita só pausa com hover/foco). */
+  onPausedChange?: (paused: boolean) => void;
   className?: string;
 }
 
@@ -81,6 +85,31 @@ function TickerTapeItem({ item, selected, onSelect, dup }: TickerTapeItemProps):
   );
 }
 
+export interface TapePauseButtonProps {
+  paused: boolean;
+  onPausedChange: (paused: boolean) => void;
+}
+
+/**
+ * Botão visível de pausa (WCAG 2.2.2): no toque não existe hover nem foco para parar a fita. Botão de alternância
+ * (`aria-pressed`) com o rótulo da ação. Com movimento reduzido a fita já é estática e o botão some.
+ */
+export function TapePauseButton({ paused, onPausedChange }: TapePauseButtonProps): ReactElement {
+  const Icon = paused ? Play : Pause;
+  return (
+    <button
+      type="button"
+      data-testid="pregao-ticker-pause"
+      aria-pressed={paused}
+      onClick={() => onPausedChange(!paused)}
+      className="inline-flex min-h-10 shrink-0 items-center gap-1 border-l border-border bg-surface px-2 text-xs text-muted hover:text-foreground motion-reduce:hidden md:min-h-8 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2"
+    >
+      <Icon size={12} aria-hidden />
+      {paused ? "Retomar fita" : "Pausar fita"}
+    </button>
+  );
+}
+
 /**
  * Fita rolante com a última cotação de cada série. O conteúdo é repetido para o laço contínuo;
  * a cópia é escondida de leitores de tela. Sem `aria-live`: a fita muda a cada minuto (§0.14).
@@ -91,6 +120,8 @@ export function TickerTape({
   onSelect,
   durationS = 40,
   loading = false,
+  paused = false,
+  onPausedChange,
   className,
 }: TickerTapeProps): ReactElement {
   const state = loading ? "loading" : items.length === 0 ? "empty" : "ready";
@@ -104,27 +135,36 @@ export function TickerTape({
       data-state={state}
       data-mode={demo ? "demo" : undefined}
       aria-busy={loading ? "true" : undefined}
-      className={cn("overflow-hidden border-y border-border bg-surface", className)}
+      className={cn("flex items-stretch overflow-hidden border-y border-border bg-surface", className)}
     >
       {state === "loading" ? (
         <>
-          <Skeleton className="h-8" />
+          <Skeleton className="h-8 w-full" />
           <span className="sr-only">Carregando…</span>
         </>
       ) : state === "empty" ? (
         <p className="text-sm text-muted">Sem cotações na fita.</p>
       ) : (
-        <ul
-          className="pregao-marquee flex w-max gap-6 py-1.5 text-[13px] motion-reduce:w-full motion-reduce:flex-wrap motion-reduce:animate-none"
-          style={{ "--tape-duration": `${durationS}s` } as CSSProperties}
-        >
-          {items.map((item) => (
-            <TickerTapeItem key={item.key} item={item} selected={item.key === selectedKey} onSelect={onSelect} dup={false} />
-          ))}
-          {items.map((item) => (
-            <TickerTapeItem key={`dup:${item.key}`} item={item} selected={item.key === selectedKey} onSelect={onSelect} dup />
-          ))}
-        </ul>
+        <>
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <ul
+              data-paused={paused ? "true" : undefined}
+              className={cn(
+                "pregao-marquee flex w-max gap-6 py-1.5 text-[13px] motion-reduce:w-full motion-reduce:flex-wrap motion-reduce:animate-none",
+                paused && "[animation-play-state:paused]",
+              )}
+              style={{ "--tape-duration": `${durationS}s` } as CSSProperties}
+            >
+              {items.map((item) => (
+                <TickerTapeItem key={item.key} item={item} selected={item.key === selectedKey} onSelect={onSelect} dup={false} />
+              ))}
+              {items.map((item) => (
+                <TickerTapeItem key={`dup:${item.key}`} item={item} selected={item.key === selectedKey} onSelect={onSelect} dup />
+              ))}
+            </ul>
+          </div>
+          {onPausedChange ? <TapePauseButton paused={paused} onPausedChange={onPausedChange} /> : null}
+        </>
       )}
     </div>
   );

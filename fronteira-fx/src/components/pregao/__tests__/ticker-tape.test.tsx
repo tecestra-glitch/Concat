@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TickerTape, tickerLabel } from "@/components/pregao/ticker-tape";
+import { TapePauseButton, TickerTape, tickerLabel } from "@/components/pregao/ticker-tape";
 import { formatRate } from "@/lib/format";
 import { DEFAULT_SERIES_KEY, demoTicker } from "@/lib/pregao/demo";
 import type { TickerItem } from "@/lib/pregao/types";
@@ -175,5 +175,44 @@ describe("tickerLabel", () => {
     const label = tickerLabel({ ...item, pair: "USD/PYG", house: "Cambios Chaco", mid: null });
 
     expect(label).toBe("USD/PYG Cambios Chaco —");
+  });
+});
+
+describe("TickerTape: botão de pausa (WCAG 2.2.2, toque sem hover)", () => {
+  it("sem onPausedChange não há botão", () => {
+    const html = renderToStaticMarkup(<TickerTape items={demoTicker(NOW)} />);
+    expect(html).not.toContain("pregao-ticker-pause");
+  });
+
+  it("rodando: botão 'Pausar fita' com aria-pressed=false; a lista não leva a pausa", () => {
+    const html = renderToStaticMarkup(<TickerTape items={demoTicker(NOW)} onPausedChange={() => {}} />);
+    const button = html.match(/<button[^>]*data-testid="pregao-ticker-pause"[^>]*>[\s\S]*?<\/button>/)?.[0] ?? "";
+    expect(button).toContain('aria-pressed="false"');
+    expect(button).toContain("Pausar fita");
+    expect(button).toContain("motion-reduce:hidden");
+    const ul = html.match(/<ul\b[^>]*>/)?.[0] ?? "";
+    expect(ul).not.toContain("[animation-play-state:paused]");
+    expect(ul).not.toContain("data-paused");
+  });
+
+  it("pausada: 'Retomar fita' com aria-pressed=true e animation-play-state: paused na lista", () => {
+    const html = renderToStaticMarkup(<TickerTape items={demoTicker(NOW)} paused onPausedChange={() => {}} />);
+    const button = html.match(/<button[^>]*data-testid="pregao-ticker-pause"[^>]*>[\s\S]*?<\/button>/)?.[0] ?? "";
+    expect(button).toContain('aria-pressed="true"');
+    expect(button).toContain("Retomar fita");
+    const ul = html.match(/<ul\b[^>]*>/)?.[0] ?? "";
+    expect(ul).toContain("pregao-marquee");
+    expect(ul).toContain("[animation-play-state:paused]");
+    expect(ul).toContain('data-paused="true"');
+  });
+
+  it("o clique alterna o estado pedido ao handler", () => {
+    const onPausedChange = vi.fn();
+    const run = TapePauseButton({ paused: false, onPausedChange });
+    (run.props as { onClick: () => void }).onClick();
+    expect(onPausedChange).toHaveBeenLastCalledWith(true);
+    const stopped = TapePauseButton({ paused: true, onPausedChange });
+    (stopped.props as { onClick: () => void }).onClick();
+    expect(onPausedChange).toHaveBeenLastCalledWith(false);
   });
 });
