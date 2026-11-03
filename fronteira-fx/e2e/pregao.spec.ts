@@ -38,8 +38,11 @@ test.describe("Pregão", () => {
   });
 
   test("blocos essenciais e sem rolagem horizontal", async ({ page }, info) => {
+    const mobile = info.project.name === "mobile-390";
     await expect(page.getByTestId("demo-banner")).toBeVisible();
-    await expect(page.getByTestId("pregao-demo-note")).toBeVisible();
+    // No celular a nota do pregão repetiria a faixa global de demonstração e empurraria as abas para baixo.
+    if (mobile) await expect(page.getByTestId("pregao-demo-note")).toBeHidden();
+    else await expect(page.getByTestId("pregao-demo-note")).toBeVisible();
     await expect(page.getByTestId("pregao-ticker")).toHaveAttribute("data-state", "ready");
     await expect(page.getByTestId("pregao-ticker-item").first()).toBeVisible();
     await expect(page.getByTestId("pregao-clock")).toBeVisible();
@@ -47,11 +50,19 @@ test.describe("Pregão", () => {
     await expect(page.getByTestId("pregao-stats")).toHaveAttribute("data-state", "ready");
     await expect(page.getByTestId("pregao-chart")).toHaveAttribute("data-state", "ready");
     await expect(page.getByTestId("pregao-chart").locator("canvas").first()).toBeVisible();
-    const mobile = info.project.name === "mobile-390";
+    // Logotipo da biblioteca: o link fica (licença), com título em português.
+    await expect(page.getByTestId("pregao-chart").locator("a#tv-attr-logo")).toHaveAttribute("title", "Gráfico por TradingView");
     if (mobile) {
       await expect(page.getByTestId("pregao-tabs")).toBeVisible();
       await expect(page.getByTestId("pregao-book")).toBeHidden();
+      // Primeira tela: as abas na primeira metade; intervalo e indicadores só na aba Gráfico, o par em todas.
+      const tabsTop = await page.getByTestId("pregao-tabs").evaluate((el) => el.getBoundingClientRect().top);
+      expect(tabsTop, "abas na primeira metade da tela").toBeLessThan(844 / 2);
+      for (const id of ["pregao-timeframe", "pregao-indicators", "pregao-pair"]) await expect(page.getByTestId(id)).toBeVisible();
       await page.getByRole("tab", { name: "Livro" }).click();
+      await expect(page.getByTestId("pregao-timeframe")).toBeHidden();
+      await expect(page.getByTestId("pregao-indicators")).toBeHidden();
+      await expect(page.getByTestId("pregao-pair")).toBeVisible();
       await expect(page.getByTestId("pregao-book")).toBeVisible();
       await expect(page.getByTestId("pregao-heatmap")).toBeVisible();
       await expect(page.getByTestId("pregao-cross")).toBeVisible();
@@ -68,6 +79,13 @@ test.describe("Pregão", () => {
       await expect(page.getByTestId("pregao-prints")).toBeVisible();
       await expect(page.getByTestId("pregao-print-row").first()).toBeVisible();
       await expectTablesFit(page, "pregao-prints");
+      // Sem rolagem dentro da página: a lista inteira entra no fluxo e a última linha não fica cortada.
+      const inner = await page.getByTestId("pregao-prints").evaluate((root) => {
+        const sc = root.querySelector("table")!.parentElement!;
+        return { scrollHeight: sc.scrollHeight, clientHeight: sc.clientHeight, fade: getComputedStyle(root.querySelector('[data-testid="pregao-prints-fade"]')!).display };
+      });
+      expect(inner.scrollHeight - inner.clientHeight, "rolagem vertical dentro da aba Últimas").toBeLessThanOrEqual(1);
+      expect(inner.fade).toBe("none");
       await page.screenshot({ path: "dev/screenshots/pregao-mobile-390-ultimas.png", fullPage: true });
       await page.getByRole("tab", { name: "Gráfico" }).click();
       await expect(page.getByTestId("pregao-chart")).toBeVisible();
@@ -92,6 +110,22 @@ test.describe("Pregão", () => {
       expect(sides.sell).toEqual(sides.buy);
       expect(sides.cut, "nomes cortados no livro").toEqual([]);
       expect(sides.spill, "conteúdo invadindo a coluna vizinha no livro").toEqual([]);
+      // Idade ("5 min") com folga antes do anel da linha selecionada (ring-1 inset): o "n" não encosta nele.
+      const ageGap = await page.getByTestId("pregao-book").evaluate((root) =>
+        [...root.querySelectorAll<HTMLElement>('[data-testid="pregao-book-row"] td:last-child span[aria-hidden="true"]')].map((span) => {
+          const row = span.closest("tr")!.getBoundingClientRect();
+          return Math.round((row.right - span.getBoundingClientRect().right) * 10) / 10;
+        }),
+      );
+      expect(ageGap.length).toBeGreaterThan(0);
+      expect(Math.min(...ageGap), "idade encostada na borda da linha").toBeGreaterThanOrEqual(3);
+      // Últimas atualizações: o selo "incompleta" nunca reduz o nome da casa a "No…".
+      const cutNames = await page.getByTestId("pregao-prints").evaluate((root) =>
+        [...root.querySelectorAll<HTMLElement>('[data-testid="pregao-print-row"] td:nth-child(2) .truncate')]
+          .filter((el) => el.offsetParent !== null && el.closest("td")!.textContent!.includes("incompleta") && el.scrollWidth > el.clientWidth + 1)
+          .map((el) => el.textContent),
+      );
+      expect(cutNames, "nome cortado ao lado do selo incompleta").toEqual([]);
       // Sem vão entre os controles e o resumo: o resumo começa logo abaixo dos controles.
       const gap = await page.evaluate(() => {
         const controls = document.querySelector('[aria-labelledby="pregao-h-controles"]')!.getBoundingClientRect();
@@ -116,6 +150,14 @@ test.describe("Pregão", () => {
       } else {
         // lg: "Últimas" ocupa as duas colunas logo abaixo da mais alta.
         expect((await topOf(page, "#pregao-panel-ultimas")) - tallest, "vão antes das últimas").toBeLessThanOrEqual(40);
+        // Teto de 22rem: a linha cortada ao meio no rodapé ganha um degradê colado à borda de baixo do scroller.
+        const fade = await page.getByTestId("pregao-prints").evaluate((root) => {
+          const sc = root.querySelector("table")!.parentElement!.getBoundingClientRect();
+          const f = root.querySelector('[data-testid="pregao-prints-fade"]')!.getBoundingClientRect();
+          return { gap: Math.abs(sc.bottom - f.bottom), height: f.height };
+        });
+        expect(fade.height).toBeGreaterThan(0);
+        expect(fade.gap).toBeLessThanOrEqual(1);
       }
     }
     const { scrollWidth, clientWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
@@ -143,6 +185,35 @@ test.describe("Pregão", () => {
     await page.getByRole("tab", { name: "Lista" }).click();
     await expect(page.getByRole("tab", { name: "Lista" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByTestId("pregao-watchlist")).toBeVisible();
+  });
+
+  test("botão visível pausa e retoma a fita, e a escolha sobrevive ao recarregar", async ({ page }, info) => {
+    const tape = page.getByTestId("pregao-ticker");
+    await expect(tape).toHaveAttribute("data-state", "ready");
+    const button = tape.getByRole("button", { name: "Pausar fita" });
+    await expect(button).toBeVisible();
+    await expect(button).toHaveAttribute("aria-pressed", "false");
+    const list = tape.locator("ul.pregao-marquee");
+    await expect.poll(() => list.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("running");
+    // No celular não há hover nem foco para pausar: o toque no botão tem que bastar.
+    if (info.project.name === "mobile-390") await button.tap();
+    else await button.click();
+    const resume = tape.getByRole("button", { name: "Retomar fita" });
+    await expect(resume).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => list.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("paused");
+    // Parada de fato: o deslocamento não muda entre quadros.
+    const still = await list.evaluate(async (el) => {
+      const before = getComputedStyle(el).transform;
+      for (let i = 0; i < 10; i++) await new Promise((r) => requestAnimationFrame(r));
+      return before === getComputedStyle(el).transform;
+    });
+    expect(still).toBe(true);
+    await page.reload();
+    await expect(page.getByTestId("pregao-ticker").getByRole("button", { name: "Retomar fita" })).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => page.locator("ul.pregao-marquee").evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("paused");
+    await page.getByTestId("pregao-ticker").getByRole("button", { name: "Retomar fita" }).click();
+    await expect(page.getByTestId("pregao-ticker").getByRole("button", { name: "Pausar fita" })).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(() => page.locator("ul.pregao-marquee").evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("running");
   });
 
   test("referência nunca entra nos lados do livro", async ({ page }) => {
@@ -275,5 +346,7 @@ test.describe("Pregão com movimento reduzido", () => {
       expect(b!.x + b!.width, `item ${i} termina dentro da fita`).toBeLessThanOrEqual(box!.x + box!.width + 0.5);
     }
     await expect(tape.locator('[data-testid="pregao-ticker-item"][data-dup="true"]').first()).toBeHidden();
+    // Fita já estática: o botão de pausa não tem o que pausar.
+    await expect(tape.getByTestId("pregao-ticker-pause")).toBeHidden();
   });
 });
