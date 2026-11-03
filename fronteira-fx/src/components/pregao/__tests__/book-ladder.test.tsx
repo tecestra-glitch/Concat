@@ -246,4 +246,20 @@ describe("BookLadder", () => {
     const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={levelsDemo} />);
     expect(html).toContain('data-mode="demo"');
   });
+
+  it("Compra e Venda com layout fixo e o mesmo colgroup: colunas alinhadas entre as duas tabelas", () => {
+    const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={[houseA, houseB, houseC, bcpRef]} />);
+    const tables = [...html.matchAll(/<table class="([^"]*)"><caption class="sr-only">Lado da (compra|venda)<\/caption>(<colgroup>.*?<\/colgroup>)/g)];
+    expect(tables).toHaveLength(2);
+    for (const t of tables) expect(t[1]).toContain("table-fixed");
+    expect(tables[0][3]).toBe(tables[1][3]);
+    expect(tables[0][3].match(/<col[\s/>]/g)).toHaveLength(4);
+  });
+
+  it("cabeçalho curto 'Ágio' com o nome completo no title e para leitor de tela, sem quebra", () => {
+    const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={[houseA, houseB, houseC, bcpRef]} />);
+    const th = html.match(/<tr class="whitespace-nowrap[^"]*">.*?<\/tr>/)?.[0] ?? "";
+    expect(th).toContain('title="Ágio vs BCP"');
+    expect(th).toContain('<span aria-hidden="true">Ágio</span><span class="sr-only">Ágio vs BCP</span>');
+  });
 });

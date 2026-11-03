@@ -2,11 +2,12 @@
 import type { KeyboardEvent, ReactElement } from "react";
 import { Landmark, Store } from "lucide-react";
 import { AgioBadge } from "@/components/pregao/agio-badge";
+import { HouseCity } from "@/components/pregao/house-city";
 import { ReferenceBadge } from "@/components/pregao/reference-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CITY_LABEL, type City, type Currency } from "@/lib/api/types";
+import type { Currency } from "@/lib/api/types";
 import { formatAge, formatRate, toNumber } from "@/lib/format";
 import type { BookLevel, PairKey } from "@/lib/pregao/types";
 import { cn } from "@/lib/utils";
@@ -46,19 +47,8 @@ export function splitBook(levels: BookLevel[]): BookSides {
   return { bids, asks, refs };
 }
 
-/**
- * Cidade da filial logo abaixo do nome (na linha dos selos), com a sigla usada no resto do app (CDE, ASU, PJC). A mesma casa aparece
- * uma vez por filial; sem a cidade o livro mostraria "Cambios Chaco" duas vezes. Digital: sem cidade.
- */
-export function HouseCity({ city }: { city: City }): ReactElement | null {
-  if (city === null) return null;
-  return (
-    <span data-testid="pregao-book-city" className="whitespace-nowrap text-xs font-normal text-muted" title={CITY_LABEL[city]}>
-      {city}
-      <span className="sr-only">, {CITY_LABEL[city]}</span>
-    </span>
-  );
-}
+/** Cidade da filial logo abaixo do nome (na linha dos selos); componente compartilhado com a lista. */
+export { HouseCity };
 
 /** Idade curta ("5 min") na célula, com a forma longa ("há 5 min") no title e para leitor de tela. */
 function AgeCell({ iso, now }: { iso: string; now: number }): ReactElement {
@@ -120,10 +110,12 @@ function BookRow({ level, side, best, quote, selected, now, onSelect }: BookRowP
       onKeyDown={onKeyDown}
     >
       <td className="pr-2">
-        <span className="flex flex-col gap-0.5 py-0.5">
-          <span className="inline-flex items-center gap-1">
+        <span className="flex min-w-0 flex-col gap-0.5 py-0.5">
+          <span className="flex min-w-0 items-center gap-1">
             <Store size={12} aria-hidden className="shrink-0" />
-            {level.house}
+            <span className="truncate" title={level.house}>
+              {level.house}
+            </span>
           </span>
           {level.city !== null || best || closed || level.incomplete ? (
             <span className="flex flex-wrap items-center gap-1">
@@ -155,13 +147,23 @@ interface SideTableProps {
 
 function SideTable({ side, rows, quote, selectedKey, onSelect, now }: SideTableProps): ReactElement {
   return (
-    <table className="w-full text-[13px]">
+    <table className="w-full table-fixed text-[13px]">
       <caption className="sr-only">{side === "buy" ? "Lado da compra" : "Lado da venda"}</caption>
+      {/* Mesmas larguras nos dois lados: Compra e Venda empilhadas no painel ficam com as colunas alinhadas. */}
+      <colgroup>
+        <col />
+        <col className="w-[3.5rem]" />
+        <col className="w-[5rem]" />
+        <col className="w-[3rem] max-sm:hidden" />
+      </colgroup>
       <thead>
-        <tr className="text-left text-muted">
+        <tr className="whitespace-nowrap text-left text-muted">
           <th scope="col" className="font-medium">Casa</th>
           <th scope="col" className="text-right font-medium">Preço</th>
-          <th scope="col" className="pl-2 text-right font-medium">Ágio vs BCP</th>
+          <th scope="col" className="pl-2 text-right font-medium" title="Ágio vs BCP">
+            <span aria-hidden>Ágio</span>
+            <span className="sr-only">Ágio vs BCP</span>
+          </th>
           <th scope="col" className="pl-2 text-right font-medium max-sm:hidden">Idade</th>
         </tr>
       </thead>
@@ -265,7 +267,7 @@ export function BookLadder({
 
   return (
     <div {...shared} data-state="ready" className={cn("@container grid gap-3", className)}>
-      {/* Lado a lado só quando o próprio bloco tem ≥ 28rem: em lg+ o livro mora numa coluna de 20rem. */}
+      {/* Lado a lado só quando o próprio bloco tem ≥ 28rem: em lg+ o livro mora numa coluna de 21rem. */}
       <div className="grid gap-3 @md:grid-cols-2">
         <section aria-labelledby="pregao-book-buy-h" data-testid="pregao-book-side-buy" className="min-w-0">
           <h4 id="pregao-book-buy-h" className="text-sm font-medium">Compra</h4>

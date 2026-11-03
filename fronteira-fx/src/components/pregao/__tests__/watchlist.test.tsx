@@ -207,3 +207,46 @@ describe("Watchlist", () => {
     expect(html).toContain("Lista de séries acompanhadas");
   });
 });
+
+describe("Watchlist: larguras estreitas", () => {
+  /** Classes da célula `<td data-col="…">` da primeira linha e do `<th>` correspondente. */
+  function colClasses(html: string, col: string): string {
+    return cellsHtml(html, col)[0]?.match(/class="([^"]*)"/)?.[1] ?? "";
+  }
+
+  it("no celular ficam casa, compra, venda e variação; par, cidade, spread, tendência e estado saem", () => {
+    const html = renderList();
+    for (const col of ["pair", "city", "spread", "trend", "status"]) expect(colClasses(html, col), col).toContain("max-sm:hidden");
+    for (const col of ["house", "buy", "sell", "delta"]) expect(colClasses(html, col), col).not.toContain("max-sm:hidden");
+    const ths = html.match(/<th[^>]*>/g) ?? [];
+    expect(ths.filter((th) => th.includes("max-sm:hidden"))).toHaveLength(5);
+  });
+
+  it("casa e cidade não quebram linha: nowrap, nome truncado com title", () => {
+    const html = renderList();
+    expect(colClasses(html, "house")).toContain("whitespace-nowrap");
+    expect(colClasses(html, "city")).toContain("whitespace-nowrap");
+    const casa = firstHouseRow(ROWS);
+    const row = rowHtml(html, casa.key);
+    expect(row).toMatch(/<span class="max-w-\[10rem\] truncate" title="[^"]+">/);
+    expect(row).toContain("inline-flex flex-nowrap");
+  });
+
+  it("filial distinguível no celular: sigla da cidade (nome no title e sr-only) e estado sob o nome", () => {
+    const html = renderList();
+    const casa = ROWS.find((r) => r.kind !== "market_reference" && r.city !== null);
+    if (!casa?.city) throw new Error("demo sem casa presencial");
+    const sub = rowHtml(html, casa.key).match(/data-testid="pregao-watchlist-house-sub"[^>]*>(.*?)<\/span><\/span><\/td>/)?.[0] ?? "";
+    expect(sub).toContain("sm:hidden");
+    expect(sub).toMatch(new RegExp(`data-testid="pregao-watchlist-city"[^>]*title="[^"]+">${casa.city}<span class="sr-only">, `));
+    expect(sub).toContain('data-testid="pregao-watchlist-status"');
+  });
+
+  it("coluna Cidade: nome inteiro só em xl; abaixo, a sigla", () => {
+    const html = renderList();
+    const casa = ROWS.find((r) => r.kind !== "market_reference" && r.city !== null)!;
+    const cell = rowHtml(html, casa.key).match(/<td[^>]*data-col="city"[^>]*>.*?<\/td>/)?.[0] ?? "";
+    expect(cell).toMatch(/class="block max-w-\[10rem\] truncate max-xl:hidden"/);
+    expect(cell).toMatch(/data-testid="pregao-watchlist-city" class="[^"]*xl:hidden/);
+  });
+});
