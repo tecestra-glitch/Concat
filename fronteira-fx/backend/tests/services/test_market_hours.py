@@ -10,7 +10,7 @@ import pytest
 from fronteira_fx.schemas_candles import HouseHours, ScheduleWindow
 from fronteira_fx.services import market_hours as mh
 
-HOUSES = {"chaco", "maxicambios", "ueno", "nomad", "revolut", "bcp"}
+HOUSES = {"chaco", "maxicambios", "bcp"}
 
 
 def utc(*args: int) -> datetime:
@@ -33,8 +33,12 @@ def test_verified_houses_carry_source_and_check_date():
     for key in ("chaco", "maxicambios", "bcp"):
         assert houses[key].verified is True
         assert houses[key].source_url and houses[key].checked_at == "2026-11-04"
-    for key in ("ueno", "nomad", "revolut"):
-        assert houses[key].verified is False and houses[key].source_url is None
+
+
+def test_packaged_file_lists_only_houses_with_verified_hours():
+    # docs/api-contract.md (Pregão): casa sem horário verificado não entra no arquivo; aparece como unknown.
+    houses = mh.load_market_hours()
+    assert [key for key, hours in houses.items() if hours.verified is not True] == []
 
 
 def test_minutes_of_reads_hhmm_and_maps_24_00_to_1440():
@@ -107,11 +111,13 @@ def test_chaco_matches_verified_weekday_hours(now: datetime, expected):
     assert mh.house_status(mh.load_market_hours()["chaco"], now) == expected
 
 
-def test_digital_always_open_and_missing_hours_are_unknown_without_times():
+def test_verified_around_the_clock_house_is_open_and_missing_hours_are_unknown():
     now = utc(2026, 11, 2, 12, 0)
-    assert mh.house_status(mh.load_market_hours()["ueno"], now) == ("open", None, None, None)
+    around_the_clock = HouseHours(
+        tz="America/Asuncion", days=[1, 2, 3, 4, 5, 6, 7], opens="00:00", closes="24:00", verified=True
+    )
+    assert mh.house_status(around_the_clock, now) == ("open", None, None, None)
     assert mh.house_status(None, now) == ("unknown", None, None, None)
-
 
 # ---- house_status: fronteiras, sábado à tarde e domingo -------------------------------------------
 

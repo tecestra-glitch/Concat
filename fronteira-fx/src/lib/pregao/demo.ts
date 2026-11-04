@@ -47,8 +47,6 @@ export const DEMO_HOURS: Record<string, HouseHours> = {
     schedule: [{ days: [6], opens: "07:15", closes: "13:00" }],
     verified: true, source_url: "https://www.cambioschaco.com.py/en/sucursales/", checked_at: "2026-11-04",
   },
-  ueno: { name: "ueno", city: null, channel: "digital", tz: "America/Asuncion", days: [1, 2, 3, 4, 5, 6, 7], opens: "00:00", closes: "24:00", verified: false },
-  nomad: { name: "Nomad", city: null, channel: "digital", tz: "America/Sao_Paulo", days: [1, 2, 3, 4, 5, 6, 7], opens: "00:00", closes: "24:00", verified: false },
   bcp: {
     name: "BCP (referência)", city: null, channel: "digital", tz: "America/Asuncion",
     days: [1, 2, 3, 4, 5], opens: "08:30", closes: "13:00",

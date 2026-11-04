@@ -192,6 +192,22 @@ describe("MarketStatus", () => {
     expect(html).not.toContain('data-badge="gain"');
   });
 
+  it("digital sem horário verificado não vira 'aberta' nem 'fechada': aparece como 'sem horário'", () => {
+    const html = renderToStaticMarkup(
+      <MarketStatus
+        now={now}
+        sessions={[
+          session({ source_id: "chaco", status: "closed", city: "CDE" }),
+          session({ source_id: "ueno", status: "unknown", channel: "digital" }),
+          session({ source_id: "nomad", status: "unknown", channel: "digital" }),
+        ]}
+      />,
+    );
+    expect(html).toContain("0 de 1 casas físicas abertas · 0 de 2 digitais abertas (2 sem horário)");
+    expect(html).not.toContain("só digitais");
+    expect(html).not.toContain('data-badge="gain"');
+  });
+
   it("enquanto as cotações carregam, não afirma que não há casas: mostra 'Carregando horários…'", () => {
     const html = renderToStaticMarkup(<MarketStatus now={now} sessions={[]} loading />);
     expect(html).toContain("Carregando horários");

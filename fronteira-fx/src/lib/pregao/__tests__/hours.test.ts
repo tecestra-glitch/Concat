@@ -36,11 +36,18 @@ describe("zonedToUtc", () => {
   });
 });
 
+// Casa hipotética 24h verificada: nenhuma casa real com 24h entra no arquivo sem checagem (docs/api-contract.md).
+const AROUND_THE_CLOCK: HouseHours = {
+  name: "Casa 24h", city: null, channel: "digital", tz: "America/Asuncion",
+  days: [1, 2, 3, 4, 5, 6, 7], opens: "00:00", closes: "24:00",
+  verified: true, source_url: "https://example.test/horario", checked_at: "2026-11-04",
+};
+
 describe("isAlwaysOpen", () => {
   it("is true only for 7 days from 00:00 to 24:00", () => {
-    expect(isAlwaysOpen(DEMO_HOURS.ueno)).toBe(true);
+    expect(isAlwaysOpen(AROUND_THE_CLOCK)).toBe(true);
     expect(isAlwaysOpen(DEMO_HOURS.chaco)).toBe(false);
-    expect(isAlwaysOpen({ ...DEMO_HOURS.ueno, days: [1, 2, 3, 4, 5, 6] })).toBe(false);
+    expect(isAlwaysOpen({ ...AROUND_THE_CLOCK, days: [1, 2, 3, 4, 5, 6] })).toBe(false);
   });
 });
 
@@ -90,8 +97,8 @@ describe("houseStatus: chaco verificado (Adrián Jara, America/Asuncion)", () =>
     // Monday 06:00 local.
     expect(houseStatus(DEMO_HOURS.chaco, utc(2026, 11, 2, 9, 0))).toMatchObject({ status: "closed", opens_at: iso(2026, 11, 2, 10, 15), next_change_at: iso(2026, 11, 2, 9, 45) });
   });
-  it("ueno is always open with null times", () => {
-    expect(houseStatus(DEMO_HOURS.ueno, utc(2026, 11, 1, 3, 0))).toEqual({ status: "open", opens_at: null, closes_at: null, next_change_at: null });
+  it("a verified 24h house is always open with null times", () => {
+    expect(houseStatus(AROUND_THE_CLOCK, utc(2026, 11, 1, 3, 0))).toEqual({ status: "open", opens_at: null, closes_at: null, next_change_at: null });
   });
   it("a source without hours is unknown", () => {
     const none = { status: "unknown", opens_at: null, closes_at: null, next_change_at: null };

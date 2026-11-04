@@ -29,36 +29,6 @@
     "source_url": "https://www.maxicambios.com.py/",
     "checked_at": "2026-11-04"
   },
-  "ueno": {
-    "name": "ueno",
-    "city": null,
-    "channel": "digital",
-    "tz": "America/Asuncion",
-    "days": [1, 2, 3, 4, 5, 6, 7],
-    "opens": "00:00",
-    "closes": "24:00",
-    "verified": false
-  },
-  "nomad": {
-    "name": "Nomad",
-    "city": null,
-    "channel": "digital",
-    "tz": "America/Sao_Paulo",
-    "days": [1, 2, 3, 4, 5, 6, 7],
-    "opens": "00:00",
-    "closes": "24:00",
-    "verified": false
-  },
-  "revolut": {
-    "name": "Revolut",
-    "city": null,
-    "channel": "digital",
-    "tz": "UTC",
-    "days": [1, 2, 3, 4, 5, 6, 7],
-    "opens": "00:00",
-    "closes": "24:00",
-    "verified": false
-  },
   "bcp": {
     "name": "BCP (referência)",
     "city": null,

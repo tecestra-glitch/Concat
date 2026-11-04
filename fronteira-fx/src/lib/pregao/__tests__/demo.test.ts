@@ -149,11 +149,12 @@ describe("demoSessions", () => {
   });
   it("uses the house hours for the status", () => {
     expect(sessions.find((s) => s.source_id === "demo-chaco")).toMatchObject({ status: "open", name: "Cambios Chaco", city: "CDE", tz: "America/Asuncion", channel: "physical", closes_at: "2026-11-02T19:00:00.000Z" });
-    expect(sessions.find((s) => s.source_id === "demo-ueno")).toMatchObject({ status: "open", city: null, channel: "digital", opens_at: null });
+    expect(sessions.find((s) => s.source_id === "demo-ueno")).toMatchObject({ status: "unknown", city: null, channel: "digital", opens_at: null });
+    expect(sessions.find((s) => s.source_id === "demo-nomad")).toMatchObject({ status: "unknown", opens_at: null });
   });
-  it("DEMO_HOURS covers the demo houses with verified or unverified-24h hours; sem horário verificado fica de fora", () => {
-    expect(Object.keys(DEMO_HOURS).sort()).toEqual(["bcp", "chaco", "nomad", "ueno"]);
-    expect([...DEMO_HOUSE_IDS].filter((id) => !(id in DEMO_HOURS)).sort()).toEqual(["alberdi", "bonanza", "norte"]);
+  it("DEMO_HOURS só tem horários verificados; casa sem horário verificado fica de fora (unknown)", () => {
+    expect(Object.keys(DEMO_HOURS).sort()).toEqual(["bcp", "chaco"]);
+    expect([...DEMO_HOUSE_IDS].filter((id) => !(id in DEMO_HOURS)).sort()).toEqual(["alberdi", "bonanza", "nomad", "norte", "ueno"]);
   });
 });
 

@@ -14,6 +14,8 @@ export interface SessionSummary {
   /** Casas digitais, à parte: nunca entram no selo "aberto" nem na contagem física. */
   digitalOpen: number;
   digitalTotal: number;
+  /** Digitais sem horário verificado: não contam como abertas nem como fechadas. */
+  digitalUnknown: number;
   nextChangeAt: string | null;
   badge: "gain" | "warn" | "outline";
   label: string;
@@ -50,6 +52,7 @@ export function summarizeSessions(sessions: readonly HouseSession[], now: number
   const closed = countOf(physical, "closed");
   const unknown = countOf(physical, "unknown");
   const digitalOpen = countOf(digital, "open");
+  const digitalUnknown = countOf(digital, "unknown");
 
   let badge: SessionSummary["badge"] = "outline";
   let label = "sem horário";
@@ -75,6 +78,7 @@ export function summarizeSessions(sessions: readonly HouseSession[], now: number
     total: physical.length,
     digitalOpen,
     digitalTotal: digital.length,
+    digitalUnknown,
     nextChangeAt: now === 0 ? null : nextChangeAfter(houses, now),
     badge,
     label,
@@ -110,7 +114,10 @@ export function MarketStatus({ sessions, now, loading = false, className }: Mark
   const summary = summarizeSessions(sessions, now);
   const parts: string[] = [];
   if (summary.total > 0) parts.push(`${summary.open} de ${summary.total} casas físicas abertas`);
-  if (summary.digitalTotal > 0) parts.push(`${summary.digitalOpen} de ${summary.digitalTotal} digitais abertas`);
+  if (summary.digitalTotal > 0) {
+    const unknown = summary.digitalUnknown > 0 ? ` (${summary.digitalUnknown} sem horário)` : "";
+    parts.push(`${summary.digitalOpen} de ${summary.digitalTotal} digitais abertas${unknown}`);
+  }
   if (parts.length === 0) parts.push("nenhuma casa com horário informado");
   const next = summary.nextChangeAt ? ` · próxima mudança em ${formatCountdown(summary.nextChangeAt, now)}` : "";
   return (
