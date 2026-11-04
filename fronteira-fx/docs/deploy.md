@@ -109,6 +109,45 @@ Regras:
   navegador). Deixe-a vazia: o cliente usa o proxy `/api/fx`. Sem API alcançável, o app mostra a faixa
   "Demonstração — dados ilustrativos" e nunca mistura dados de demonstração com reais.
 
+## Login próprio (`/entrar`)
+
+Substitui a janela de Basic Auth do navegador por uma tela de login do próprio app (usuário único: o dono).
+Ligado quando as duas variáveis abaixo estão definidas no servidor do frontend (Vercel: *Sensitive*):
+
+| Variável | Onde | O que é |
+|---|---|---|
+| `FX_SITE_PASSWORD_HASH` | frontend (servidor) | hash scrypt da senha, formato `scrypt$N$r$p$salt$hash` |
+| `FX_SESSION_SECRET` | frontend (servidor) | segredo do HMAC-SHA256 do cookie, ≥ 32 caracteres (`openssl rand -hex 32`) |
+
+Gerar o hash (a senha entra pelo stdin e não fica no histórico do shell nem em `ps`):
+
+```bash
+cd fronteira-fx
+printf '%s' 'sua senha forte' | pnpm hash-senha
+# imprime scrypt$32768$8$1$...$... : copie para FX_SITE_PASSWORD_HASH
+```
+
+Comportamento:
+
+- Sem sessão: toda página vai para `/entrar?para=<caminho>`; `/api/fx` responde 401. `/entrar`, `/api/sessao/entrar`
+  e `/sair` ficam públicas. O destino depois do login é só caminho interno (sem open redirect).
+- Cookie `fx_sessao`: httpOnly, Secure, SameSite=Lax, assinado (HMAC-SHA256) com expiração dentro do valor.
+  "Lembrar por 30 dias" (ligado por padrão) grava cookie persistente de 30 dias; desligado, cookie de sessão do
+  navegador com token de 12 h.
+- Login e sair aceitam só POST com `Origin` igual ao host (CSRF). Sair apaga o cookie.
+- Limite de tentativas: 5 falhas por IP em 15 min e teto global de 30 falhas na mesma janela. Atraso fixo de 800 ms
+  em toda tentativa. Isso vive na memória de cada instância: é melhor esforço em serverless (um cold start zera a
+  contagem). Não substitui o rate limit da plataforma.
+- Trocar `FX_SESSION_SECRET` derruba todas as sessões. Trocar `FX_SITE_PASSWORD_HASH` não derruba sessões
+  existentes (o cookie só depende do segredo); para forçar, troque também o segredo.
+- Configuração quebrada (só uma das duas variáveis, segredo curto ou hash com formato errado): o app responde 503
+  e não abre, a não ser que `FX_BASIC_AUTH` esteja definido.
+- Sem as duas variáveis, `FX_BASIC_AUTH` continua valendo como alternativa, e depois dele o comportamento antigo
+  (`FX_FRONTEND_PROTECTED`).
+
+Trocar a senha: gere outro hash, atualize `FX_SITE_PASSWORD_HASH` na Vercel e faça um redeploy. Não há senha em
+texto puro em nenhum arquivo do repositório.
+
 ## Backup e restauração
 
 Os scripts ficam em `backend/scripts/`. Sem `DATABASE_URL` eles chamam `docker compose exec`, que
