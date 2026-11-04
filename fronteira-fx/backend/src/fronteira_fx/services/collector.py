@@ -9,14 +9,15 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from ..adapters.base import Adapter, AdapterInfo, AdapterResult, AdapterStatus
@@ -92,6 +93,24 @@ class CollectOutcome:
     retry_after_s: int | None = None  # set when a forced run fell inside the 60 s floor (D6)
     changes: list[ChangeOut] = field(default_factory=list)
     alert_event_ids: list[str] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class SkippedSource:
+    source_id: str
+    reason: str  # our own wording only: never a third-party message or body
+
+
+@dataclass(slots=True)
+class RoundResult:
+    """One round of the worker's loop, for a caller that cannot keep a process alive (serverless)."""
+
+    data_mode: str
+    outcomes: list[CollectOutcome] = field(default_factory=list)  # sources fetched in this round (304 included)
+    skipped: list[SkippedSource] = field(default_factory=list)
+    tasks_processed: int = 0
+    events_pruned: int = 0
+    budget_exhausted: bool = False
 
 
 def backoff_delay(interval_s: int, failures: int, max_s: int) -> timedelta:
@@ -587,24 +606,35 @@ class Collector:
                 return {"status": "blocked", "reason": reason}
             return {"status": "done", "quote": quote_to_out(q)}
 
-    async def process_tasks(self, limit: int = 10) -> int:
+    def browser_source_ids(self) -> set[str]:
+        return {sid for sid, adapter in self.adapters().items() if adapter.info.method == "browser"}
+
+    async def process_tasks(
+        self,
+        limit: int = 10,
+        *,
+        skip_browser: bool = False,
+        may_start: Callable[[], bool] | None = None,
+    ) -> int:
+        """Run queued on-demand tasks. `skip_browser` leaves browser-source tasks queued (no browser here);
+        `may_start` is checked before each task, and the tasks not started go back to the queue."""
         if self.data_mode != "real":
             return 0
+        excluded = self.browser_source_ids() if skip_browser else set()
         with session_scope(self.session_factory) as session:
-            tasks = list(
-                session.scalars(
-                    select(Task)
-                    .where(Task.status == "queued", Task.data_mode == self.data_mode)
-                    .order_by(Task.created_at.asc())
-                    .limit(limit)
-                )
-            )
+            query = select(Task).where(Task.status == "queued", Task.data_mode == self.data_mode)
+            if excluded:
+                query = query.where(or_(Task.source_id.is_(None), Task.source_id.not_in(excluded)))
+            tasks = list(session.scalars(query.order_by(Task.created_at.asc()).limit(limit)))
             todo = [(t.id, t.source_id, dict(t.params or {})) for t in tasks]
             for t in tasks:
                 t.status = "running"
                 t.started_at = self.now_fn()
         done = 0
-        for task_id, source_id, params in todo:
+        for index, (task_id, source_id, params) in enumerate(todo):
+            if may_start is not None and not may_start():
+                self._requeue_tasks([task_id for task_id, _, _ in todo[index:]])
+                break
             adapter = self.adapters().get(source_id or "")
             if adapter is None:
                 outcome = CollectOutcome(
@@ -633,6 +663,47 @@ class Collector:
                 task.error = outcome.message if failed else None
                 done += 1
         return done
+
+    def _requeue_tasks(self, task_ids: list[str]) -> None:
+        with session_scope(self.session_factory) as session:
+            for task in session.scalars(select(Task).where(Task.id.in_(task_ids))):
+                task.status = "queued"
+                task.started_at = None
+
+    async def run_round(self, *, budget_s: float, clock: Callable[[], float] = time.monotonic) -> RoundResult:
+        """One pass of the worker's loop without a worker: due sources (never forced), queued tasks without
+        browser sources, and event pruning. No new source or task is started once `budget_s` has elapsed.
+        Browser adapters are reported as skipped; they need the worker."""
+        result = RoundResult(data_mode=self.data_mode)
+        if self.data_mode != "real":
+            return result  # demo and simulation instances never scrape providers (same rule as run_once)
+        deadline = clock() + budget_s
+        adapters = self.adapters()
+        for source_id in sorted(adapters):
+            adapter = adapters[source_id]
+            if adapter.info.method == "browser":
+                result.skipped.append(SkippedSource(source_id, "requer navegador; só o worker coleta essa fonte"))
+                continue
+            if clock() >= deadline:
+                result.budget_exhausted = True
+                result.skipped.append(SkippedSource(source_id, "orçamento de tempo da rodada esgotado"))
+                continue
+            outcome = await self.collect(adapter)
+            if outcome.retry_after_s is not None:
+                result.skipped.append(
+                    SkippedSource(
+                        source_id, f"sondada há pouco; piso de {FORCE_FLOOR_S} s (tente em {outcome.retry_after_s} s)"
+                    )
+                )
+            elif outcome.skipped:
+                result.skipped.append(SkippedSource(source_id, outcome.message or "não vencida"))
+            else:
+                result.outcomes.append(outcome)
+        result.tasks_processed = await self.process_tasks(skip_browser=True, may_start=lambda: clock() < deadline)
+        if clock() >= deadline:
+            result.budget_exhausted = True
+        result.events_pruned = self.prune_events()
+        return result
 
     def prune_events(self) -> int:
         with session_scope(self.session_factory) as session:

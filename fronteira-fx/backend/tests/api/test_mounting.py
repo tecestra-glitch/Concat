@@ -10,7 +10,7 @@ from tests.conftest import make_settings
 
 # 36 operations when the plan was written + `memory_summary` (B10) + the pregão's `/v1/candles`,
 # `/v1/pregao/stats` and `/v1/pregao/sessions`. Bump deliberately when adding an endpoint.
-EXPECTED_OPERATIONS = 40
+EXPECTED_OPERATIONS = 41  # +1: internal_collect (POST /v1/internal/collect, agendador)
 MODULE_ONLY_OPERATIONS = {"rag_add_document", "rag_list_documents", "watch_update_source"}
 
 

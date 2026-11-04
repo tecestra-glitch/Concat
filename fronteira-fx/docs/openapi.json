@@ -3739,6 +3739,84 @@
           }
         }
       }
+    },
+    "/v1/internal/collect": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Uma rodada de coleta disparada de fora (agendador); sem navegador",
+        "operationId": "internal_collect",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectRoundOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "segredo ausente ou errado (Authorization: Bearer <CRON_SECRET>)"
+          },
+          "404": {
+            "description": "CRON_SECRET não definido nesta instância"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4579,6 +4657,93 @@
           "summary"
         ],
         "title": "ChangeOut"
+      },
+      "CollectRoundOut": {
+        "properties": {
+          "duration_ms": {
+            "type": "integer",
+            "title": "Duration Ms"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          },
+          "budget_s": {
+            "type": "number",
+            "title": "Budget S"
+          },
+          "budget_exhausted": {
+            "type": "boolean",
+            "title": "Budget Exhausted"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/CollectedSourceOut"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedSourceOut"
+            },
+            "type": "array",
+            "title": "Skipped"
+          },
+          "tasks_processed": {
+            "type": "integer",
+            "title": "Tasks Processed"
+          },
+          "events_pruned": {
+            "type": "integer",
+            "title": "Events Pruned"
+          }
+        },
+        "type": "object",
+        "required": [
+          "duration_ms",
+          "data_mode",
+          "budget_s",
+          "budget_exhausted",
+          "sources",
+          "skipped",
+          "tasks_processed",
+          "events_pruned"
+        ],
+        "title": "CollectRoundOut"
+      },
+      "CollectedSourceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "health": {
+            "type": "string",
+            "title": "Health"
+          },
+          "changed": {
+            "type": "boolean",
+            "title": "Changed"
+          },
+          "quotes_stored": {
+            "type": "integer",
+            "title": "Quotes Stored"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "health",
+          "changed",
+          "quotes_stored"
+        ],
+        "title": "CollectedSourceOut"
       },
       "Coverage": {
         "properties": {
@@ -6613,6 +6778,24 @@
           "search"
         ],
         "title": "SimulationResponse"
+      },
+      "SkippedSourceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "reason"
+        ],
+        "title": "SkippedSourceOut"
       },
       "SnapshotOut": {
         "properties": {

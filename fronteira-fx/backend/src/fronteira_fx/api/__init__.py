@@ -9,6 +9,7 @@ from . import (
     evidence,
     health,
     history,
+    internal,
     journal,
     memory,
     opportunities,
@@ -40,6 +41,7 @@ for module in (
     alerts,
     rag,
     memory,
+    internal,
 ):
     # SEC-01: `?data_mode=` that differs from the instance mode → 409. Health stays open: it is how a
     # client discovers which mode this instance serves.

@@ -95,6 +95,15 @@ def api_key_matches(settings: Settings, x_api_key: str | None, authorization: st
     return False
 
 
+def cron_secret_matches(settings: Settings, authorization: str | None) -> bool:
+    """Bearer comparison for the scheduler's route (POST /v1/internal/collect). Never matches when unset."""
+    if not settings.cron_secret_enabled or not settings.cron_secret:
+        return False
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return False
+    return _same_secret(authorization[7:].strip(), settings.cron_secret.strip())
+
+
 def require_api_key(
     settings: SettingsDep,
     x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
