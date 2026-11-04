@@ -33,6 +33,9 @@ TRIANGLE_STORE_LIMIT = 200  # ordenados por ROI; a API filtra min_roi, start e l
 # DEFAULT_SETTINGS.defaultCapital). Com saldo cadastrado vale o saldo real e este número é ignorado.
 TRIANGLE_NOTIONAL_BRL = Decimal("5000")
 INDICATOR_INTERVALS = ("5m", "1d")
+# Velas diárias lidas para os indicadores: ADX 14 pede 28 e a nuvem de Ichimoku vigente (52 + 26), 78. Com só as 20 da
+# volatilidade o diário ficaria para sempre em insufficient_data.
+INDICATOR_DAILY_CANDLES = 99
 INSTRUMENTS = tuple(inst for _sym, _label, inst in q.BINANCE_SYMBOLS)
 INDICATOR_FIELDS = (
     "rsi_14",
@@ -153,7 +156,7 @@ def refresh_reads(session: Session, settings: Settings, now: datetime) -> int:
         store_read(session, TRIANGLE_KIND, mode, data_mode, cycles, now)
         written += 1
     for instrument in INSTRUMENTS:
-        c5, c1 = load_candles(session, instrument, data_mode)
+        c5, c1 = load_candles(session, instrument, data_mode, daily_limit=INDICATOR_DAILY_CANDLES)
         for interval, candles in (("5m", c5), ("1d", c1)):
             at = now
             if data_mode == "demo" and candles:  # dados semeados: o relógio é o último fechamento

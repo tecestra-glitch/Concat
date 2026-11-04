@@ -45,9 +45,9 @@ REGION_GROUPS: dict[str, str] = {"binance-ticker": "binance", "binance-candles":
 FX_SOURCE = "frankfurter"
 BCB_SOURCE = "bcb-sgs"
 KEEP_5M_DAYS = 3
-KEEP_1D_DAYS = 60
+KEEP_1D_DAYS = 120  # os indicadores diários leem até 99 velas (ADX 14 pede 28; a nuvem de Ichimoku vigente, 78)
 BINANCE_LIMIT_5M = 300  # 288 velas fechadas + a aberta (descartada pelo parser)
-BINANCE_LIMIT_1D = 21  # 20 fechadas + a aberta
+BINANCE_LIMIT_1D = 100  # 99 fechadas + a aberta (a volatilidade usa as últimas 20; os indicadores, todas)
 
 
 def region_of(source_id: str) -> str:
@@ -470,8 +470,11 @@ class MarketPoller:
         )
 
 
-def load_candles(session: Session, instrument: str, data_mode: str) -> tuple[list[vol.Candle], list[vol.Candle]]:
-    """(velas de 5 min das últimas 24 h, velas diárias dos últimos 20 dias), em ordem cronológica."""
+def load_candles(
+    session: Session, instrument: str, data_mode: str, *, daily_limit: int = vol.LONG_DAYS
+) -> tuple[list[vol.Candle], list[vol.Candle]]:
+    """(velas de 5 min das últimas 24 h, últimas `daily_limit` velas diárias), em ordem cronológica. O padrão (20 dias)
+    é a janela da volatilidade; os indicadores pedem mais (`reads.INDICATOR_DAILY_CANDLES`)."""
 
     def fetch(interval: str, limit: int) -> list[vol.Candle]:
         rows = session.scalars(
@@ -486,7 +489,7 @@ def load_candles(session: Session, instrument: str, data_mode: str) -> tuple[lis
         ).all()
         return [vol.Candle(r.open_time, r.close_time, r.open, r.high, r.low, r.close) for r in reversed(rows)]
 
-    return fetch("5m", vol.SHORT_5M_PER_DAY), fetch("1d", vol.LONG_DAYS)
+    return fetch("5m", vol.SHORT_5M_PER_DAY), fetch("1d", daily_limit)
 
 
 def volatility_payload(snap: vol.VolatilitySnapshot) -> dict[str, Any]:

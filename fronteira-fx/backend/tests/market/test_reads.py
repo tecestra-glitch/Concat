@@ -106,3 +106,32 @@ def test_frequencia_vale_entre_instancias_serverless(market_factory):
     assert reads.ReadsRefresher(market_factory, market_settings()).maybe_refresh(T0) > 0
     assert reads.ReadsRefresher(market_factory, market_settings()).maybe_refresh(T0 + timedelta(seconds=45)) == 0
     assert reads.ReadsRefresher(market_factory, market_settings()).maybe_refresh(T0 + timedelta(seconds=61)) > 0
+
+
+def test_indicador_diario_le_mais_que_as_20_velas_da_volatilidade(db):
+    """Com 99 velas diárias fechadas o diário fica ok (ADX 14 pede 28; a nuvem vigente, 78). Antes só 20 eram lidas."""
+    day0 = (NOW - timedelta(days=100)).replace(hour=0, minute=0, second=0, microsecond=0)
+    for i in range(99):
+        close = Decimal(100 + (i % 13)) + Decimal(i) / 7
+        open_time = day0 + timedelta(days=i)
+        db.add(
+            MarketCandle(
+                instrument="BTC/USDT",
+                interval="1d",
+                open_time=open_time,
+                close_time=open_time + timedelta(days=1) - timedelta(milliseconds=1),
+                open=close - Decimal("0.5"),
+                high=close + Decimal("2"),
+                low=close - Decimal("2"),
+                close=close,
+                data_mode="real",
+            )
+        )
+    db.commit()
+    reads.refresh_reads(db, make_settings(), NOW)
+    db.commit()
+    row = reads.read_row(db, reads.INDICATOR_KIND, "BTC/USDT|1d", "real")
+    assert row is not None
+    assert row.payload["closed_candles"] == 99
+    assert row.payload["status"] == "ok"
+    assert row.payload["ichimoku_senkou_a"] is not None
