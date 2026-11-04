@@ -474,13 +474,18 @@ Em `demo` os dados são semeados e marcados `demo` (manchetes ilustrativas, link
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/v1/market/news?source=&since=&limit=50` | `NewsItem[]`, mais recente primeiro (1..200). `source`: `infomoney`, `agencia-brasil`, `bcb`, `mercopress`, `demo` |
+| GET | `/v1/market/news?source=&since=&limit=50` | `NewsItem[]`, mais recente primeiro (1..200). `source`: `investinglive`, `infomoney`, `agencia-brasil`, `bcb`, `mercopress`, `demo` |
+| GET | `/v1/market/sentiment?limit=30` | `SentimentReading[]`, Fear & Greed (Alternative.me), mais recente primeiro (1..90). Sempre com `attribution` e `executable: false` |
 | GET | `/v1/market/quotes` | `MarketQuote[]`, uma linha por instrumento (última referência) |
 | GET | `/v1/market/volatility` | `MarketVolatility[]`, um por instrumento cripto (BTC/USDT, ETH/USDT, USDT/BRL) |
 
 ```jsonc
 NewsItem { "id": "uuid", "source": "infomoney", "feed": "infomoney-economia", "title": "string (≤300)", "link": "https://...",
+  "excerpt": "string (≤281, sem HTML)|null (só investinglive)", "attribution": "Fonte: ... (sempre presente)",
   "published_at": "...|null", "captured_at": "...", "data_mode": "real" }
+SentimentReading { "index_id": "fng", "label": "Fear & Greed Index", "value": 34, "classification": "Fear",
+  "provider": "alternative.me", "observed_at": "...", "captured_at": "...",
+  "attribution": "Fear & Greed Index: Alternative.me (api.alternative.me/fng). ...", "executable": false, "data_mode": "real" }
 MarketQuote { "instrument": "USD/PYG", "label": "USD/PYG (guarani, via Frankfurter)", "kind": "crypto|fx_reference|bcb_series",
   "source": "binance|frankfurter|bcb", "price": "5958", "change_pct": "0.12|null", "observed_at": "...", "captured_at": "...",
   "executable": false, "note": "Referência de mercado. Não é preço executável nem cotação de casa de câmbio.", "data_mode": "real" }

@@ -39,6 +39,26 @@ describe("demonstração de notícias", () => {
     }
   });
 
+  it("exige atribuição em cada manchete (contrato do backend)", () => {
+    const semAtribuicao = { ...demoNews[0], attribution: undefined };
+    expect(NewsListSchema.safeParse([semAtribuicao]).success).toBe(false);
+  });
+
+  it("aceita manchete do investinglive com trecho curto e atribuição", () => {
+    const il = {
+      ...demoNews[0],
+      id: "il-1",
+      source: "investinglive",
+      feed: "investinglive",
+      data_mode: "real",
+      title: "Exemplo: PMI de serviços",
+      link: "https://investinglive.com/news/exemplo/",
+      excerpt: "Anterior 51,7.",
+      attribution: "Fonte: Investinglive.com (copyright Investinglive.com). Link para a matéria original.",
+    };
+    expect(NewsListSchema.safeParse([il]).success).toBe(true);
+  });
+
   it("filtra por fonte e respeita o limite", () => {
     expect(demoNewsList({ source: "bcb" })).toHaveLength(0);
     expect(demoNewsList({ source: "all", limit: 2 })).toHaveLength(2);

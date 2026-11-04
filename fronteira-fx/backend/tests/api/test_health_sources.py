@@ -72,6 +72,12 @@ def test_openapi_title_and_mcp_operations(client, app):
         "get_market_quotes",
         "get_market_volatility",
         "list_institutions",
+        "list_market_sentiment",
+        "get_crypto_quotes",
+        "get_triangles",
+        "list_fx_references",
+        "get_macro_series",
+        "get_market_indicators",
     }
     assert set(tools) == contract_tools and len(tools) == len(contract_tools)
     assert any(getattr(r, "path", "") == "/mcp" for r in app.routes)

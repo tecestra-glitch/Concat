@@ -446,16 +446,36 @@ class Task(Base):
 
 
 class NewsItem(Base):
-    """Manchete de feed público (módulo `market`): só título, link, fonte e horários. Nada de texto da matéria."""
+    """Manchete de feed público (módulo `market`): título, link, fonte, horários e, só em feed que autoriza, um
+    trecho curto. Nunca o texto inteiro da matéria."""
 
     __tablename__ = "news_items"
+    __table_args__ = (Index("ix_news_items_feed_guid", "feed", "guid"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    source: Mapped[str] = mapped_column(String(32), index=True)  # infomoney | agencia-brasil | bcb | mercopress | demo
+    source: Mapped[str] = mapped_column(String(32), index=True)  # investinglive | infomoney | bcb | ... | demo
     feed: Mapped[str] = mapped_column(String(48))  # id do feed de origem (ex.: infomoney-economia)
     title: Mapped[str] = mapped_column(Text)
     link: Mapped[str] = mapped_column(String(2048), unique=True)  # deduplicação por link
+    guid: Mapped[str | None] = mapped_column(String(512), nullable=True)  # deduplicação por guid dentro do feed
+    excerpt: Mapped[str | None] = mapped_column(String(400), nullable=True)  # trecho curto (≤ 281 caracteres)
     published_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True, index=True)
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class SentimentReading(Base):
+    """Leitura de sentimento de mercado (Fear & Greed, Alternative.me). Tendência com atribuição; nunca executável."""
+
+    __tablename__ = "sentiment_readings"
+    __table_args__ = (UniqueConstraint("index_id", "observed_at", "data_mode", name="uq_sentiment_reading"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    index_id: Mapped[str] = mapped_column(String(32))  # fng
+    provider: Mapped[str] = mapped_column(String(32))  # alternative.me
+    value: Mapped[int] = mapped_column(Integer)  # 0 (medo extremo) a 100 (ganância extrema)
+    classification: Mapped[str] = mapped_column(String(32))  # rótulo do provedor, ex.: Fear
+    observed_at: Mapped[datetime] = mapped_column(UTCDateTime)
     captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
 

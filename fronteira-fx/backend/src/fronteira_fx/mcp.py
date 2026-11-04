@@ -34,6 +34,12 @@ MCP_OPERATIONS: list[str] = [
     "list_market_news",
     "get_market_quotes",
     "get_market_volatility",
+    "list_market_sentiment",
+    "get_crypto_quotes",
+    "get_triangles",
+    "list_fx_references",
+    "get_macro_series",
+    "get_market_indicators",
 ]
 
 

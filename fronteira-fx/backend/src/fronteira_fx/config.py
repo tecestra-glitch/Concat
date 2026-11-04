@@ -9,7 +9,7 @@ from functools import lru_cache
 from typing import Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 log = logging.getLogger("fronteira_fx.config")
@@ -103,11 +103,18 @@ class Settings(BaseSettings):
     fx_reference_deviation_alert_pct: Decimal = Field(
         default=Decimal("1.0"), gt=0, validation_alias=AliasChoices("FX_REFERENCE_DEVIATION_ALERT_PCT")
     )
+    # Macro (módulo market). Só variáveis de ambiente, tipo SecretStr (não aparece em repr). Sem FRED_API_KEY a
+    # fonte FRED fica desligada. BRAPI_TOKEN só serve a testes e validação manual da B3 (nunca ao agendador).
+    fred_api_key: SecretStr | None = Field(default=None, validation_alias=AliasChoices("FRED_API_KEY"))
+    brapi_token: SecretStr | None = Field(default=None, validation_alias=AliasChoices("BRAPI_TOKEN"))
     # slippage por perna de exchange de cripto (fração: 0,0005 = 0,05%), somado ao VWAP do tamanho alvo. Premissa
     # configurável, não é taxa de fonte; zero é aceito mas o dono deve escolher um valor consciente.
     crypto_slippage_pct: Decimal = Field(
         default=Decimal("0.0005"), ge=0, le=Decimal("0.05"), validation_alias=AliasChoices("FX_CRYPTO_SLIPPAGE_PCT")
     )
+    # cache em memória das rotas de leitura (/v1/market/*). Curto de propósito: a Vercel tem 4 h de CPU por mês.
+    # 0 desliga o cache. O mesmo valor vai no Cache-Control (private, max-age) das respostas.
+    read_cache_ttl_s: int = Field(default=60, ge=0, le=3600, validation_alias=AliasChoices("READ_CACHE_TTL_S"))
 
     # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
     # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).

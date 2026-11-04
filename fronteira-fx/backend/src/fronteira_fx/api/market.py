@@ -13,7 +13,9 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
+from ..market import news as news_mod
 from ..market import read as market_read
+from ..market import sentiment as sentiment_mod
 from ..models import MarketQuote, NewsItem
 from .deps import DataModeDep, DbDep
 
@@ -28,8 +30,23 @@ class NewsOut(BaseModel):
     feed: str
     title: str
     link: str
+    excerpt: str | None  # trecho curto; só em feed que autoriza (hoje investinglive), senão null
+    attribution: str  # sempre presente: quem é a fonte e de onde vem o item
     published_at: datetime | None
     captured_at: datetime
+    data_mode: str
+
+
+class SentimentOut(BaseModel):
+    index_id: str
+    label: str
+    value: int
+    classification: str
+    provider: str
+    observed_at: datetime
+    captured_at: datetime
+    attribution: str
+    executable: Literal[False] = False
     data_mode: str
 
 
@@ -69,7 +86,8 @@ def list_news(
     db: DbDep,
     data_mode: DataModeDep,
     source: Annotated[
-        str | None, Query(max_length=32, description="infomoney | agencia-brasil | bcb | mercopress | demo")
+        str | None,
+        Query(max_length=32, description="investinglive | infomoney | agencia-brasil | bcb | mercopress | demo"),
     ] = None,
     since: Annotated[datetime | None, Query(description="só manchetes publicadas (ou capturadas) a partir de")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -88,11 +106,39 @@ def list_news(
             feed=r.feed,
             title=r.title,
             link=r.link,
+            excerpt=r.excerpt,
+            attribution=news_mod.attribution_for(r.feed),
             published_at=r.published_at,
             captured_at=r.captured_at,
             data_mode=r.data_mode,
         )
         for r in rows
+    ]
+
+
+@router.get(
+    "/sentiment",
+    operation_id="list_market_sentiment",
+    summary="Sentimento de mercado (Fear & Greed, Alternative.me), com atribuição; nunca executável",
+)
+def list_sentiment(
+    db: DbDep,
+    data_mode: DataModeDep,
+    limit: Annotated[int, Query(ge=1, le=90)] = 30,
+) -> list[SentimentOut]:
+    return [
+        SentimentOut(
+            index_id=r.index_id,
+            label=sentiment_mod.FNG_LABEL,
+            value=r.value,
+            classification=r.classification,
+            provider=r.provider,
+            observed_at=r.observed_at,
+            captured_at=r.captured_at,
+            attribution=sentiment_mod.FNG_ATTRIBUTION,
+            data_mode=r.data_mode,
+        )
+        for r in sentiment_mod.list_readings(db, data_mode, limit)
     ]
 
 

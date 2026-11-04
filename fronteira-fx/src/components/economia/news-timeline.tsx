@@ -25,7 +25,7 @@ export function NewsTimeline({ items, loading, error, source, onSourceChange }: 
       <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle>Manchetes</CardTitle>
-          <CardDescription>Título, fonte e hora, com link para a matéria original. O texto das matérias não é guardado.</CardDescription>
+          <CardDescription>Título, fonte e hora, com link para a matéria original. Só a fonte que autoriza traz trecho curto; o texto das matérias não é guardado.</CardDescription>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="news-source">Fonte</Label>
@@ -67,6 +67,8 @@ export function NewsTimeline({ items, loading, error, source, onSourceChange }: 
                   ) : (
                     <span className="break-words text-sm font-medium">{item.title}</span>
                   )}
+                  {item.excerpt && <p className="break-words text-xs text-muted">{item.excerpt}</p>}
+                  <p className="break-words text-xs text-muted" data-testid="news-attribution">{item.attribution}</p>
                 </li>
               );
             })}
