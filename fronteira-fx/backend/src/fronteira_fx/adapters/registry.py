@@ -5,7 +5,21 @@ only as history (and for the demo data until that is migrated); it is no longer 
 """
 from __future__ import annotations
 
-from . import alberdi, bcp, bonanza, chaco, dolarpy, maxicambios, myd, nomad, norte, revolut, westernunion
+from . import (
+    alberdi,
+    basa,
+    bcp,
+    bonanza,
+    chaco,
+    dolarpy,
+    familiar,
+    maxicambios,
+    myd,
+    nomad,
+    norte,
+    revolut,
+    westernunion,
+)
 from .base import Adapter
 
 _ALL: tuple[Adapter, ...] = (
@@ -20,6 +34,8 @@ _ALL: tuple[Adapter, ...] = (
     maxicambios.adapter,
     myd.adapter,
     dolarpy.adapter,
+    basa.adapter,
+    familiar.adapter,
 )
 
 # Sorted by id: the API and the collector enumerate sources in this order, so it must not depend on import order.

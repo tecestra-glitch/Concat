@@ -326,6 +326,9 @@ class Collector:
             source.last_success_at = now
         real_changes = [c for c in changes if c.kind == "quote_change" and c.before]
         changed: bool | None = None if (not previous and not real_changes) else bool(real_changes) and new_capture
+        # Only content that parsed OK may be revalidated: a 304 skips the parser, so a validator kept after a failed
+        # or partial parse would hide a parser fix until the site changes. Otherwise the watch forgets them.
+        revalidate = result.status == AdapterStatus.OK
         watch_svc.after_run(
             ws,
             now=now,
@@ -333,10 +336,13 @@ class Collector:
             changed=changed,
             status=str(result.status),
             content_hash=content_hash,
-            etag=etag,
-            last_modified=last_modified,
+            etag=etag if revalidate else None,
+            last_modified=last_modified if revalidate else None,
             backoff_max_s=self.settings.backoff_max_s,
         )
+        if not revalidate:
+            ws.etag = None
+            ws.last_modified = None
         if failed:  # classic exponential backoff on the Source schedule too
             ws.next_run_at = now + backoff_delay(
                 source.poll_interval_s, source.consecutive_failures, self.settings.backoff_max_s

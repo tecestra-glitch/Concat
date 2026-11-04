@@ -297,6 +297,38 @@ async def test_conditional_get_skips_parse_on_304_and_stores_validators(session_
         assert s.scalar(select(func.count(Evidence.id))) == 1
 
 
+class BrokenConditionalAdapter(ConditionalAdapter):
+    """Parses every body to ERROR (layout drift); the collector still does the conditional GET."""
+
+    def parse(self, raw, *, captured_at, url, **params):
+        self.parsed += 1
+        return AdapterResult(status=AdapterStatus.ERROR, quotes=[], evidence=None, message="layout changed")
+
+
+@respx.mock
+async def test_failed_parse_does_not_keep_validators(session_factory, tmp_path):
+    """A 200 that fails to parse must not leave its validators behind: the next poll has to fetch and parse the
+    same content again, because a 304 skips the parser and a parser fix would never reach it."""
+    settings = make_settings(evidence_dir=str(tmp_path))
+    clock = Clock()
+    adapter = BrokenConditionalAdapter()
+    collector = Collector(session_factory, settings, adapters={"chaco": adapter}, now_fn=clock)
+    route = respx.get(adapter.info.url).mock(
+        return_value=httpx.Response(200, text="<p>x</p>", headers={"ETag": '"v1"', "Last-Modified": LAST_MODIFIED})
+    )
+    out = (await collector.run_once())[0]
+    assert out.status == "error" and adapter.parsed == 1
+    with session_factory() as s:
+        ws = s.get(WatchState, "chaco")
+        assert ws.etag is None and ws.last_modified is None
+
+    clock.t = NOW + timedelta(hours=2)
+    out = (await collector.run_once())[0]
+    assert "If-None-Match" not in route.calls.last.request.headers
+    assert "If-Modified-Since" not in route.calls.last.request.headers
+    assert adapter.parsed == 2 and out.status == "error" and out.status != "not_modified"
+
+
 @respx.mock
 async def test_conditional_get_blocked_is_recorded_without_second_request(session_factory):
     adapter = ConditionalAdapter()
@@ -319,7 +351,7 @@ async def test_on_demand_request_uses_adapter_fetch(session_factory):
 
 
 @respx.mock
-@pytest.mark.parametrize("source_id", ["maxicambios", "myd"])
+@pytest.mark.parametrize("source_id", ["maxicambios", "myd", "basa", "familiar"])
 async def test_registered_html_adapters_use_conditional_get(session_factory, tmp_path, source_id):
     """Q-05 / B8: the pure-parse html adapters (one GET of `info.url`, then `parse`) opt in, so production
     polls send If-None-Match / If-Modified-Since and a 304 skips parsing."""
