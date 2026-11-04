@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Text,
     TypeDecorator,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
@@ -440,3 +441,62 @@ class Task(Base):
     result: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class ExecutionPlan(Base):
+    """Plano de execução: só organiza os passos de um ciclo. Nada aqui move dinheiro (fase A).
+
+    `status`: proposed → approved → in_progress → done; ou rejected; ou expired (a cotação mais velha do plano
+    passou de `quote_max_age_s` antes de começar a execução). Aprovar só grava a decisão do dono.
+    """
+
+    __tablename__ = "execution_plans"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    status: Mapped[str] = mapped_column(String(16), default="proposed", index=True)
+    start: Mapped[str] = mapped_column(String(120))
+    path: Mapped[list[Any]] = mapped_column(JSONType, default=list)
+    currency: Mapped[str] = mapped_column(String(3))
+    amount_in: Mapped[Decimal] = mapped_column(Money)
+    amount_out_expected: Mapped[Decimal] = mapped_column(Money)
+    gain_expected: Mapped[Decimal] = mapped_column(Money)
+    gain_by_currency: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    confidence: Mapped[str] = mapped_column(String(16))
+    minutes: Mapped[int] = mapped_column(Integer, default=0)
+    requires_declaration: Mapped[bool] = mapped_column(Boolean, default=False)
+    # foto do ciclo no momento do plano: arestas, pernas, custos e as cotações usadas
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    quotes_as_of: Mapped[datetime] = mapped_column(UTCDateTime)
+    quote_max_age_s: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+    steps: Mapped[list[ExecutionStep]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan", order_by="ExecutionStep.n"
+    )
+
+
+class ExecutionStep(Base):
+    __tablename__ = "execution_steps"
+    __table_args__ = (UniqueConstraint("plan_id", "n", name="uq_execution_steps_plan_n"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("execution_plans.id", ondelete="CASCADE"), index=True)
+    n: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(16))  # exchange | transfer | travel | deposit | withdraw
+    channel: Mapped[str] = mapped_column(String(16))  # presencial | assistida | automatizavel
+    text: Mapped[str] = mapped_column(Text)
+    node_from: Mapped[str] = mapped_column(String(120))
+    node_to: Mapped[str] = mapped_column(String(120))
+    amount_in: Mapped[Decimal] = mapped_column(Money)
+    amount_out_expected: Mapped[Decimal] = mapped_column(Money)
+    minutes: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | done
+    actual_out: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    done_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+    plan: Mapped[ExecutionPlan] = relationship(back_populates="steps")

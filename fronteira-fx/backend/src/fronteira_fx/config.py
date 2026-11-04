@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
     alert_http_timeout_s: float = 10.0
     quotes_lookback_s: int = 7 * 86400  # how far back "latest per context" looks
+    # idade máxima da cotação mais velha de um plano antes de ele expirar (sem execução iniciada)
+    plan_quote_max_age_s: int = 900
 
     # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
     # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).
