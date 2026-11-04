@@ -47,9 +47,9 @@ def test_empty_infomoney_channels_are_an_empty_list_not_an_error(name):
     assert parse_feed(read_fixture(name)) == []
 
 
-def test_only_title_link_and_date_are_kept():
-    # nenhum campo de texto da matéria (descrição, conteúdo) existe no modelo de saída
-    assert [f.name for f in fields(NewsEntry)] == ["title", "link", "published_at"]
+def test_only_title_link_date_guid_and_excerpt_are_kept():
+    # nenhum campo de texto da matéria além do trecho curto (que só existe em feed que autoriza) está no modelo
+    assert [f.name for f in fields(NewsEntry)] == ["title", "link", "published_at", "guid", "excerpt"]
 
 
 def test_doctype_and_entities_are_refused():
@@ -84,6 +84,6 @@ def test_feed_registry_has_the_confirmed_sources_and_safe_intervals():
     ids = set(FEEDS_BY_ID)
     assert {"infomoney", "infomoney-economia", "infomoney-mercados", "agencia-brasil-economia"} <= ids
     assert {"bcb-copom-comunicados", "bcb-copom-atas", "mercopress-paraguay", "mercopress-economy"} <= ids
-    assert len(FEEDS) == len(ids) == 8
+    assert len(FEEDS) == len(ids) == 9
     assert all(f.poll_interval_s >= 60 for f in FEEDS)
     assert all(f.url.startswith("https://") for f in FEEDS)

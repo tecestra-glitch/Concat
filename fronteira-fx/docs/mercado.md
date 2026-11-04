@@ -14,6 +14,7 @@ Fonte da pesquisa que embasou esta fase: `dev/discovery/mercado.md` (fora do Git
 
 | Fonte | Feed | Intervalo de consulta |
 |---|---|---|
+| Investinglive (RSS 2.0, copyright Investinglive.com) | `investinglive.com/feed/` | 60 s |
 | InfoMoney | `infomoney.com.br/feed/`, `/economia/feed/`, `/mercados/feed/` | 60 s |
 | Agência Brasil (economia) | `agenciabrasil.ebc.com.br/rss/economia/feed.xml` | 60 s |
 | Banco Central (Copom) | comunicados e atas (Atom) | 5 min |
@@ -22,7 +23,16 @@ Fonte da pesquisa que embasou esta fase: `dev/discovery/mercado.md` (fora do Git
 Guardamos **só**: título (até 300 caracteres), link para a matéria original, fonte, hora de publicação e hora de
 captura. O InfoMoney reserva os direitos do texto, então **nenhum texto de matéria é guardado**.
 
-- Itens repetidos (mesmo link) são ignorados.
+- Investinglive: além disso guarda um **trecho curto** (até 280 caracteres, sem HTML, sem script nem estilo) e o
+  `guid` do feed, só para deduplicar. Cada manchete mostra a atribuição "Fonte: Investinglive.com (copyright
+  Investinglive.com)" e o link para a matéria original. Autor não é guardado.
+- Itens repetidos (mesmo `guid` dentro do feed, ou mesmo link em qualquer feed) são ignorados.
+
+### Sentimento (Fear & Greed, Alternative.me, sem chave)
+
+- `api.alternative.me/fng/`, uma leitura por dia, consultada no máximo a cada hora. Guarda valor (0 a 100), rótulo,
+  data da observação e hora da captura. Sempre com a atribuição "Fear & Greed Index: Alternative.me".
+- Não é preço nem sinal de execução: `executable: false`. Sem chave, sem variável de ambiente nova.
 - Os feeds `/economia/feed/` e `/mercados/feed/` do InfoMoney vieram **vazios** na conferência. Não é erro: o sistema
   trata feed vazio como lista vazia.
 - Texto vindo de feed é **dado não confiável**. A tela mostra tudo como texto escapado e nenhum modelo recebe esse

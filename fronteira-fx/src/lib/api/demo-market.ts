@@ -24,6 +24,8 @@ export const demoNews: NewsItem[] = HEADLINES.map((h, i) => ({
   feed: "demo-ilustrativo",
   title: h.title,
   link: `https://demo.invalid/manchete/${i + 1}`,
+  excerpt: null,
+  attribution: "Dados ilustrativos (demonstração), não são notícias reais.",
   published_at: at(h.minutesAgo),
   captured_at: at(0),
   data_mode: "demo",
