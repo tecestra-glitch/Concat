@@ -58,14 +58,14 @@ def _ok_body(scenario: dict | None = None, *, png: bool = True) -> dict:
     return body
 
 
-async def _fetch():
-    return await wu.adapter.fetch(amount_brl="5000", payment="pix", receive="bank_account")
+async def _fetch(**extra):
+    return await wu.adapter.fetch(amount_brl="5000", payment="pix", receive="bank_account", **extra)
 
 
 @respx.mock
 async def test_remote_ok_parses_scenario_and_stores_screenshot(remote) -> None:
     route = respx.post(ENDPOINT).mock(return_value=httpx.Response(200, json=_ok_body()))
-    res = await _fetch()
+    res = await _fetch(screenshot=True)
 
     assert res.status == AdapterStatus.OK, res.message
     assert res.quotes[0].buy == Decimal("1080.3742")  # 5,401,871 / 5,000
@@ -187,3 +187,17 @@ async def test_without_remote_config_nothing_changes(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(builtins, "__import__", no_playwright)
     res = await _fetch()
     assert res.status == AdapterStatus.DEGRADED and "playwright" in (res.message or "").lower()
+
+
+@respx.mock
+async def test_remote_asks_for_screenshot_only_after_a_failure(remote) -> None:
+    wu.adapter.remote_last_ok = True
+    route = respx.post(ENDPOINT).mock(
+        side_effect=[httpx.Response(200, json={"status": "degraded", "message": "x", "trail": []}),
+                     httpx.Response(200, json=_ok_body())],
+    )
+    await _fetch()  # sem captura pedida, e a execução anterior estava OK
+    assert json.loads(route.calls[0].request.content)["screenshot"] is False
+    await _fetch()  # a anterior falhou: a captura entra para entender a falha
+    assert json.loads(route.calls[1].request.content)["screenshot"] is True
+    wu.adapter.remote_last_ok = True
