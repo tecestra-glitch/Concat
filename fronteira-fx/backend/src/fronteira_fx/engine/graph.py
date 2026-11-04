@@ -14,7 +14,18 @@ from typing import Any, Literal
 from ..decimal_utils import ONE, ZERO, fmt
 from .routes import Confidence, combine_confidence
 
-EdgeKind = Literal["quote", "transfer", "deposit", "withdraw"]
+EdgeKind = Literal["quote", "transfer", "deposit", "withdraw", "travel"]
+LegKind = Literal["exchange", "transfer", "travel", "deposit", "withdraw"]
+Channel = Literal["presencial", "assistida", "automatizavel"]
+# Nome da perna para o usuário: a aresta `quote` é uma troca; as demais mantêm o nome da aresta.
+LEG_KIND: dict[str, LegKind] = {
+    "quote": "exchange",
+    "transfer": "transfer",
+    "travel": "travel",
+    "deposit": "deposit",
+    "withdraw": "withdraw",
+}
+COST_KEYS = ("spread", "fees", "iof", "transport")
 
 
 def node(currency: str, venue: str) -> str:
@@ -23,6 +34,25 @@ def node(currency: str, venue: str) -> str:
 
 def node_currency(n: str) -> str:
     return n.split("@", 1)[0]
+
+
+@dataclass(frozen=True, slots=True)
+class LegCosts:
+    """Custos de uma perna, na moeda de origem da perna. `spread` é None quando não há taxa de valoração."""
+
+    spread: Decimal | None
+    fees: Decimal
+    iof: Decimal
+    transport: Decimal
+
+    def as_dict(self, currency: str) -> dict[str, Any]:
+        return {
+            "currency": currency,
+            "spread": fmt(self.spread) if self.spread is not None else None,
+            "fees": fmt(self.fees),
+            "iof": fmt(self.iof),
+            "transport": fmt(self.transport),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,9 +70,25 @@ class Edge:
     # amount window (in the source currency) the quote is valid for; None = unbounded
     min_in: Decimal | None = None
     max_in: Decimal | None = None
+    iof_pct: Decimal = ZERO  # IOF on the input amount (BRL convertido por instituição brasileira)
+    transport_fixed: Decimal = ZERO  # custo de deslocamento, na moeda de saída (travel: a mesma moeda)
+    # taxa de referência (valoração) na mesma unidade de `rate`; mede o spread. None = desconhecida.
+    mid_rate: Decimal | None = None
+    channel: Channel = "presencial"
+    border: bool = False  # a perna cruza a fronteira BR↔PY
 
     def apply(self, amount: Decimal) -> Decimal:
-        return amount * (ONE - self.fee_pct) * self.rate - self.fee_fixed
+        return amount * (ONE - self.fee_pct - self.iof_pct) * self.rate - self.fee_fixed - self.transport_fixed
+
+    def leg_costs(self, amount: Decimal) -> LegCosts:
+        """Custos da perna convertidos para a moeda de origem (`amount` nessa moeda)."""
+        spread = amount * (ONE - self.rate / self.mid_rate) if self.mid_rate else None
+        return LegCosts(
+            spread=spread,
+            fees=amount * self.fee_pct + self.fee_fixed / self.rate,
+            iof=amount * self.iof_pct,
+            transport=self.transport_fixed / self.rate,
+        )
 
     def accepts(self, amount: Decimal) -> bool:
         """True when `amount` (in the source currency) is inside the edge's amount window."""
@@ -65,6 +111,37 @@ class Edge:
             "via": self.via,
             "confidence": self.confidence,
             "evidence_id": self.evidence_id,
+            "channel": self.channel,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class Leg:
+    """Uma perna executada por um ciclo, com montante de entrada/saída e custos na moeda de origem."""
+
+    kind: LegKind
+    channel: Channel
+    src: str
+    dst: str
+    via: str
+    minutes: int
+    border: bool
+    amount_in: Decimal
+    amount_out: Decimal
+    costs: LegCosts
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "channel": self.channel,
+            "from": self.src,
+            "to": self.dst,
+            "via": self.via,
+            "minutes": self.minutes,
+            "border": self.border,
+            "amount_in": fmt(self.amount_in),
+            "amount_out": fmt(self.amount_out),
+            "costs": self.costs.as_dict(node_currency(self.src)),
         }
 
 
@@ -77,6 +154,11 @@ class Cycle:
     amount_out: Decimal
     minutes: int
     confidence: Confidence
+    legs: tuple[Leg, ...] = ()
+    # preenchidos por `services.cycles.enrich_cycle` (precisam das taxas de valoração)
+    gain_by_currency: dict[str, Decimal | None] | None = None
+    costs: dict[str, Decimal | None] | None = None  # spread/fees/iof/transport, na moeda de partida
+    requires_declaration: bool = False
 
     @property
     def gain(self) -> Decimal:
@@ -92,13 +174,23 @@ class Cycle:
             "start": self.start,
             "path": list(self.path),
             "edges": [e.to_dict() for e in self.edges],
+            "legs": [leg.to_dict() for leg in self.legs],
             "amount_in": fmt(self.amount_in),
             "amount_out": fmt(self.amount_out),
             "gain": fmt(self.gain),
             "roi": fmt(self.roi),
+            "gain_by_currency": _money_map(self.gain_by_currency),
+            "costs": _money_map(self.costs),
+            "requires_declaration": self.requires_declaration,
             "minutes": self.minutes,
             "confidence": self.confidence,
         }
+
+
+def _money_map(values: dict[str, Decimal | None] | None) -> dict[str, str | None] | None:
+    if values is None:
+        return None
+    return {k: (fmt(v) if v is not None else None) for k, v in values.items()}
 
 
 @dataclass(slots=True)
@@ -129,8 +221,24 @@ class Graph:
 
     def evaluate(self, start: str, edges: tuple[Edge, ...], amount_in: Decimal) -> Cycle:
         x = amount_in
+        legs: list[Leg] = []
         for e in edges:
-            x = e.apply(x)
+            out = e.apply(x)
+            legs.append(
+                Leg(
+                    kind=LEG_KIND[e.kind],
+                    channel=e.channel,
+                    src=e.src,
+                    dst=e.dst,
+                    via=e.via,
+                    minutes=e.minutes,
+                    border=e.border,
+                    amount_in=x,
+                    amount_out=out,
+                    costs=e.leg_costs(x),
+                )
+            )
+            x = out
         path = (start, *(e.dst for e in edges))
         return Cycle(
             start=start,
@@ -140,6 +248,7 @@ class Graph:
             amount_out=x,
             minutes=sum(e.minutes for e in edges),
             confidence=combine_confidence(*(e.confidence for e in edges)),
+            legs=tuple(legs),
         )
 
     def simple_cycles_from(

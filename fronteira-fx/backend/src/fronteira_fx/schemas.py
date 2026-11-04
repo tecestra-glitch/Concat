@@ -369,7 +369,10 @@ class RouteResultOut(ApiModel):
 
 # ---- position graph / cycles (D1: snake_case, money as decimal strings) -------------------------
 
-EdgeKind = Literal["quote", "transfer", "deposit", "withdraw"]
+EdgeKind = Literal["quote", "transfer", "deposit", "withdraw", "travel"]
+LegKind = Literal["exchange", "transfer", "travel", "deposit", "withdraw"]
+# presencial: casa, dinheiro vivo, deslocamento; assistida: o usuário faz pelo app do banco; automatizavel: nenhuma hoje
+ChannelKind = Literal["presencial", "assistida", "automatizavel"]
 
 
 class EdgeOut(ApiModel):
@@ -383,16 +386,45 @@ class EdgeOut(ApiModel):
     via: str
     confidence: Confidence
     evidence_id: str | None = None
+    channel: ChannelKind = "presencial"
+
+
+class LegCostsOut(ApiModel):
+    """Custos de uma perna, na moeda em que foram pagos (`currency`). `spread` null = sem taxa de referência."""
+
+    currency: Currency
+    spread: DecStr | None = None
+    fees: DecStr
+    iof: DecStr
+    transport: DecStr
+
+
+class LegOut(ApiModel):
+    kind: LegKind
+    channel: ChannelKind
+    from_: str = Field(alias="from", serialization_alias="from")
+    to: str
+    via: str
+    minutes: int
+    border: bool = False
+    amount_in: DecStr
+    amount_out: DecStr
+    costs: LegCostsOut
 
 
 class CycleOut(ApiModel):
     start: str
     path: list[str]
     edges: list[EdgeOut]
+    legs: list[LegOut] = []
     amount_in: DecStr
     amount_out: DecStr
     gain: DecStr
     roi: DecStr
+    # ganho líquido em BRL, USD e PYG (null quando falta taxa de valoração); custos na moeda de partida
+    gain_by_currency: dict[Currency, DecStr | None] | None = None
+    costs: dict[Literal["spread", "fees", "iof", "transport"], DecStr | None] | None = None
+    requires_declaration: bool = False
     minutes: int
     confidence: Confidence
     data_mode: DataMode
