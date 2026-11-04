@@ -1,2 +1,5 @@
 # Raiz de workspace própria: este projeto não é um pacote do workspace de fronteira-fx/.
 packages: []
+# node_modules sem links simbólicos: a Vercel recusa pacote de função com pastas por link,
+# e os binários do @sparticuz/chromium entram por includeFiles.
+nodeLinker: hoisted
