@@ -67,7 +67,8 @@ def test_reference_quotes_never_become_edges_or_conversions():
     ref_modality = quote(source_id="bcp", base="USD", modality="reference", kind="indicative", buy=D(7325), sell=D(7325))
     ref_kind = quote(source_id="bcp", base="USD", modality="transfer", kind="market_reference", buy=D(7325), sell=D(7325))
     graph, _ = build_graph([ref_modality, ref_kind], [])
-    assert graph.edges == []
+    # sem contas, o grafo só tem deslocamento entre cidades; nenhuma cotação de referência vira perna de troca
+    assert [e for e in graph.edges if e.kind == "quote"] == []
     assert conversions_from_quotes([ref_modality, ref_kind]) == []
 
 

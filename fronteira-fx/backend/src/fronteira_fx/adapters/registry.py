@@ -13,11 +13,13 @@ from . import (
     chaco,
     dolarpy,
     familiar,
+    icambio,
     maxicambios,
     myd,
     nomad,
     norte,
     revolut,
+    scappini,
     westernunion,
 )
 from .base import Adapter
@@ -36,6 +38,8 @@ _ALL: tuple[Adapter, ...] = (
     dolarpy.adapter,
     basa.adapter,
     familiar.adapter,
+    *icambio.ADAPTERS.values(),  # iguassu, cataratas, atlas (Foz do Iguaçu, plataforma iCâmbio)
+    scappini.adapter,
 )
 
 # Sorted by id: the API and the collector enumerate sources in this order, so it must not depend on import order.
@@ -52,3 +56,8 @@ def get_adapter(adapter_id: str) -> Adapter:
 
 def list_adapters() -> list[Adapter]:
     return list(ADAPTERS.values())
+
+
+def active_adapters() -> dict[str, Adapter]:
+    """Adaptadores que o coletor e o monitor sondam: sem as fontes descontinuadas (o histórico fica no banco)."""
+    return {aid: a for aid, a in ADAPTERS.items() if not a.info.discontinued}

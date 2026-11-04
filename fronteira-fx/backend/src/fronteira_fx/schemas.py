@@ -6,14 +6,14 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
 
 from .decimal_utils import fmt
 
 DecStr = Annotated[Decimal, PlainSerializer(lambda v: fmt(v), return_type=str, when_used="json-unless-none")]
 
 Currency = Literal["BRL", "USD", "PYG"]
-City = Literal["CDE", "ASU", "PJC"]
+City = Literal["CDE", "ASU", "PJC", "FOZ"]
 Channel = Literal["digital", "physical", "aggregator"]
 Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]
 QuoteKind = Literal["market_reference", "indicative", "executable"]
@@ -372,7 +372,10 @@ class RouteResultOut(ApiModel):
 
 # ---- position graph / cycles (D1: snake_case, money as decimal strings) -------------------------
 
-EdgeKind = Literal["quote", "transfer", "deposit", "withdraw"]
+EdgeKind = Literal["quote", "transfer", "deposit", "withdraw", "travel"]
+LegKind = Literal["exchange", "transfer", "travel", "deposit", "withdraw"]
+# presencial: casa, dinheiro vivo, deslocamento; assistida: o usuário faz pelo app do banco; automatizavel: nenhuma hoje
+ChannelKind = Literal["presencial", "assistida", "automatizavel"]
 
 
 class EdgeOut(ApiModel):
@@ -386,16 +389,45 @@ class EdgeOut(ApiModel):
     via: str
     confidence: Confidence
     evidence_id: str | None = None
+    channel: ChannelKind = "presencial"
+
+
+class LegCostsOut(ApiModel):
+    """Custos de uma perna, na moeda em que foram pagos (`currency`). `spread` null = sem taxa de referência."""
+
+    currency: Currency
+    spread: DecStr | None = None
+    fees: DecStr
+    iof: DecStr
+    transport: DecStr
+
+
+class LegOut(ApiModel):
+    kind: LegKind
+    channel: ChannelKind
+    from_: str = Field(alias="from", serialization_alias="from")
+    to: str
+    via: str
+    minutes: int
+    border: bool = False
+    amount_in: DecStr
+    amount_out: DecStr
+    costs: LegCostsOut
 
 
 class CycleOut(ApiModel):
     start: str
     path: list[str]
     edges: list[EdgeOut]
+    legs: list[LegOut] = []
     amount_in: DecStr
     amount_out: DecStr
     gain: DecStr
     roi: DecStr
+    # ganho líquido em BRL, USD e PYG (null quando falta taxa de valoração); custos na moeda de partida
+    gain_by_currency: dict[Currency, DecStr | None] | None = None
+    costs: dict[Literal["spread", "fees", "iof", "transport"], DecStr | None] | None = None
+    requires_declaration: bool = False
     minutes: int
     confidence: Confidence
     data_mode: DataMode
@@ -444,7 +476,7 @@ class ChangeOut(ApiModel):
 
 # ---- alerts --------------------------------------------------------------------------------------
 
-AlertKind = Literal["cycle_roi", "quote_move", "source_down", "opportunity_new"]
+AlertKind = Literal["cycle_roi", "quote_move", "source_down", "opportunity_new", "cycle_net_gain"]
 AlertChannel = Literal["ui", "telegram", "webhook", "email"]
 
 
@@ -470,6 +502,18 @@ class AlertRuleCreate(ApiModel):
     target: str | None = None
     cooldown_s: int = Field(default=600, ge=0)
     enabled: bool = True
+
+    @model_validator(mode="after")
+    def _check_net_gain(self) -> AlertRuleCreate:
+        # cycle_net_gain: threshold é o ganho líquido mínimo, na moeda de params.currency
+        if self.kind != "cycle_net_gain":
+            return self
+        currency = (self.params or {}).get("currency")
+        if currency not in ("BRL", "USD", "PYG"):
+            raise ValueError("cycle_net_gain exige params.currency: BRL, USD ou PYG")
+        if self.threshold is None or self.threshold < 0:
+            raise ValueError("cycle_net_gain exige threshold (ganho líquido mínimo) maior ou igual a zero")
+        return self
 
 
 class AlertRulePatch(ApiModel):

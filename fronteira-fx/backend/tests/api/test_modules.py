@@ -68,12 +68,37 @@ def test_cycles_from_parked_balances(client, db):
     assert c0["path"][0] == c0["start"] == c0["path"][-1]
     # D1: snake_case, money as decimal strings, data_mode on every cycle
     assert set(c0) == {
-        "start", "path", "edges", "amount_in", "amount_out", "gain", "roi", "minutes", "confidence", "data_mode"
+        "start",
+        "path",
+        "edges",
+        "legs",
+        "amount_in",
+        "amount_out",
+        "gain",
+        "roi",
+        "gain_by_currency",
+        "costs",
+        "requires_declaration",
+        "minutes",
+        "confidence",
+        "data_mode",
     }
     assert isinstance(c0["amount_in"], str) and isinstance(c0["roi"], str) and c0["data_mode"] == "real"
     assert D(c0["amount_out"]) - D(c0["amount_in"]) == D(c0["gain"])
     e0 = c0["edges"][0]
-    assert set(e0) == {"from", "to", "kind", "rate", "fee_pct", "fee_fixed", "minutes", "via", "confidence", "evidence_id"}
+    assert set(e0) == {
+        "from",
+        "to",
+        "kind",
+        "rate",
+        "fee_pct",
+        "fee_fixed",
+        "minutes",
+        "via",
+        "confidence",
+        "evidence_id",
+        "channel",
+    }
     assert isinstance(e0["rate"], str) and isinstance(e0["fee_pct"], str) and isinstance(e0["fee_fixed"], str)
     assert e0["from"] == c0["path"][0] and c0["edges"][-1]["to"] == c0["start"]
     rois = [D(c["roi"]) for c in cycles]

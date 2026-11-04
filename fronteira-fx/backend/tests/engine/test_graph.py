@@ -85,12 +85,38 @@ def test_max_len_min_roi_and_balances_filter():
     positive = find_cycles(g, {start: D("5000")}, max_len=5, min_roi=D("0"))
     assert all(c.roi >= 0 for c in positive)
     d = positive[0].to_dict()
-    assert set(d) == {"start", "path", "edges", "amount_in", "amount_out", "gain", "roi", "minutes", "confidence"}
+    assert set(d) == {
+        "start",
+        "path",
+        "edges",
+        "legs",
+        "amount_in",
+        "amount_out",
+        "gain",
+        "roi",
+        "gain_by_currency",
+        "costs",
+        "requires_declaration",
+        "minutes",
+        "confidence",
+    }
     # money is a decimal string, never a float (D1)
     assert isinstance(d["amount_in"], str) and d["amount_in"] == "5000"
     assert isinstance(d["roi"], str) and abs(D(d["roi"]) - positive[0].roi) < D("1e-8")
     e0 = d["edges"][0]
-    assert set(e0) == {"from", "to", "kind", "rate", "fee_pct", "fee_fixed", "minutes", "via", "confidence", "evidence_id"}
+    assert set(e0) == {
+        "from",
+        "to",
+        "kind",
+        "rate",
+        "fee_pct",
+        "fee_fixed",
+        "minutes",
+        "via",
+        "confidence",
+        "evidence_id",
+        "channel",
+    }
     assert e0["from"] == "BRL@nubank" and isinstance(e0["rate"], str) and e0["fee_pct"] == "0"
 
 

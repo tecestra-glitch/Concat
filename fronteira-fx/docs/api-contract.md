@@ -15,7 +15,7 @@ modo demonstração e descobre o modo da instância por `GET /v1/health` (que nu
 ## Enumerações
 
 - `Currency`: `BRL | USD | PYG`
-- `City`: `CDE` (Ciudad del Este) | `ASU` (Asunción) | `PJC` (Pedro Juan Caballero) | `null` (operação digital, sem cidade)
+- `City`: `CDE` (Ciudad del Este) | `ASU` (Asunción) | `PJC` (Pedro Juan Caballero) | `FOZ` (Foz do Iguaçu) | `null` (operação digital, sem cidade)
 - `Channel`: `digital | physical | aggregator` (`aggregator` = agregador de terceiros, ex. dolarPy; nunca executável)
 - `Modality`: `cash | transfer | account | card_debit | card_credit | card_virtual | reference` (`reference` = cotação de referência, só comparação: nunca vira aresta nem entra no ranking)
 - `QuoteKind`: `market_reference | indicative | executable`
@@ -174,14 +174,14 @@ SessionStats {
   "data_mode": "real|simulation|demo"
 }
 HouseSession {
-  "source_id": "string", "name": "string", "city": "CDE|ASU|PJC|null", "tz": "string|null",
+  "source_id": "string", "name": "string", "city": "CDE|ASU|PJC|FOZ|null", "tz": "string|null",
   "channel": "physical|digital|null", "reference": false,
   "status": "open|closed|pre|unknown",
   "opens_at": "ISO-8601 UTC|null", "closes_at": "ISO-8601 UTC|null", "next_change_at": "ISO-8601 UTC|null",
   "data_mode": "real|simulation|demo"
 }
 HouseHours {                                             // entrada de backend/src/fronteira_fx/data/market_hours.json; não é resposta de API
-  "name": "string|null", "city": "CDE|ASU|PJC|null", "channel": "physical|digital", "tz": "fuso IANA",
+  "name": "string|null", "city": "CDE|ASU|PJC|FOZ|null", "channel": "physical|digital", "tz": "fuso IANA",
   "days": [1, 2, 3, 4, 5, 6], "opens": "HH:MM", "closes": "HH:MM|24:00",
   "schedule": [{ "days": [7], "opens": "HH:MM", "closes": "HH:MM|24:00" }],  // opcional: janelas de outros dias
   "verified": true, "source_url": "https://...|null", "checked_at": "AAAA-MM-DD"  // opcionais: procedência

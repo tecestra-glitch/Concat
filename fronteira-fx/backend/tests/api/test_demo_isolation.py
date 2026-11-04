@@ -34,7 +34,7 @@ def test_demo_mode_serves_only_demo_rows_and_labels_them():
         assert quotes and all(q["data_mode"] == "demo" for q in quotes)
         assert {q["city"] for q in quotes if q["city"]} == {"CDE", "ASU", "PJC"}
         accounts = c.get("/v1/accounts").json()
-        assert {a["institution"] for a in accounts} >= {"ueno", "nomad", "revolut"}
+        assert {a["institution"] for a in accounts} >= {"banco_py", "nomad", "revolut"}
         opps = c.get("/v1/opportunities", params={"capital": "5000"}).json()
         assert opps and all(o["data_mode"] == "demo" for o in opps)
         # real rows added to the same DB stay invisible in demo mode
@@ -46,7 +46,7 @@ def test_demo_mode_serves_only_demo_rows_and_labels_them():
 
 def test_seed_demo_is_idempotent(db):
     first = seed_demo(db)
-    assert first["sources"] == 8 and first["quotes"] > 0 and first["opportunities"] > 0 and first["events"] > 0
+    assert first["sources"] == 7 and first["quotes"] > 0 and first["opportunities"] > 0 and first["events"] > 0
     assert seed_demo(db) == {k: 0 for k in first}
 
 

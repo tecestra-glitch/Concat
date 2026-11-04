@@ -4,11 +4,23 @@
     "city": "CDE",
     "channel": "physical",
     "tz": "America/Asuncion",
-    "days": [1, 2, 3, 4, 5],
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
     "opens": "07:15",
     "closes": "16:00",
     "schedule": [
-      { "days": [6], "opens": "07:15", "closes": "13:00" }
+      {
+        "days": [
+          6
+        ],
+        "opens": "07:15",
+        "closes": "13:00"
+      }
     ],
     "verified": true,
     "source_url": "https://www.cambioschaco.com.py/en/sucursales/",
@@ -19,11 +31,24 @@
     "city": "ASU",
     "channel": "physical",
     "tz": "America/Asuncion",
-    "days": [1, 2, 3, 4, 5, 6],
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
     "opens": "08:00",
     "closes": "21:00",
     "schedule": [
-      { "days": [7], "opens": "10:00", "closes": "20:00" }
+      {
+        "days": [
+          7
+        ],
+        "opens": "10:00",
+        "closes": "20:00"
+      }
     ],
     "verified": true,
     "source_url": "https://www.maxicambios.com.py/",
@@ -34,7 +59,13 @@
     "city": null,
     "channel": "digital",
     "tz": "America/Asuncion",
-    "days": [1, 2, 3, 4, 5],
+    "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
     "opens": "08:30",
     "closes": "13:00",
     "verified": true,

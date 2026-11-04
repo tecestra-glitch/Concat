@@ -13,7 +13,7 @@ const NullableDecimalString = DecimalString.nullable();
 
 export const ConfidenceSchema = z.enum(["quoted", "estimated", "incomplete"]);
 export const CurrencySchema = z.enum(["BRL", "USD", "PYG"]);
-export const CitySchema = z.enum(["CDE", "ASU", "PJC"]).nullable();
+export const CitySchema = z.enum(["CDE", "ASU", "PJC", "FOZ"]).nullable();
 export const ChannelSchema = z.enum(["digital", "physical", "aggregator"]);
 export const ModalitySchema = z.enum(["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]);
 export const QuoteKindSchema = z.enum(["market_reference", "indicative", "executable"]);

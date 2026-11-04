@@ -76,18 +76,6 @@ SOURCES: list[dict[str, Any]] = [
         coverage_currencies=["BRL", "PYG", "USD"],
     ),
     dict(
-        id="ueno",
-        integration="html",
-        name="ueno bank (demo)",
-        kind="bank",
-        method="browser",
-        url="https://www.ueno.com.py/",
-        capabilities=["usd_pyg", "account", "card"],
-        limitations=["requer sessão autenticada"],
-        coverage_cities=[],
-        coverage_currencies=["USD", "PYG"],
-    ),
-    dict(
         id="nomad",
         integration="endpoint_interno",
         name="Nomad (demo)",
@@ -269,7 +257,7 @@ QUOTE_SPECS: list[dict[str, Any]] = [
         kind="indicative",
         channel="physical",
     ),
-    # Western Union: BRL -> PYG into a ueno account, amount dependent, promo at 25k
+    # Western Union: BRL -> PYG into a banco PY account (ueno saiu do monitor), amount dependent, promo at 25k
     dict(
         source_id="wu",
         city=None,
@@ -281,7 +269,7 @@ QUOTE_SPECS: list[dict[str, Any]] = [
         kind="executable",
         channel="digital",
         amount_base=D("5000"),
-        context={"payment": "pix", "receive": "bank_account", "bank": "ueno", "promo": None},
+        context={"payment": "pix", "receive": "bank_account", "bank": "banco_py", "promo": None},
         fees=[Fee("tarifa", D("9.90"), "BRL")],
     ),
     dict(
@@ -295,7 +283,7 @@ QUOTE_SPECS: list[dict[str, Any]] = [
         kind="executable",
         channel="digital",
         amount_base=D("10000"),
-        context={"payment": "pix", "receive": "bank_account", "bank": "ueno", "promo": None},
+        context={"payment": "pix", "receive": "bank_account", "bank": "banco_py", "promo": None},
         fees=[Fee("tarifa", D("9.90"), "BRL")],
     ),
     dict(
@@ -309,7 +297,7 @@ QUOTE_SPECS: list[dict[str, Any]] = [
         kind="executable",
         channel="digital",
         amount_base=D("25000"),
-        context={"payment": "pix", "receive": "bank_account", "bank": "ueno", "promo": "fee_100_off"},
+        context={"payment": "pix", "receive": "bank_account", "bank": "banco_py", "promo": "fee_100_off"},
         fees=[Fee("tarifa", D("0"), "BRL")],
     ),
     dict(
@@ -323,21 +311,8 @@ QUOTE_SPECS: list[dict[str, Any]] = [
         kind="executable",
         channel="digital",
         amount_base=D("50000"),
-        context={"payment": "pix", "receive": "bank_account", "bank": "ueno", "promo": None},
+        context={"payment": "pix", "receive": "bank_account", "bank": "banco_py", "promo": None},
         fees=[Fee("tarifa", D("0"), "BRL")],
-    ),
-    # ueno: USD/PYG account conversion
-    dict(
-        source_id="ueno",
-        city=None,
-        base="USD",
-        quote="PYG",
-        buy=D("7270"),
-        sell=D("7395"),
-        modality="account",
-        kind="indicative",
-        channel="digital",
-        context={"product": "conta"},
     ),
     # Nomad / Revolut: USD/BRL account
     dict(
@@ -382,8 +357,8 @@ QUOTE_SPECS: list[dict[str, Any]] = [
 
 ACCOUNTS: list[dict[str, Any]] = [
     dict(
-        institution="ueno",
-        label="ueno conta PYG (demo)",
+        institution="banco_py",
+        label="Banco PY conta PYG (demo)",
         currency="PYG",
         kind="bank",
         location="digital",
@@ -392,22 +367,12 @@ ACCOUNTS: list[dict[str, Any]] = [
         balance_in_transit=D("0"),
     ),
     dict(
-        institution="ueno",
-        label="ueno conta USD (demo)",
-        currency="USD",
-        kind="bank",
+        institution="revolut",
+        label="Revolut BRL (demo)",
+        currency="BRL",
+        kind="fintech",
         location="digital",
-        balance_free=D("320"),
-        balance_reserved=D("0"),
-        balance_in_transit=D("0"),
-    ),
-    dict(
-        institution="ueno",
-        label="ueno cartão de crédito (demo)",
-        currency="PYG",
-        kind="card_credit",
-        location="digital",
-        balance_free=D("0"),
+        balance_free=D("850"),
         balance_reserved=D("0"),
         balance_in_transit=D("0"),
     ),
