@@ -348,6 +348,91 @@ Custo: cada execução gasta segundos de CPU. No plano grátis da Vercel há cer
 mantenha o intervalo de 2 h. O segredo fica só em variáveis de ambiente: o backend recusa o placeholder
 `TROQUE_*` e URL que não seja https (exceto localhost).
 
+### Vigia de mudanças no Supabase (coleta ao vivo grátis)
+
+Problema: a API na Vercel tem 4 horas de CPU por mês, e coletar todas as fontes a cada minuto gastaria ~16 h
+(cada fonte custa ~0,13 s de CPU). Solução: o próprio Postgres do Supabase **vigia** as fontes e só chama a
+Vercel quando algo mudou. Arquivo: `fronteira-fx/deploy/supabase/vigia.sql` (idempotente, sem segredos).
+
+**Como funciona.** A cada 30 s, `fx_watch_tick()` roda no `pg_cron`:
+
+1. lê as respostas dos pedidos enviados antes (`net._http_response`); para 2xx, calcula a impressão digital da
+   página (md5 dos números: `6.085`, `1.110`, `5,4935`, `7350`) e, se mudou, marca a fonte como mudada; grava o
+   `last_status`; pedido sem resposta há mais de 2 min é descartado;
+2. junta as fontes mudadas que ainda não foram enviadas à API e faz **um** `POST /v1/internal/collect` com
+   `{"sources": [...]}` e o Bearer do Vault. Fonte volátil (preço de mercado) entra no máximo a cada 5 min;
+3. dispara um `GET` (ou `POST`) para cada fonte cujo último pedido passou de `min_interval_s` (60 s).
+
+A API então coleta só as fontes da lista, com agendamento forçado e o piso de 60 s (ver
+`docs/api-contract.md`, seção `internal`). A primeira leitura de cada fonte conta como mudança: depois de ligar,
+cada fonte chama a API uma vez.
+
+**Custos.** A CPU da Vercel só é gasta quando uma fonte muda (mais o custo da própria chamada). Não há
+processo residente. O consumo real ainda não foi medido em produção: meça no painel da Vercel na primeira
+semana.
+
+**Politeza.** Cada fonte recebe no máximo **1 requisição por minuto do vigia** (pelo `min_interval_s`), e a API
+faz no máximo **1 busca extra** quando a fonte muda (piso de 60 s). O timeout de cada requisição é 20 s. Isso é
+mais frequente que os 300 s de sondagem do adaptador hoje (`POLL_INTERVAL_S`): é o pedido de vigiar a cada minuto.
+Se algum site reclamar ou começar a bloquear, aumente `min_interval_s` da fonte (mínimo 60) em vez de desligar tudo.
+
+**Alvos.** Um por fonte do registro, exceto a Western Union. Uma URL por fonte (o que o adaptador consulta de
+fato, com os mesmos cabeçalhos do `fetch`):
+
+| Fonte | Método | Volátil | Intervalo | Observação |
+|---|---|---|---|---|
+| `alberdi` | GET | não | 60 s | JSON `ws/getTablero.json.php` |
+| `bonanza` | GET | não | 60 s | JSON `api/board` |
+| `bcp` | GET | não | 300 s | Feed Frankfurter, só USD; referencial diário |
+| `chaco` | GET | não | 60 s | JSON `api/branch_office/1/exchange`: **uma filial** (Casa Central) |
+| `dolarpy` | GET | sim | 60 s | Agregador de mercado (`dolar.melizeche.com/api/1.0/`) |
+| `maxicambios` | GET | não | 60 s | HTML da home |
+| `myd` | GET | não | 60 s | HTML da home |
+| `nomad` | GET | sim | 60 s | JSON `exchanges:90-days` |
+| `norte` | GET | não | 60 s | HTML da home: **só a filial padrão** (as outras pedem POST do Livewire) |
+| `revolut` | GET | sim | 60 s | `quote` USD→BRL com os parâmetros padrão (1000 USD, BR, pt-BR) |
+
+**O que não cobre.**
+
+- Western Union: precisa de navegador; fica de fora do vigia (segue na coleta do worker ou do mini navegador).
+- Chaco e Norte: o vigia olha uma filial. Mudança só em outra filial aparece na próxima rodada de agendamento
+  (ver abaixo), não no vigia.
+- Quem muda só texto, sem números que a regex pega, não dispara a API.
+- Inteiro colado em letra (`PYG7350`, sem espaço) não conta; decimal colado conta (`USD6.085`).
+- Números aleatórios de página (tokens CSRF) já são ignorados, mas uma página nova com outro tipo de ruído
+  numérico pode gerar chamadas à API sem mudança de cotação. Confira `last_status` e o consumo da Vercel.
+- Revolut bloqueia clientes que não são navegador: o alvo pode voltar `403` (aparece em `last_status`), e então
+  o vigia não detecta nada para ela.
+- Não foi medido em produção: quantas chamadas por dia, quanto de CPU, e se os sites respondem bem a 1 requisição
+  por minuto.
+
+**Ligar.** Pré-requisitos: as extensões `pg_net` e `pg_cron` (passo 1 da seção anterior) e o segredo `fx_cron_secret`
+no Vault (passo 2 da seção anterior, o mesmo Bearer da Vercel).
+
+```sql
+-- 1. Rode o arquivo inteiro no SQL Editor (cria tabelas, função e alvos; pode repetir sem problema)
+--    deploy/supabase/vigia.sql
+-- 2. A URL da API, sem barra no fim (o domínio da função Vercel)
+insert into public.fx_watch_config (key, value) values ('api_url', 'https://<API_VERCEL>')
+  on conflict (key) do update set value = excluded.value;
+-- 3. Agendamento a cada 30 s
+select cron.schedule('fx-vigia', '30 seconds', 'select public.fx_watch_tick()');
+```
+
+**Desligar.** `select cron.unschedule('fx-vigia');` para parar as leituras. Apagar a linha `api_url` para
+parar só as chamadas à API (o vigia segue lendo as fontes e marca as mudanças como pendentes).
+
+**Agendamento de 5 minutos (`fx-collect`).** Com o vigia ligado, a rodada de 5 minutos da seção anterior custa
+~1,7 s de CPU por chamada e sozinha consome o plano grátis. Recomendação: `select cron.unschedule('fx-collect');`
+depois de confirmar que o vigia chama a API, ou troque por `*/30 * * * *` como rede de segurança (a decisão é de quem
+opera).
+
+**Testes.** `backend/tests/test_vigia_sql.py` (paridade com o backend: user-agent, um alvo por adaptador, sem
+segredo no arquivo) e `deploy/supabase/tests/fingerprint_check.sql` (impressão digital, rodar com `psql` depois
+do `vigia.sql`). O comportamento da função (mudança, volátil com 5 min, pedido órfão, HTTP 500, configuração
+ausente, payload do POST, agendamento) foi testado contra Postgres com `pg_net` e `pg_cron` da imagem
+`supabase/postgres`, com um servidor de teste local.
+
 ## Coletor ao vivo na Oracle Cloud (Always Free)
 
 No modo grátis da Vercel a coleta roda a cada 5 minutos: consultar cada fonte a cada minuto gastaria umas 16 horas de
