@@ -238,7 +238,7 @@ def _economic_key(e: Edge) -> tuple:
     return (
         e.src, e.dst, e.kind, e.rate, e.fee_pct, e.fee_fixed, e.iof_pct, e.transport_fixed, e.minutes, e.channel,
         e.confidence, tuple(sorted(e.unknown)), e.border, e.counter, e.min_in, e.max_in, e.mid_rate, e.quoted_at,
-        e.evidence_id,
+        e.evidence_id, e.executable, e.retention_hours, e.slippage_pct,
     )
 
 
@@ -338,14 +338,20 @@ def _transfer_edge(
 
 
 def build_graph(
-    quotes: Sequence[Quote], accounts: Sequence[Account], *, excluded: frozenset[str] | None = None
+    quotes: Sequence[Quote],
+    accounts: Sequence[Account],
+    *,
+    excluded: frozenset[str] | None = None,
+    extra_edges: Sequence[Edge] = (),
 ) -> tuple[Graph, dict[str, Decimal]]:
     """Grafo de posições. `excluded`: fontes/instituições fora do grafo (por padrão, as descontinuadas, como o ueno,
-    que está em resolução desde 03/11/2026): cotação dela, cotação com destino nela e conta nela não entram."""
+    que está em resolução desde 03/11/2026): cotação dela, cotação com destino nela e conta nela não entram.
+    `extra_edges`: arestas já prontas de outras fontes (ex.: exchanges de cripto, `services/crypto_graph.py`); sem
+    elas o grafo sai igual ao de antes."""
     excluded = discontinued_ids() if excluded is None else excluded
     accounts = [a for a in accounts if account_venue(a) not in excluded]
     quotes = live_quotes(quotes, excluded)
-    edges: list[Edge] = []
+    edges: list[Edge] = list(extra_edges)
     balances: dict[str, Decimal] = {}
     account_nodes: dict[str, str] = {}  # node -> venue
     for a in accounts:
@@ -404,6 +410,7 @@ def build_graph(
                     unknown=frozenset(unknown),
                     evidence_id=q.evidence_id,
                     quoted_at=q.captured_at,
+                    executable=q.kind == "executable",  # cotação indicativa (estimated) não é preço firme
                     min_in=lo,
                     max_in=hi,
                     mid_rate=mid,
@@ -430,6 +437,7 @@ def build_graph(
                     unknown=frozenset(unknown),
                     evidence_id=q.evidence_id,
                     quoted_at=q.captured_at,
+                    executable=q.kind == "executable",  # cotação indicativa (estimated) não é preço firme
                     min_in=lo,
                     max_in=hi,
                     mid_rate=ONE / mid if mid else None,

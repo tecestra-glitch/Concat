@@ -1,7 +1,10 @@
 """Position graph: nodes are `<currency>@<venue>`, edges are quotes/transfers/deposits/withdrawals.
 
 Simple cycles starting (and ending) at a node with a parked balance are evaluated by folding the edges:
-`x = x * (1 - fee_pct - iof_pct) * rate - fee_fixed - transport_fixed`. Pure Decimal, deterministic.
+`x = x * (1 - fee_pct - iof_pct - slippage_pct) * rate - fee_fixed - transport_fixed`. Pure Decimal, deterministic.
+
+Cada aresta é `executable` (preço firme e custo confirmado) ou referência (câmbio de referência, só valoração). Um ciclo
+é executável só se todas as arestas forem. Lucro bruto = produto das taxas de troca, antes de taxas, IOF e slippage.
 
 `max_len` counts LEGS (trocas, transferências, deslocamentos, saques ATM), not balcão walk-ins: an edge with
 `counter=True` (ida ao caixa de uma casa da mesma cidade) is free of depth, so a route that buys dollars in one
@@ -96,6 +99,12 @@ class Edge:
     # categorias de custo que o motor não consegue precificar (⊆ COST_KEYS). Os valores ZERO guardados nelas
     # são só placeholders: `leg_costs` devolve None e a aresta é sempre `incomplete`.
     unknown: frozenset[str] = frozenset()
+    # False = referência (câmbio de referência, valoração): nunca entra em ciclo marcado como executável
+    executable: bool = True
+    # janela de retenção do dinheiro no trilho, em horas (Res. BCB 584); None = sem janela informada
+    retention_hours: int | None = None
+    # slippage por perna, na mesma base de `fee_pct` (0,0005 = 0,05%); além da perda do VWAP frente ao meio
+    slippage_pct: Decimal = ZERO
 
     def __post_init__(self) -> None:
         stray = set(self.unknown) - set(COST_KEYS)
@@ -105,14 +114,19 @@ class Edge:
             object.__setattr__(self, "confidence", "incomplete")
 
     def apply(self, amount: Decimal) -> Decimal:
-        return amount * (ONE - self.fee_pct - self.iof_pct) * self.rate - self.fee_fixed - self.transport_fixed
+        return (
+            amount * (ONE - self.fee_pct - self.iof_pct - self.slippage_pct) * self.rate
+            - self.fee_fixed
+            - self.transport_fixed
+        )
 
     def leg_costs(self, amount: Decimal) -> LegCosts:
         """Custos da perna convertidos para a moeda de origem (`amount` nessa moeda). Desconhecido = None."""
         unknown = self.unknown
         spread = None
         if "spread" not in unknown and self.mid_rate:
-            spread = amount * (ONE - self.rate / self.mid_rate)
+            # o slippage conta como spread: é perda frente à taxa de referência, não taxa cobrada
+            spread = amount * (ONE - self.rate * (ONE - self.slippage_pct) / self.mid_rate)
         return LegCosts(
             spread=spread,
             fees=None if "fees" in unknown else amount * self.fee_pct + self.fee_fixed / self.rate,
@@ -130,7 +144,8 @@ class Edge:
 
     def to_dict(self) -> dict[str, Any]:
         """Contract shape (D1): snake_case, money as decimal strings. Aplicar estes campos reproduz `amount_out`:
-        `x * (1 - fee_pct - iof_pct) * rate - fee_fixed - transport_fixed`, a cada aresta, na ordem do ciclo."""
+        `x * (1 - fee_pct - iof_pct) * rate - fee_fixed - transport_fixed`, a cada aresta, na ordem do ciclo.
+        `slippage_pct` (só nas arestas de cripto) não está neste dict ainda: o contrato da API não o expõe."""
         return {
             "from": self.src,
             "to": self.dst,
@@ -216,10 +231,29 @@ class Cycle:
     gain_by_currency: dict[str, Decimal | None] | None = None
     costs: dict[str, Decimal | None] | None = None  # spread/fees/iof/transport, na moeda de partida
     requires_declaration: bool = False
+    # produto das taxas de troca, sem taxa, IOF nem slippage (lucro bruto); None = igual ao líquido
+    gross_amount_out: Decimal | None = None
 
     @property
     def gain(self) -> Decimal:
         return self.amount_out - self.amount_in
+
+    @property
+    def gross_gain(self) -> Decimal:
+        """Lucro bruto: antes de taxas, IOF, custos fixos e slippage."""
+        base = self.gross_amount_out if self.gross_amount_out is not None else self.amount_out
+        return base - self.amount_in
+
+    @property
+    def executable(self) -> bool:
+        """True só quando todas as pernas são executáveis (nenhuma referência)."""
+        return all(e.executable for e in self.edges)
+
+    @property
+    def retention_hours(self) -> int | None:
+        """Soma das janelas de retenção das pernas que têm uma; None quando nenhuma tem."""
+        values = [e.retention_hours for e in self.edges if e.retention_hours is not None]
+        return sum(values) if values else None
 
     @property
     def roi(self) -> Decimal:
@@ -288,8 +322,10 @@ class Graph:
 
     def evaluate(self, start: str, edges: tuple[Edge, ...], amount_in: Decimal) -> Cycle:
         x = amount_in
+        gross = amount_in
         legs: list[Leg] = []
         for e in edges:
+            gross *= e.rate
             out = e.apply(x)
             legs.append(
                 Leg(
@@ -316,6 +352,7 @@ class Graph:
             minutes=sum(e.minutes for e in edges),
             confidence=combine_confidence(*(e.confidence for e in edges)),
             legs=tuple(legs),
+            gross_amount_out=gross,
         )
 
     def simple_cycles_from(
