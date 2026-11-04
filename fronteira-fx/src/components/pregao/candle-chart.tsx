@@ -29,6 +29,7 @@ import {
   chartAriaLabel,
   chartFitKey,
   overlayLineData,
+  padLeftRange,
   readChartTokens,
   toCandlestickData,
   toVolumeData,
@@ -189,7 +190,12 @@ export function CandleChart({
     h.bbLower.setData(withChartTime(overlayLineData(candles, overlays?.bbLower), dataTf));
     const fitKey = chartFitKey(series);
     if (fitKey !== null && fitKey !== lastFitRef.current) {
-      h.chart.timeScale().fitContent();
+      // Enquadra e acrescenta a folga à esquerda, para o primeiro rótulo do eixo não sair cortado. A última vela
+      // continua na borda direita (o fim do range não muda).
+      const ts = h.chart.timeScale();
+      ts.fitContent();
+      const range = ts.getVisibleLogicalRange();
+      if (range) ts.setVisibleLogicalRange(padLeftRange(range, ts.width()));
       lastFitRef.current = fitKey;
     }
   }, [series, overlays, chartCandles, dataTf]);

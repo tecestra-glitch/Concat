@@ -16,6 +16,7 @@ import {
   formatTick,
   withChartTime,
   overlayLineData,
+  padLeftRange,
   toCandlestickData,
   toLineData,
   toVolumeData,
@@ -191,6 +192,27 @@ describe("relógio do gráfico: dia UTC no 1d, Assunção nos intradiários (QA-
   it("intradiário: a marca de troca de dia é a meia-noite de Assunção (03:00Z), com a data nova", () => {
     expect(tick("1h", "2026-11-02T03:00:00Z", TickMarkType.DayOfMonth)).toBe("02/11");
     expect(tick("1h", "2026-11-02T15:04:00Z", TickMarkType.Time)).toBe("12:04");
+  });
+
+  it("padLeftRange: a folga em bars resolve a equação de largura (as velas encolhem ao alargar o range); a última vela não muda", () => {
+    // 60 velas em 390 px: a folga de 28 px vale 28 × 59 / (390 − 28) ≈ 4,56 velas antes da primeira.
+    const r = padLeftRange({ from: 0, to: 59 }, 390, 28);
+    expect(r.to).toBe(59);
+    expect(r.from).toBeCloseTo(-(28 * 59) / (390 - 28), 6);
+  });
+
+  it("padLeftRange: o primeiro bar fica a 28 px da borda esquerda depois de aplicado, em 390 e em 1024 px", () => {
+    for (const width of [390, 1024]) {
+      const data = { from: 0, to: 59 };
+      const r = padLeftRange(data, width, 28);
+      const xFirst = ((data.from - r.from) * width) / (r.to - r.from);
+      expect(xFirst).toBeCloseTo(28, 6);
+    }
+  });
+
+  it("padLeftRange: sem largura ou com range vazio devolve o range como veio", () => {
+    expect(padLeftRange({ from: 0, to: 59 }, 0)).toEqual({ from: 0, to: 59 });
+    expect(padLeftRange({ from: 3, to: 3 }, 390)).toEqual({ from: 3, to: 3 });
   });
 
   it("withChartTime aplica o mesmo deslocamento às linhas de dados", () => {

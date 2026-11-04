@@ -249,6 +249,24 @@ export function buildLineOptions(t: ChartTokens, which: "sma" | "ema" | "band"):
   };
 }
 
+/**
+ * Folga à esquerda (px) antes da primeira vela. O rótulo do eixo é centrado na vela: sem a folga, a primeira marca
+ * (ex.: "22/10") sai pela borda do canvas e fica "2/10" (390 e 1024 px). A folga é de espaço vazio, sem esconder velas.
+ */
+export const LEFT_EDGE_PAD_PX = 28;
+
+/**
+ * Range lógico com a folga à esquerda: a primeira vela (`range.from`) fica a `padPx` da borda, e a última (`range.to`)
+ * continua na borda direita. Como o range fica mais largo, as velas encolhem: a folga em bars sai de
+ * `pad × L / (largura − pad)`, com L = bars de dados (a equação que deixa a folga em px exata).
+ */
+export function padLeftRange(range: { from: number; to: number }, widthPx: number, padPx: number = LEFT_EDGE_PAD_PX): { from: number; to: number } {
+  const data = range.to - range.from;
+  if (!(data > 0) || !(widthPx > padPx)) return range;
+  const bars = (padPx * data) / (widthPx - padPx);
+  return { from: range.from - bars, to: range.to };
+}
+
 /** Chave de enquadramento (`fitContent`): a da própria série, para valer só quando chega o intervalo pedido. */
 export function chartFitKey(series: CandleSeries | null): string | null {
   return series && series.candles.length > 0 ? `${series.key}|${series.tf}` : null;
