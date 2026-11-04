@@ -281,6 +281,8 @@ async def test_frankfurter_and_ptax_store_references_with_collection_date(market
             "1": "bcb_sgs_1_ultimos2.json",
             "10813": "bcb_sgs_10813_ultimos2.json",
             "432": "bcb_sgs_432_ultimo.json",
+            "11": "bcb_sgs_11_janela.json",
+            "433": "bcb_sgs_433_janela.json",
         }[code]
         assert "dataInicial=" in str(request.url) and "dataFinal=" in str(request.url)
         return httpx.Response(200, content=read_fixture(name))
