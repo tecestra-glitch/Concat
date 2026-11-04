@@ -27,6 +27,7 @@ from ..watch.fetcher import DEFAULT_TIMEOUT_S, conditional_get, default_headers
 from ..watch.scheduler import Scheduler, SchedulerConfig
 from . import news as news_mod
 from . import quotes as q
+from . import sentiment as sentiment_mod
 from . import vol
 
 log = logging.getLogger("fronteira_fx.market")
@@ -65,6 +66,8 @@ def build_scheduler(clock: Callable[[], datetime] | None = None) -> Scheduler:
     scheduler = Scheduler(config, clock=clock) if clock else Scheduler(config)
     for feed in news_mod.FEEDS:
         scheduler.add_source(feed.feed_id, feed.poll_interval_s)
+    # Fear & Greed: o índice é diário, então o teto é 1 h (o agendador limita a 900 s por padrão).
+    scheduler.add_source(sentiment_mod.FNG_SOURCE, sentiment_mod.FNG_POLL_INTERVAL_S, max_interval_s=3600)
     scheduler.add_source(FX_SOURCE, 900)
     scheduler.add_source(BCB_SOURCE, 900)
     scheduler.add_source("binance-ticker", 60)
@@ -131,6 +134,8 @@ class MarketPoller:
         feed = news_mod.FEEDS_BY_ID.get(source_id)
         if feed is not None:
             return await self._poll_feed(feed, now)
+        if source_id == sentiment_mod.FNG_SOURCE:
+            return await self._poll_fng(now)
         if source_id == FX_SOURCE:
             return await self._poll_frankfurter(now)
         if source_id == BCB_SOURCE:
@@ -159,10 +164,20 @@ class MarketPoller:
         self._validators[feed.feed_id] = (out.etag, out.last_modified)
         if out.not_modified or not out.content:
             return False  # 304: nada mudou, nada a ler
-        entries = news_mod.parse_feed(out.content)  # feed sem itens (InfoMoney por editoria) é lista vazia
+        entries = news_mod.parse_feed(out.content, keep_excerpt=feed.keep_excerpt)  # sem itens: lista vazia
         with session_scope(self.factory) as session:
             new = news_mod.ingest(session, feed, entries, captured_at=now, data_mode=self.settings.data_mode)
             return bool(new)
+
+    # ----------------------------------------------------------------- sentimento
+    async def _poll_fng(self, now: datetime) -> bool:
+        data = await self._get_json(sentiment_mod.FNG_URL, sentiment_mod.FNG_PARAMS)
+        try:
+            draft = sentiment_mod.parse_fng(data)
+        except sentiment_mod.SentimentFormatError as exc:
+            raise RuntimeError(f"Fear & Greed: {exc}") from exc
+        with session_scope(self.factory) as session:
+            return sentiment_mod.ingest_fng(session, draft, captured_at=now, data_mode=self.settings.data_mode)
 
     # ----------------------------------------------------------------- referência
     def _upsert_quotes(self, session: Session, drafts: list[q.QuoteDraft], now: datetime) -> bool:

@@ -5192,10 +5192,10 @@
                   "type": "null"
                 }
               ],
-              "description": "infomoney | agencia-brasil | bcb | mercopress | demo",
+              "description": "investinglive | infomoney | agencia-brasil | bcb | mercopress | demo",
               "title": "Source"
             },
-            "description": "infomoney | agencia-brasil | bcb | mercopress | demo"
+            "description": "investinglive | infomoney | agencia-brasil | bcb | mercopress | demo"
           },
           {
             "name": "since",
@@ -5263,6 +5263,78 @@
                     "$ref": "#/components/schemas/NewsOut"
                   },
                   "title": "Response List Market News"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/sentiment": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Sentimento de mercado (Fear & Greed, Alternative.me), com atribuição; nunca executável",
+        "operationId": "list_market_sentiment",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SentimentOut"
+                  },
+                  "title": "Response List Market Sentiment"
                 }
               }
             }
@@ -8328,6 +8400,21 @@
             "type": "string",
             "title": "Link"
           },
+          "excerpt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excerpt"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          },
           "published_at": {
             "anyOf": [
               {
@@ -8357,6 +8444,8 @@
           "feed",
           "title",
           "link",
+          "excerpt",
+          "attribution",
           "published_at",
           "captured_at",
           "data_mode"
@@ -9696,6 +9785,67 @@
         },
         "type": "object",
         "title": "SearchOut"
+      },
+      "SentimentOut": {
+        "properties": {
+          "index_id": {
+            "type": "string",
+            "title": "Index Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          },
+          "classification": {
+            "type": "string",
+            "title": "Classification"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          },
+          "executable": {
+            "type": "boolean",
+            "const": false,
+            "title": "Executable",
+            "default": false
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index_id",
+          "label",
+          "value",
+          "classification",
+          "provider",
+          "observed_at",
+          "captured_at",
+          "attribution",
+          "data_mode"
+        ],
+        "title": "SentimentOut"
       },
       "SessionStats": {
         "properties": {

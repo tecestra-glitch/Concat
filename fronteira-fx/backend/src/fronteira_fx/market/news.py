@@ -1,8 +1,10 @@
 """Manchetes de feeds públicos RSS 2.0 e Atom (módulo `market`).
 
 Guarda só título, link, fonte, hora de publicação e hora de captura. Nenhum texto da matéria é guardado (o
-InfoMoney reserva direitos). O texto vindo dos feeds é DADO NÃO CONFIÁVEL: a interface escapa tudo e nenhum
-modelo o recebe como instrução.
+InfoMoney reserva direitos). Feed que autoriza (`keep_excerpt`, hoje o investinglive) também guarda um trecho
+curto, sem HTML, de até 280 caracteres. O `guid` do item é guardado só para deduplicar. Todo item leva a
+atribuição da fonte (`attribution_for`). O texto vindo dos feeds é DADO NÃO CONFIÁVEL: a interface escapa tudo e
+nenhum modelo o recebe como instrução.
 
 Sondagem: o intervalo por feed começa em `poll_interval_s` e fica no piso de 60 s do agendador
 (`watch.scheduler`); a busca usa requisição condicional (ETag / If-Modified-Since, `watch.fetcher`).
@@ -15,6 +17,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from html.parser import HTMLParser
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,7 +28,10 @@ from ..services import events as events_svc
 MAX_ENTRIES_PER_FEED = 200
 MAX_TITLE_CHARS = 300
 MAX_LINK_CHARS = 2048
+MAX_GUID_CHARS = 512
+MAX_EXCERPT_CHARS = 280
 EVENT_NEW_NEWS = "market.news"
+POLL_FLOOR_S = 60  # piso de sondagem de qualquer feed (também imposto pelo agendador)
 
 
 class FeedFormatError(ValueError):
@@ -35,13 +41,28 @@ class FeedFormatError(ValueError):
 @dataclass(frozen=True, slots=True)
 class FeedSpec:
     feed_id: str
-    source: str  # editora: infomoney | agencia-brasil | bcb | mercopress
+    source: str  # editora: infomoney | agencia-brasil | bcb | mercopress | investinglive
     label: str
     url: str
     poll_interval_s: int
+    keep_excerpt: bool = False  # só feed com permissão de reuso guarda trecho curto
+    attribution: str | None = None  # texto de atribuição exibido com cada item (padrão: "Fonte: <rótulo>")
+
+    def __post_init__(self) -> None:
+        if self.poll_interval_s < POLL_FLOOR_S:
+            raise ValueError(f"{self.feed_id}: intervalo {self.poll_interval_s} s abaixo do piso de {POLL_FLOOR_S} s")
 
 
 FEEDS: tuple[FeedSpec, ...] = (
+    FeedSpec(
+        "investinglive",
+        "investinglive",
+        "Investinglive",
+        "https://investinglive.com/feed/",
+        60,
+        keep_excerpt=True,
+        attribution="Fonte: Investinglive.com (copyright Investinglive.com). Link para a matéria original.",
+    ),
     FeedSpec("infomoney", "infomoney", "InfoMoney", "https://www.infomoney.com.br/feed/", 60),
     FeedSpec(
         "infomoney-economia", "infomoney", "InfoMoney Economia", "https://www.infomoney.com.br/economia/feed/", 60
@@ -78,6 +99,72 @@ class NewsEntry:
     title: str
     link: str
     published_at: datetime | None
+    guid: str | None = None  # identificador do próprio feed (dedup); não é conteúdo
+    excerpt: str | None = None  # trecho curto, só quando o feed autoriza (`keep_excerpt`)
+
+
+_BLOCK_TAGS = frozenset({"p", "li", "ul", "ol", "div", "br", "tr", "td", "th", "h1", "h2", "h3", "h4", "blockquote"})
+
+
+class _TextOnly(HTMLParser):
+    """Texto visível de um trecho de HTML; conteúdo de <script> e <style> é descartado."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self._skip = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in ("script", "style"):
+            self._skip += 1
+        elif tag in _BLOCK_TAGS:
+            self.parts.append(" ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in ("script", "style") and self._skip:
+            self._skip -= 1
+        elif tag in _BLOCK_TAGS:
+            self.parts.append(" ")
+
+    def handle_data(self, data: str) -> None:
+        if not self._skip:
+            self.parts.append(data)
+
+
+def _excerpt(raw: str | None) -> str | None:
+    """HTML → texto corrido, em no máximo 280 caracteres (corte em espaço, reticências no fim). Vazio vira None."""
+    if not raw:
+        return None
+    parser = _TextOnly()
+    parser.feed(raw)
+    parser.close()
+    text = " ".join("".join(parser.parts).split())
+    if not text:
+        return None
+    if len(text) <= MAX_EXCERPT_CHARS:
+        return text
+    cut = text[:MAX_EXCERPT_CHARS]
+    space = cut.rfind(" ")
+    if space > MAX_EXCERPT_CHARS // 2:
+        cut = cut[:space]
+    return cut.rstrip(" ,;:") + "…"
+
+
+def _clean_guid(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    guid = raw.strip()
+    return guid[:MAX_GUID_CHARS] or None
+
+
+def attribution_for(feed_id: str | None) -> str:
+    """Texto de atribuição que acompanha cada manchete exibida. Demonstração e feed desconhecido têm texto próprio."""
+    if feed_id is None:
+        return "Fonte não identificada."
+    feed = FEEDS_BY_ID.get(feed_id)
+    if feed is None:
+        return "Dados ilustrativos (demonstração), não são notícias reais."
+    return feed.attribution or f"Fonte: {feed.label}"
 
 
 def _local(tag: str) -> str:
@@ -134,8 +221,11 @@ def _clean_link(raw: str | None) -> str | None:
     return link
 
 
-def parse_feed(data: bytes) -> list[NewsEntry]:
-    """RSS 2.0 ou Atom → manchetes (título, link, publicação). Feed sem itens devolve lista vazia."""
+def parse_feed(data: bytes, *, keep_excerpt: bool = False) -> list[NewsEntry]:
+    """RSS 2.0 ou Atom → manchetes (título, link, publicação, guid). Trecho só com `keep_excerpt`.
+
+    Feed sem itens devolve lista vazia.
+    """
     upper = data.upper()
     if b"<!DOCTYPE" in upper or b"<!ENTITY" in upper:
         raise FeedFormatError("feed com DTD ou entidades: recusado")
@@ -155,12 +245,17 @@ def parse_feed(data: bytes) -> list[NewsEntry]:
         if name == "item":
             link = _clean_link(_child_text(el, "link"))
             published = _parse_date(_child_text(el, "pubDate"), rfc822=True)
+            guid = _clean_guid(_child_text(el, "guid"))
+            raw_excerpt = _child_text(el, "description")
         else:
             link = _clean_link(_atom_link(el))
             published = _parse_date(_child_text(el, "published") or _child_text(el, "updated"), rfc822=False)
+            guid = _clean_guid(_child_text(el, "id"))
+            raw_excerpt = _child_text(el, "summary")
         if title is None or link is None:
             continue
-        out.append(NewsEntry(title=title, link=link, published_at=published))
+        excerpt = _excerpt(raw_excerpt) if keep_excerpt else None
+        out.append(NewsEntry(title=title, link=link, published_at=published, guid=guid, excerpt=excerpt))
         if len(out) >= MAX_ENTRIES_PER_FEED:
             break
     return out
@@ -174,20 +269,40 @@ def ingest(
     captured_at: datetime,
     data_mode: str,
 ) -> list[NewsItem]:
-    """Grava as manchetes novas (deduplicadas por link) e emite um evento `market.news` por item."""
+    """Grava as manchetes novas e emite um evento `market.news` por item.
+
+    Deduplicação: pelo `guid` dentro do mesmo feed e pelo `link` em qualquer feed (a mesma matéria em dois feeds
+    entra uma vez só).
+    """
     entries = list(entries)
     links = [e.link for e in entries]
-    known: set[str] = set(session.scalars(select(NewsItem.link).where(NewsItem.link.in_(links)))) if links else set()
+    known_links: set[str] = (
+        set(session.scalars(select(NewsItem.link).where(NewsItem.link.in_(links)))) if links else set()
+    )
+    guids = [e.guid for e in entries if e.guid]
+    known_guids: set[str] = (
+        set(
+            session.scalars(
+                select(NewsItem.guid).where(NewsItem.feed == feed.feed_id, NewsItem.guid.in_(guids))
+            )
+        )
+        if guids
+        else set()
+    )
     new: list[NewsItem] = []
     for entry in entries:
-        if entry.link in known:
+        if entry.link in known_links or (entry.guid is not None and entry.guid in known_guids):
             continue
-        known.add(entry.link)
+        known_links.add(entry.link)
+        if entry.guid is not None:
+            known_guids.add(entry.guid)
         item = NewsItem(
             source=feed.source,
             feed=feed.feed_id,
             title=entry.title,
             link=entry.link,
+            guid=entry.guid,
+            excerpt=entry.excerpt,
             published_at=entry.published_at,
             captured_at=captured_at,
             data_mode=data_mode,
