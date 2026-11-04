@@ -6,6 +6,7 @@ import { formatAge } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
 
 const LABEL = {
+  connecting: "Conectando…",
   connected: "Conectado",
   scheduled: "Ao vivo · atualiza a cada 30 s",
   reconnecting: "Reconectando…",
@@ -31,7 +32,7 @@ export function ConnectionStatus() {
             className={cn(
               "size-2 rounded-full",
               (state === "connected" || state === "scheduled") && "bg-gain",
-              state === "reconnecting" && "bg-warn",
+              (state === "reconnecting" || state === "connecting") && "bg-warn",
               state === "offline" && "bg-loss",
               state === "demo" && "bg-warn",
             )}

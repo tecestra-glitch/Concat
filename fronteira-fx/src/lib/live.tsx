@@ -19,9 +19,9 @@ import { probeStreamOff } from "./stream-probe";
  * `scheduled`: atualização por consulta periódica, sem stream aberto. Vale quando o servidor fecha a conexão
  * depois de abrir e quando a API desligou o stream (404 na Vercel): o site passa a consultar o snapshot a cada
  * `pollFallbackSeconds`. Não é erro: o selo diz "Ao vivo · atualiza a cada 30 s". `reconnecting` só vale para
- * falha real sem abrir.
+ * falha real sem abrir; `connecting` é só a primeira tentativa, antes de qualquer resposta.
  */
-export type ConnState = "connected" | "scheduled" | "reconnecting" | "offline" | "demo";
+export type ConnState = "connecting" | "connected" | "scheduled" | "reconnecting" | "offline" | "demo";
 
 interface LiveCtx {
   state: ConnState;
@@ -41,7 +41,7 @@ function isAlertEvent(p: unknown): p is AlertEvent {
 export function LiveProvider({ children }: { children: React.ReactNode }) {
   const { mode, settings } = useSettings();
   const qc = useQueryClient();
-  const [connState, setState] = React.useState<ConnState>("reconnecting");
+  const [connState, setState] = React.useState<ConnState>("connecting"); // primeira tentativa: ainda não falhou
   const state: ConnState = mode === "demo" ? "demo" : connState;
   const [lastEventAt, setLastEventAt] = React.useState<string | null>(null);
   const [lastHeartbeatAt, setLastHeartbeatAt] = React.useState<string | null>(null);
