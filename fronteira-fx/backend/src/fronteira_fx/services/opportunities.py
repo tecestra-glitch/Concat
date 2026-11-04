@@ -499,8 +499,12 @@ def list_opportunities(
     channel: str | None = None,
     city: str | None = None,
     kind: str | None = None,
+    mode: str = "todos",
 ) -> list[Opportunity]:
+    """`mode` \"celular\": a tabela antiga sai sem as rotas de canal presencial (exigem ir à casa de câmbio)."""
     stmt = select(Opportunity).where(Opportunity.data_mode == data_mode, Opportunity.simulation_id.is_(None))
+    if mode == "celular":
+        stmt = stmt.where(Opportunity.channel != "physical")
     if channel:
         stmt = stmt.where(Opportunity.channel == channel)
     if city:

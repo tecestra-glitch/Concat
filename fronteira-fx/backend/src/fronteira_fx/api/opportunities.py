@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 
@@ -21,8 +21,14 @@ def get_opportunities(
     channel: Annotated[Channel | None, Query()] = None,
     city: Annotated[City | None, Query()] = None,
     kind: Annotated[OpportunityKind | None, Query()] = None,
+    mode: Annotated[
+        Literal["celular", "todos"],
+        Query(description="celular (padrão): só rotas inteiras pelo celular; todos: inclui canal presencial"),
+    ] = "celular",
 ) -> list[OpportunityOut]:
-    rows = list_opportunities(db, data_mode=data_mode, capital=capital, channel=channel, city=city, kind=kind)
+    rows = list_opportunities(
+        db, data_mode=data_mode, capital=capital, channel=channel, city=city, kind=kind, mode=mode
+    )
     return [row_to_out(r) for r in rows]
 
 
@@ -39,6 +45,10 @@ def get_cycles(
     min_roi: Annotated[Decimal | None, Query(description="ROI mínimo como string decimal, ex. 0.001")] = None,
     start: Annotated[str | None, Query(description="nó de partida, ex. BRL@nubank", max_length=120)] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
+    mode: Annotated[
+        Literal["celular", "todos"],
+        Query(description="celular (padrão): pernas só assistidas ou automatizáveis; todos: inclui presencial"),
+    ] = "celular",
 ) -> list[CycleOut]:
     return [
         CycleOut.model_validate(c)
@@ -50,5 +60,6 @@ def get_cycles(
             start=start,
             limit=limit,
             lookback_s=settings.quotes_lookback_s,
+            mode=mode,
         )
     ]

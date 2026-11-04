@@ -1516,6 +1516,22 @@
             }
           },
           {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "celular",
+                "todos"
+              ],
+              "type": "string",
+              "description": "celular (padrão): só rotas inteiras pelo celular; todos: inclui canal presencial",
+              "default": "celular",
+              "title": "Mode"
+            },
+            "description": "celular (padrão): só rotas inteiras pelo celular; todos: inclui canal presencial"
+          },
+          {
             "name": "data_mode",
             "in": "query",
             "required": false,
@@ -1640,6 +1656,22 @@
               "default": 200,
               "title": "Limit"
             }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "celular",
+                "todos"
+              ],
+              "type": "string",
+              "description": "celular (padrão): pernas só assistidas ou automatizáveis; todos: inclui presencial",
+              "default": "celular",
+              "title": "Mode"
+            },
+            "description": "celular (padrão): pernas só assistidas ou automatizáveis; todos: inclui presencial"
           },
           {
             "name": "data_mode",

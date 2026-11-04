@@ -60,7 +60,7 @@ def _seed_parked_balance(db) -> None:
 
 
 def _first_cycle(client) -> dict:
-    cycles = client.get("/v1/opportunities/cycles", params={"max_len": 4}).json()
+    cycles = client.get("/v1/opportunities/cycles", params={"max_len": 4, "mode": "todos"}).json()
     assert cycles, "a market with parked balances must yield cycles"
     return cycles[0]
 
@@ -149,7 +149,7 @@ def test_plan_out_keeps_unknown_costs_as_null_not_zero():
 
 def test_plan_from_quotes_older_than_the_limit_is_born_expired_and_cannot_be_approved(client, db):
     _seed_profitable_cash(db, age=timedelta(days=3))
-    cycle = next(c for c in client.get("/v1/opportunities/cycles", params={"max_len": 4}).json() if c["gain"] != "0")
+    cycle = next(c for c in client.get("/v1/opportunities/cycles", params={"max_len": 4, "mode": "todos"}).json() if c["gain"] != "0")
     r = client.post("/v1/plans", json={"start": cycle["start"], "path": cycle["path"]})
     assert r.status_code == 201, r.text
     assert r.json()["status"] == "expired"
@@ -159,7 +159,7 @@ def test_plan_from_quotes_older_than_the_limit_is_born_expired_and_cannot_be_app
 def test_every_cycle_listed_by_the_api_can_become_a_plan_even_with_a_long_path(client, db):
     # casa em CDE e casa em FOZ com carteira em CDE: a volta por balcão nas duas pontas faz 9 nós em 4 pernas
     _seed_profitable_cash(db, houses_in_foz=True)
-    cycles = client.get("/v1/opportunities/cycles", params={"max_len": 4, "limit": 500}).json()
+    cycles = client.get("/v1/opportunities/cycles", params={"max_len": 4, "limit": 500, "mode": "todos"}).json()
     long = [c for c in cycles if len(c["path"]) > 7 and float(c["gain"]) > 0]
     assert long, "o cenário precisa de um ciclo lucrativo com mais de 7 nós"
     r = client.post("/v1/plans", json={"start": long[0]["start"], "path": long[0]["path"]})

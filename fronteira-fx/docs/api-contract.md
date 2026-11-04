@@ -122,8 +122,8 @@ SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|
 | PATCH **[chave]** | `/v1/accounts/{id}` | atualiza saldos informados manualmente |
 | POST **[chave]** | `/v1/simulations/routes` | body `{capital_brl, objective:"cycle|remittance|purchase", destination?:Position, valuation_currency:"BRL", channels:["digital","physical"], amounts?:["5000","10000","25000","50000"], persist?:false}` → `{opportunities: Opportunity[], search:{amounts_tested:[string], boundaries:[{low, high, low_winner, high_winner, low_roi_sign, high_roi_sign, reason, refined}]}, simulation_id:"uuid|null"}`. Com `persist`, as linhas são gravadas com `data_mode:"simulation"` (D3) |
 | POST **[chave]** | `/v1/simulations/cycle` | body `{capital:"5000", steps:[StepSpec], valuation_currency:"BRL", valuation_rates?:{"USD":"5.40"}}` → `RouteResult`. Aplica cada passo sobre o valor recebido no anterior; `422` se um passo não encadeia |
-| GET | `/v1/opportunities?capital=&channel=&city=&kind=` | `Opportunity[]` (ranking principal + secundário) |
-| GET | `/v1/opportunities/cycles?max_len=4&min_roi=&start=&limit=200` | `Cycle[]` — ciclos no grafo de posições a partir dos saldos estacionados; `max_len` conta pernas, balcão não conta (ver abaixo) |
+| GET | `/v1/opportunities?capital=&channel=&city=&kind=&mode=celular\|todos` | `Opportunity[]` (ranking principal + secundário). `mode` padrão `celular` (ver modo celular abaixo) |
+| GET | `/v1/opportunities/cycles?max_len=4&min_roi=&start=&limit=200&mode=celular\|todos` | `Cycle[]` — ciclos no grafo de posições a partir dos saldos estacionados; `max_len` conta pernas, balcão não conta (ver abaixo); `mode` padrão `celular` |
 | GET | `/v1/plans?limit=50` | `PlanOut[]` — planos de execução deste modo, do mais recente (ver "Planos de execução") |
 | POST **[chave]** | `/v1/plans` | body `{start, path}` (nós de um ciclo atual de `/v1/opportunities/cycles`, até 21 nós: 6 pernas com balcões) → `201 PlanOut`; `404` se o ciclo não existe mais com as cotações e saldos atuais; `422` se o ciclo não tem ganho líquido positivo ou não tem data de cotação. Não executa nada |
 | GET | `/v1/plans/{id}` | `PlanOut` (com `steps`) |
@@ -183,7 +183,9 @@ mais de US$ 10 000 (ou não dá para converter). É um aviso: não bloqueia.
 
 Parâmetros de `GET /v1/opportunities/cycles`: `max_len` (2..6, padrão 4; conta pernas, balcão não conta), `min_roi` (string decimal, ex. `"0.001"`;
 sem ele, ciclos com ganho ≤ 0 também aparecem como "quase lá"), `start` (nó de partida, ex. `BRL@nubank`),
-`limit` (1..500, padrão 200). Ordenação: melhor ROI primeiro.
+`limit` (1..500, padrão 200), `mode` (`celular` padrão, ou `todos`). Ordenação: melhor ROI primeiro.
+
+**Modo celular.** O dono não leva dinheiro em espécie de uma cidade para outra; por isso o ranking principal mostra só o que dá para fazer inteiro pelo celular. No modo `celular`, uma rota ou ciclo só entra se **todas** as pernas forem `assistida` ou `automatizavel`: sai qualquer perna `presencial`, qualquer `travel` (deslocamento), depósito ou saque de espécie e as pernas de balcão. Em `GET /v1/opportunities`, o modo `celular` tira as linhas de canal `physical` da tabela. `mode=todos` devolve o conjunto completo, e a interface o mostra na aba "Presencial (opcional)", com o aviso "exige ir à casa de câmbio". Ciclo sem caminho de volta confirmado continua `confidence: incomplete` ("custo incompleto"), nunca lucro, nos dois modos.
 
 ```jsonc
 Edge  { "from": "BRL@brbank", "to": "PYG@banco_py", "kind": "quote|transfer|deposit|withdraw|travel", "rate": "1366.5",

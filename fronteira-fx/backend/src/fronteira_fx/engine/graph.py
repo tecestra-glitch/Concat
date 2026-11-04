@@ -153,6 +153,25 @@ class Edge:
         }
 
 
+# Modo celular (regra do dono): só o que dá para fazer inteiro pelo celular. Toda perna precisa ser `assistida`
+# ou `automatizavel`; depósito, saque em espécie e deslocamento ficam de fora, e balcão (`counter`) também.
+CELULAR_CHANNELS: frozenset[str] = frozenset({"assistida", "automatizavel"})
+CELULAR_BLOCKED_KINDS: frozenset[str] = frozenset({"deposit", "withdraw", "travel"})
+
+
+def is_celular_edge(edge: Edge) -> bool:
+    return edge.channel in CELULAR_CHANNELS and edge.kind not in CELULAR_BLOCKED_KINDS and not edge.counter
+
+
+def celular_graph(graph: Graph) -> Graph:
+    """Subgrafo do modo celular: só as arestas que o celular faz (ciclos e rotas saem sem perna presencial)."""
+    sub = Graph()
+    for edge in graph.edges:
+        if is_celular_edge(edge):
+            sub.add(edge)
+    return sub
+
+
 @dataclass(frozen=True, slots=True)
 class Leg:
     """Uma perna executada por um ciclo, com montante de entrada/saída e custos na moeda de origem."""

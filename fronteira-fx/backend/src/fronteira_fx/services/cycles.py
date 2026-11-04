@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from ..adapters.registry import ADAPTERS, discontinued_ids
 from ..decimal_utils import ONE, ZERO
-from ..engine.graph import Cycle, Edge, Graph, find_cycles, node, node_currency
+from ..engine.graph import Cycle, Edge, Graph, celular_graph, find_cycles, node, node_currency
 from ..engine.routes import Confidence
 from ..models import Account, Quote
 from .logistics import Rail, load_rails, load_transport
@@ -251,7 +251,7 @@ def _rail(rails: dict[str, Rail], src: str | None, dst: str | None, ccy: str, *,
     if src is None or dst is None:
         return None
     for r in rails.values():
-        if r.from_ == src and r.to == dst and r.currency == ccy and r.converts == converts:
+        if r.from_ == src and r.to == dst and r.currency == ccy and r.converts == converts and r.available:
             return r
     return None
 
@@ -305,15 +305,18 @@ def _transfer_edge(
 ) -> Edge | None:
     """Aresta de transferência priceada pelo trilho. Conversão: taxa de valoração, mas o spread do trilho é
     desconhecido, então a aresta é `incomplete`. Sem taxa para converter, não há aresta."""
+    captured = rail.rate if rail is not None and src_ccy != dst_ccy else None
     if src_ccy == dst_ccy:
         rate: Decimal | None = ONE
+    elif captured is not None and captured > 0:
+        rate = captured  # taxa capturada do próprio trilho: o spread já está nela
     else:
         rate = convert(ONE, src_ccy, dst_ccy, rates)
         if rate is None or rate <= 0:
             return None
     pct, fixed, iof, unknown = _rail_terms(rail, dst_ccy, iof_on, rates)
-    if src_ccy != dst_ccy:
-        unknown = unknown | {"spread"}  # sem taxa de referência do trilho: spread desconhecido
+    if src_ccy != dst_ccy and captured is None:
+        unknown = unknown | {"spread"}  # sem taxa capturada no trilho: spread desconhecido frente à referência
     return Edge(
         src,
         dst,
@@ -660,13 +663,16 @@ def find_cycles_for(
     start: str | None = None,
     limit: int | None = 200,
     lookback_s: int = 7 * 86400,
+    mode: str = "todos",
 ) -> list[dict[str, Any]]:
     """Cycles as contract dicts (D1), each tagged with the `data_mode` they were computed from.
-    `limit` None: sem corte."""
+    `limit` None: sem corte. `mode` \"celular\": só ciclos com todas as pernas assistidas ou automatizáveis."""
     # uma vez só: o grafo e a valoração (taxas BRL) usam as mesmas cotações vivas
     quotes = live_quotes(latest_quotes(session, data_mode=data_mode, lookback_s=lookback_s), discontinued_ids())
     accounts = list(session.scalars(select(Account).where(Account.data_mode == data_mode)))
     graph, balances = build_graph(quotes, accounts)
+    if mode == "celular":
+        graph = celular_graph(graph)
     if start:
         balances = {k: v for k, v in balances.items() if k == start}
     rates = valuation_rates(quotes)

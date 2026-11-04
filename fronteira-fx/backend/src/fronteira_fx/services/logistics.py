@@ -103,6 +103,15 @@ class Rail(BaseModel):
     source_url: str | None = None
     checked_at: str | None = None
     verified: bool
+    # data da captura/leitura da fonte (ISO); `checked_at` é o campo antigo, mantido
+    as_of: str | None = None
+    # taxa capturada: `out_currency` por 1 `currency`. Com ela, o spread já está na taxa
+    rate: Decimal | None = None
+    # trilho fora do ar (ex.: depósito em conta do Paraguai desligado): nunca entra no grafo
+    available: bool = True
+    # fonte desatualizada (ex.: 2022/2023): mostrada, mas sinalizada
+    stale: bool = False
+    note: str | None = None
 
     @field_validator("id")
     @classmethod
@@ -140,8 +149,8 @@ class Rail(BaseModel):
 
     @model_validator(mode="after")
     def _checks(self) -> Rail:
-        if self.verified and (not self.source_url or not self.checked_at):
-            raise ValueError("verified exige source_url e checked_at")
+        if self.verified and (not self.source_url or not (self.as_of or self.checked_at)):
+            raise ValueError("verified exige source_url e data (as_of ou checked_at)")
         if self.from_ == self.to and (self.to_currency or self.currency) == self.currency:
             raise ValueError("trilho de um lugar para ele mesmo na mesma moeda não faz sentido")
         if self.min_amount is not None and self.max_amount is not None and self.min_amount > self.max_amount:

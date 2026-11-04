@@ -39,7 +39,8 @@ def test_conversion_with_unknown_spread_has_null_spread_not_zero():
     graph, _ = cyc.build_graph(quotes, accs)
     rates = cyc.valuation_rates(quotes)
     cycles = find_cycles(graph, {node("BRL", "brbank"): D(5000)}, max_len=3, limit=500)
-    conv = [c for c in cycles if node("USD", "nomad") in c.path]
+    # ciclo que começa pela conversão BRL → USD na Nomad (o trilho USD → BRL novo cria outros ciclos com ROI maior)
+    conv = [c for c in cycles if len(c.path) > 1 and c.path[1] == node("USD", "nomad")]
     assert conv
     d = cyc.enrich_cycle(conv[0], rates).to_dict()
     assert d["confidence"] == "incomplete"

@@ -70,7 +70,10 @@ def test_shipped_transport_file_loads_the_six_cities_and_the_initial_routes():
 def test_shipped_rails_file_has_the_lines_the_engine_needs():
     rails = load_rails()
     assert {"pix-br-bank-revolut-brl", "nomad-revolut-usd", "sipap-py-bank-to-house-pyg"} <= set(rails)
-    assert all(r.fee_fixed is None and r.verified is False for r in rails.values())
+    # sem fonte, custo é null e nada é verificado; com fonte, a linha traz a data (fase B)
+    unsourced = [r for r in rails.values() if r.source_url is None]
+    assert unsourced and all(r.fee_fixed is None and r.fee_pct is None and r.verified is False for r in unsourced)
+    assert all(r.as_of or r.checked_at for r in rails.values() if r.verified)
 
 
 def test_money_is_a_decimal_string_and_never_a_float():

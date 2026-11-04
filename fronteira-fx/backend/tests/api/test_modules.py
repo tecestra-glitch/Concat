@@ -58,10 +58,14 @@ def test_cycles_from_parked_balances(client, db):
         )
     )
     db.commit()
-    r = client.get("/v1/opportunities/cycles", params={"max_len": 4})
+    r = client.get("/v1/opportunities/cycles", params={"max_len": 4, "mode": "todos"})
     assert r.status_code == 200, r.text
     cycles = r.json()
     assert cycles, "expected cycles from BRL@nubank and USD@cash:CDE"
+    # modo celular (padrão): o ciclo que começa no dinheiro em espécie (presencial) não entra
+    celular = client.get("/v1/opportunities/cycles", params={"max_len": 4}).json()
+    assert all(leg["channel"] != "presencial" for c in celular for leg in c["legs"])
+    assert "USD@cash:CDE" not in {c["start"] for c in celular}
     starts = {c["start"] for c in cycles}
     assert "BRL@nubank" in starts and "USD@cash:CDE" in starts
     c0 = cycles[0]
