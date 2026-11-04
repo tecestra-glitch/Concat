@@ -11,8 +11,9 @@ from tests.conftest import make_settings
 # 36 operations when the plan was written + `memory_summary` (B10) + the pregão's `/v1/candles`,
 # `/v1/pregao/stats` and `/v1/pregao/sessions`, + `internal_collect` (POST /v1/internal/collect, agendador),
 # + the market module's `/v1/market/news`, `/quotes`, `/volatility`, + the execution plans (`create_plan`, `list_plans`,
-# `get_plan`, `approve_plan`, `reject_plan`, `complete_plan_step`; fase A, sem movimentação), + `list_institutions` (cadastro). Bump deliberately when adding an endpoint.
-EXPECTED_OPERATIONS = 51
+# `get_plan`, `approve_plan`, `reject_plan`, `complete_plan_step`; fase A, sem movimentação), + `list_institutions` (cadastro), + as sete operações de `connections` (conexões de conta, chave só leitura, extrato,
+# consentimento Open Finance). Bump deliberately when adding an endpoint.
+EXPECTED_OPERATIONS = 58
 MODULE_ONLY_OPERATIONS = {"rag_add_document", "rag_list_documents", "watch_update_source"}
 
 

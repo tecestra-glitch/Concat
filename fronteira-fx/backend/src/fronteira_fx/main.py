@@ -7,6 +7,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -64,6 +66,18 @@ def create_app(settings: Settings | None = None, *, mount_mcp_server: bool = Tru
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.collector = Collector(session_factory, settings)
+    app.state.exchange_transport = None  # httpx transport para as corretoras; só os testes injetam um mock
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_errors(request: Request, exc: RequestValidationError):
+        # Um 422 do FastAPI devolve `input`, que em /v1/connections é a chave da corretora: ele some daqui.
+        if request.url.path.startswith("/v1/connections"):
+            errors = [
+                {"loc": list(e.get("loc", [])), "msg": e.get("msg", ""), "type": e.get("type", "")}
+                for e in exc.errors()
+            ]
+            return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": errors})
+        return await request_validation_exception_handler(request, exc)
 
     app.add_middleware(
         CORSMiddleware,
