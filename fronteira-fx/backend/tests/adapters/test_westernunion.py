@@ -219,3 +219,12 @@ def test_extract_summary_sem_resumo_usa_a_primeira_tarifa_e_nunca_confunde_nota_
     assert wu.extract_summary("Tarifa 2,500.00 BRL")["fee_brl"] == "2500.00"
     # nota colada no valor, sem espaço: valor desconhecido em vez de um número errado
     assert wu.extract_summary("Tarifa2,500.00 BRL")["fee_brl"] is None
+
+
+def test_intercept_reason_aponta_quem_cobre_o_botao() -> None:
+    msg = (
+        "Locator.click: Timeout 8000ms exceeded.\nCall log:\n  - waiting for locator('[amplitude-id=\"tile-fundsout-ag\"]')\n"
+        '    - <div class="onetrust-pc-dark-filter ot-fade-in"></div> intercepts pointer events\n  - retrying click action'
+    )
+    assert wu.intercept_reason(msg) == '<div class="onetrust-pc-dark-filter ot-fade-in">'
+    assert wu.intercept_reason("Timeout 8000ms exceeded.") is None

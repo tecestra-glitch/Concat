@@ -112,6 +112,21 @@ _PROMO_RE = re.compile(
     r"(\d+\s?%\s+(?:de\s+)?desconto(?:\s+(?:na\s+)?tarifa)?(?:\s+[0-9][0-9.,]*\s*BRL)?|tarifa\s+zero[^|]{0,40})", re.I
 )
 _BLOCK_WORDS = ("access denied", "captcha", "unusual traffic", "pardon our interruption", "request blocked")
+# Avisos que cobrem a página e engolem o clique (no acesso pelo Brasil o banner de cookies da OneTrust aparece tarde).
+_OVERLAY_CLOSERS = (
+    "#onetrust-accept-btn-handler",
+    "button.onetrust-close-btn-handler",
+    "#onetrust-reject-all-handler",
+)
+_INTERCEPT_RE = re.compile(
+    r"(<[^/>][^>]{0,160}>)(?:\s*</[a-z0-9-]+>)?\s*(?:from[^<]{0,80})?intercepts pointer events", re.I
+)
+
+
+def intercept_reason(error_text: str) -> str | None:
+    """Quem cobriu o elemento, a partir da mensagem de timeout do Playwright ("<div ...> intercepts pointer events")."""
+    m = _INTERCEPT_RE.search(error_text or "")
+    return re.sub(r"\s+", " ", m.group(1))[:160] if m else None
 # The mini navegador (fronteira-fx/browser) runs the same flow in a Vercel function; the call is bounded by the
 # function's 120 s maxDuration, so the client waits a little longer than that.
 REMOTE_PATH = "/api/westernunion"
@@ -402,25 +417,61 @@ class WesternUnionAdapter:
                 if status in (403, 429, 503):
                     return await fail(AdapterStatus.BLOCKED, f"HTTP {status} on start page (anti-bot)", page)
 
+                async def dismiss_overlays() -> None:
+                    for closer in _OVERLAY_CLOSERS:
+                        try:
+                            await page.locator(closer).first.click(timeout=1_500)
+                            trail.append(f"overlay:{closer}")
+                            return
+                        except Exception:  # noqa: BLE001 - aviso ausente é o caso normal
+                            continue
+                    try:
+                        await page.keyboard.press("Escape")
+                    except Exception:  # noqa: BLE001
+                        pass
+
+                async def robust_click(loc: Any, tag: str) -> bool:
+                    """Clique normal; se algo cobre o elemento, fecha avisos e tenta de novo; por fim, clique via JS no
+                    próprio elemento (o simulador só lê preço). O motivo do bloqueio vai para o rastro da fonte."""
+                    try:
+                        await loc.click(timeout=8_000)
+                        trail.append(tag)
+                        return True
+                    except PWTimeout as exc:
+                        blocker = intercept_reason(str(exc))
+                    await dismiss_overlays()
+                    try:
+                        await loc.click(timeout=3_000)
+                        trail.append(f"{tag}(after-overlay{'; blocker ' + blocker if blocker else ''})")
+                        return True
+                    except PWTimeout:
+                        pass
+                    try:
+                        await loc.evaluate("el => el.click()")
+                        trail.append(f"{tag}(js-click{'; blocker ' + blocker if blocker else ''})")
+                        return True
+                    except Exception as exc:  # noqa: BLE001
+                        why = f"{type(exc).__name__}" + (f"; blocker {blocker}" if blocker else "")
+                        trail.append(f"{tag}:click-failed({why})")
+                        return False
+
                 async def click_first(selectors: tuple[str, ...], labels: tuple[str, ...], what: str) -> bool:
                     for i, sel in enumerate(selectors):
                         loc = page.locator(sel).first
                         try:
                             await loc.wait_for(timeout=self.step_timeout_ms if i == 0 else 2_000)
-                            await loc.click()
-                            trail.append(f"{what}:{sel}")
-                            return True
                         except PWTimeout:
                             continue
+                        if await robust_click(loc, f"{what}:{sel}"):
+                            return True
                     for label in labels:
                         loc = page.get_by_text(re.compile(re.escape(label), re.I)).first
                         try:
                             await loc.wait_for(timeout=2_000)
-                            await loc.click()
-                            trail.append(f"{what}:text={label}")
-                            return True
                         except PWTimeout:
                             continue
+                        if await robust_click(loc, f"{what}:text={label}"):
+                            return True
                     return False
 
                 # 1) destination country
@@ -483,6 +534,7 @@ class WesternUnionAdapter:
 
                 # 3) receive method, then payment method. A forma pedida pode estar desativada pela WU: troca pela
                 # alternativa ativa (o contexto da cotação passa a dizer a forma realmente coletada).
+                await dismiss_overlays()
                 chosen, receive_note = choose_receive(receive, await _receive_tile_states(page))
                 if chosen is None:
                     return await fail(AdapterStatus.DEGRADED, receive_note or f"receive option {receive!r} disabled",
