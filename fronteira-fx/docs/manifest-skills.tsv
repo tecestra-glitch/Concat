@@ -14,3 +14,6 @@ api-anything	9f3d15336aa520a389ad3674491b49009925696a	skills/api-anything	.claud
 local	HEAD (authored for Fronteira FX; versioned in this repository, no external pin)	.claude/skills/fx-cruzamento	.claude/skills/fx-cruzamento	repository LICENSE (AGPL-3.0, root of Concat)
 local	HEAD (authored for Fronteira FX; versioned in this repository, no external pin)	.claude/skills/start	.claude/skills/start	repository LICENSE (AGPL-3.0, root of Concat)
 local	HEAD (Concat desktop app skill; out of Fronteira FX scope, listed for completeness)	.claude/skills/run-concat	.claude/skills/run-concat	repository LICENSE (AGPL-3.0, root of Concat)
+pbakaus/impeccable	dad8dbb3aac21ad1fa236c110315ef4abece23e8	plugin/skills/impeccable (sem scripts/: o motor binário baixado na primeira execução não foi instalado; usar as referências)	.claude/skills/impeccable	<skill>/LICENSE.txt (Apache-2.0) + NOTICE.md
+anthropics-skills	dbd4588f9e1033efb41dad4bef2f7947c8993d44	skills/theme-factory (sem theme-showcase.pdf)	.claude/skills/theme-factory	<skill>/LICENSE.txt (bundled per skill)
+uiverse-io/galaxy	adbd2adde0a299a3956ea288fb444ec01891ca41	(referência de elementos HTML+CSS, MIT)	fronteira-fx/dev/external/uiverse-galaxy (reference only)	LICENSE (MIT)
