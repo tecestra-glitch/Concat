@@ -18,7 +18,7 @@ Política comum de status (`_common.finalize`):
 Helpers: `_http.py` (UA, timeout, `sha256_hex`, `excerpt`/`build_evidence`, `parse_decimal(text, locale_hint)` para
 `"7.350,00"` / `"7,350"` / `"7350"` / `"5.4043"` / `"Gs. 5.680"`, `http_get`/`http_post` com classificação de erros) e
 `_common.py` (`BranchInfo`, `city_from_text` → `CDE|ASU|PJC|None`, `finalize`, `quotes_excerpt`).
-Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]` (15 adaptadores, **ordenados por id**: a API e o collector
+Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]` (14 adaptadores, **ordenados por id**: a API e o collector
 enumeram as fontes nessa ordem), `get_adapter(id)`.
 
 Vocabulário de `QuoteDraft` (`base.py`): `modality` inclui `reference` e `channel` inclui `aggregator` — os dois marcam
@@ -170,10 +170,18 @@ Capturas reais de 2026-11-04 (uma chamada por fonte) em `backend/tests/adapters/
 |---|---|---|---|---|
 | `basa` Banco Basa | `https://www.bancobasa.com.py/` (bloco "Cotización de monedas": `img[src*=/cotizacion/]` com alt `Compra X / Venta Y`) | USD/PYG, BRL/PYG (`modality=account`) | USD 5880/6250; BRL 1050/1180 | sem horário; EUR e pesos ignorados |
 | `familiar` Banco Familiar | `https://www.familiar.com.py/cambios` (card "Dólar Americano Cheque / Transf.") | USD/PYG (`modality=transfer`) | USD 5910/6250 | Efectivo sem cidade não emitido; card "Real" sem modalidade é noticiado, não emitido |
-| `gnb` Banco GNB | `https://www.bancognb.com.py/public/currency_quotations` (JSON que alimenta a tabela da home) | USD/PYG home banking (`modality=account`) | USD 5910/6230 | efectivo sem cidade não emitido; sem BRL no feed |
 
-Robots.txt lido: Familiar permite tudo (Crawl-delay 10 só para ClaudeBot); Basa e GNB não têm robots.txt. Os termos completos
-dos sites não foram lidos nesta rodada: são páginas públicas, com um GET por coleta.
+Robots.txt lido: Familiar permite tudo (Crawl-delay 10 só para ClaudeBot); Basa não tem robots.txt.
+
+Termos de uso lidos em 2026-11-04 (um GET por página, fora da sondagem; a busca web estava indisponível):
+
+| banco | página lida | cláusula sobre automação/cópia | conclusão |
+|---|---|---|---|
+| Basa | `https://www.bancobasa.com.py/politicas` | nenhuma nas páginas lidas. O link "Términos y condiciones de uso" é do Token Digital (app), não do site; a política de privacidade é PDF e não foi lida | **parcial**: termos gerais do site não localizados |
+| Familiar | `https://www.familiar.com.py/informacion-contratos` ("Términos y Condiciones Generales") | a captura trouxe só a navegação (sem corpo de texto; contratos em PDF) | **parcial**: nada lido que proíba ou permita |
+| GNB | `https://www.bancognb.com.py/aviso-legal.jsp` (Aviso Legal) | "Se prohíbe la copia, duplicación, redistribución, comercialización o cualquier otra actividad que se pueda realizar con los contenidos de sus páginas web, ni aún citando fuentes, salvo consentimiento por escrito" | **proibido**: adaptador removido |
+
+Antes da primeira sondagem agendada de Basa e Familiar, ler os termos de uso completos (ou registrar a data e a conclusão).
 
 ### Sem adaptador nesta rodada (registrado, nada criado)
 
@@ -185,3 +193,4 @@ dos sites não foram lidos nesta rodada: são páginas públicas, com um GET por
 - Visión Banco: conexão resetada pelo peer nesta sessão; tentar em outra rodada.
 - Eko: não sondada; a discovery indica que não publica cotação própria (usa o Banco Familiar).
 - ueno bank: em resolução pelo BCP desde 03/11/2026; nada novo.
+- Banco GNB: adaptador criado e removido em 2026-11-04. O Aviso Legal (`/aviso-legal.jsp`) proíbe copiar ou redistribuir o conteúdo das páginas "ni aún citando fuentes" sem consentimento por escrito; a cópia automatizada das cotações e a fixture versionada ficam vedadas. Para retomar, pedir consentimento por escrito ao banco.

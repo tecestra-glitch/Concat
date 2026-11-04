@@ -9,7 +9,6 @@ from . import (
     chaco,
     dolarpy,
     familiar,
-    gnb,
     maxicambios,
     myd,
     nomad,
@@ -35,7 +34,6 @@ _ALL: tuple[Adapter, ...] = (
     dolarpy.adapter,
     basa.adapter,
     familiar.adapter,
-    gnb.adapter,
 )
 
 # Sorted by id: the API and the collector enumerate sources in this order, so it must not depend on import order.

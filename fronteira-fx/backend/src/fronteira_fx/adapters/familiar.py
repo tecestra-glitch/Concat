@@ -45,6 +45,10 @@ def _card_prices(card: LexborNode) -> tuple[str | None, str | None]:
 
 
 class FamiliarAdapter:
+    # B8/Q-05: `fetch` is one GET of `info.url` + `parse`, so scheduled polls let the collector do a conditional
+    # GET (If-None-Match / If-Modified-Since) and a 304 skips parsing. On-demand calls with params still use fetch.
+    conditional_get = True
+
     info = AdapterInfo(
         id="familiar",
         name="Banco Familiar",

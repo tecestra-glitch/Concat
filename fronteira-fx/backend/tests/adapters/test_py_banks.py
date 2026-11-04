@@ -1,4 +1,6 @@
-"""Paraguayan bank adapters: Banco Basa, Banco Familiar, Banco GNB (offline, fixtures captured 2026-11-04).
+"""Paraguayan bank adapters: Banco Basa, Banco Familiar (offline, fixtures captured 2026-11-04).
+
+Banco GNB has no adapter: its Aviso Legal forbids copying the web contents without written consent (docs/adapters.md).
 
 Convention (docs/adapters.md): buy = PYG the bank PAYS per 1 unit of the base currency,
 sell = PYG the bank CHARGES. Every value below is copied from the fixture captures.
@@ -12,11 +14,11 @@ import httpx
 import pytest
 import respx
 
-from fronteira_fx.adapters import basa, familiar, gnb
+from fronteira_fx.adapters import basa, familiar
 from fronteira_fx.adapters._http import sha256_hex
 from fronteira_fx.adapters.base import AdapterStatus
 
-from .conftest import load, load_json
+from .conftest import load
 
 CAPTURED_AT = datetime(2026, 11, 4, 6, 0, tzinfo=UTC)
 MUCH_LATER = datetime(2026, 12, 20, 12, 0, tzinfo=UTC)
@@ -144,59 +146,7 @@ async def test_familiar_fetch_ok_and_403() -> None:
     assert (await familiar.adapter.fetch()).status == AdapterStatus.BLOCKED
 
 
-# ================================================================== Banco GNB
-GNB_JSON = "gnb.json"
-
-
-def test_gnb_parse_home_banking_usd() -> None:
-    res = gnb.adapter.parse(load(GNB_JSON), captured_at=CAPTURED_AT, url=gnb.URL)
-    assert res.status == AdapterStatus.OK, res.message
-    usd = _find(res, "gnb", "USD")
-    assert usd.buy == Decimal("5910") and usd.sell == Decimal("6230")
-    assert usd.modality == "account" and usd.channel == "digital" and usd.city is None
-    assert usd.context == {"channel": "home_banking"}
-    assert [(q.base, q.quote) for q in res.quotes] == [("USD", "PYG")]
-    # cash counter (efectivo) has no city in the feed: not emitted, EUR and the BRL-less feed are noted
-    assert "efectivo" in (res.message or "").lower()
-
-
-def test_gnb_empty_list_is_error() -> None:
-    res = gnb.adapter.parse('{"exchangeRates": []}', captured_at=CAPTURED_AT, url=gnb.URL)
-    assert res.status == AdapterStatus.ERROR and res.quotes == []
-
-
-def test_gnb_html_payload_is_error() -> None:
-    res = gnb.adapter.parse("<html>Not found</html>", captured_at=CAPTURED_AT, url=gnb.URL)
-    assert res.status == AdapterStatus.ERROR
-
-
-def test_gnb_zero_or_blank_prices_are_skipped() -> None:
-    payload = load_json(GNB_JSON)
-    payload["exchangeRates"][0]["electronicBuyPrice"] = "0.00"
-    import json
-
-    res = gnb.adapter.parse(json.dumps(payload), captured_at=CAPTURED_AT, url=gnb.URL)
-    assert res.status == AdapterStatus.ERROR and res.quotes == []  # no positive buy/sell pair: no quote
-
-
-def test_gnb_evidence_hash() -> None:
-    raw = load(GNB_JSON)
-    res = gnb.adapter.parse(raw, captured_at=CAPTURED_AT, url=gnb.URL)
-    assert res.evidence is not None and res.evidence.sha256 == sha256_hex(raw)
-
-
-@respx.mock
-async def test_gnb_fetch_ok_500_and_timeout() -> None:
-    respx.get(gnb.URL).mock(return_value=httpx.Response(200, text=load(GNB_JSON),
-                                                        headers={"content-type": "application/json"}))
-    assert (await gnb.adapter.fetch()).status == AdapterStatus.OK
-    respx.get(gnb.URL).mock(return_value=httpx.Response(500, text="x"))
-    assert (await gnb.adapter.fetch()).status == AdapterStatus.ERROR
-    respx.get(gnb.URL).mock(side_effect=httpx.ReadTimeout("slow"))
-    assert (await gnb.adapter.fetch()).status == AdapterStatus.ERROR
-
-
-@pytest.mark.parametrize("module", [basa, familiar, gnb])
+@pytest.mark.parametrize("module", [basa, familiar])
 def test_info_is_bank_digital(module) -> None:
     info = module.adapter.info
     assert info.kind == "bank" and info.method in ("html", "official_api")

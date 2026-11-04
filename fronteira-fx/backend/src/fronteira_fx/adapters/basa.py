@@ -35,6 +35,10 @@ _PRICE_RE = re.compile(r"Compra\s*([\d.,]+)\s*\|\s*Venta\s*([\d.,]+)", re.I)
 
 
 class BasaAdapter:
+    # B8/Q-05: `fetch` is one GET of `info.url` + `parse`, so scheduled polls let the collector do a conditional
+    # GET (If-None-Match / If-Modified-Since) and a 304 skips parsing. On-demand calls with params still use fetch.
+    conditional_get = True
+
     info = AdapterInfo(
         id="basa",
         name="Banco Basa",
