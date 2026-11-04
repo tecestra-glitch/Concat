@@ -14,7 +14,8 @@
     "prepare": "cd .. && husky fronteira-fx/.husky",
     "deploy": "vercel deploy --yes",
     "deploy:prod": "vercel deploy --prod --yes",
-    "test:hooks": "python3 -I .husky/tests/test_hooks.py"
+    "test:hooks": "python3 -I .husky/tests/test_hooks.py",
+    "hash-senha": "node scripts/hash-password.mjs"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": "eslint",

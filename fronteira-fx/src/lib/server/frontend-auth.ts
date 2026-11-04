@@ -10,6 +10,9 @@
  * Sem nenhum dos dois, leituras seguem sem chave e mutações são recusadas pelo proxy.
  */
 
+import { loginConfig } from "./site-login";
+import { requestHasValidSession } from "./login";
+
 export const BASIC_REALM = 'Basic realm="Fronteira FX", charset="UTF-8"';
 
 /** `FX_BASIC_AUTH` quando bem formado (`usuario:senha`, senha não vazia); `null` caso contrário. */
@@ -44,9 +47,18 @@ export function basicAuthMatches(header: string | null, expected: string): boole
 
 export type FrontendGate = { kind: "trusted" } | { kind: "unprotected" } | { kind: "unauthenticated" };
 
-/** Decide se esta requisição pode levar a chave da API. */
+/**
+ * Decide se esta requisição pode levar a chave da API. Ordem: login próprio (`FX_SITE_PASSWORD_HASH` +
+ * `FX_SESSION_SECRET`) → `FX_BASIC_AUTH` → `FX_FRONTEND_PROTECTED`. Com o login configurado quebrado e sem
+ * Basic Auth, nada passa.
+ */
 export function frontendGate(req: Request): FrontendGate {
+  const login = loginConfig();
+  if (login.kind === "enabled") {
+    return requestHasValidSession(req.headers.get("cookie"), login.secret) ? { kind: "trusted" } : { kind: "unauthenticated" };
+  }
   const basic = basicAuthSetting();
   if (basic) return basicAuthMatches(req.headers.get("authorization"), basic) ? { kind: "trusted" } : { kind: "unauthenticated" };
+  if (login.kind === "misconfigured") return { kind: "unauthenticated" };
   return (process.env.FX_FRONTEND_PROTECTED ?? "").trim() === "1" ? { kind: "trusted" } : { kind: "unprotected" };
 }
