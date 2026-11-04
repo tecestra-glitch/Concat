@@ -177,6 +177,33 @@ limita cada conexão (`STREAM_MAX_DURATION_S`, padrão 55 s) e o cliente reconec
 (`Last-Event-ID`), com fallback de snapshot; confira que o limite de duração de funções do seu plano
 Vercel é maior que esse valor. Cursor expirado (HTTP 410) força novo snapshot.
 
+### Mini navegador na Vercel
+
+A Western Union só tem cotação depois de um fluxo de cliques (o preço vem de uma chamada com fingerprint do
+navegador). Para rodar isso de graça, `fronteira-fx/browser/` é um projeto Vercel separado: uma função
+`POST /api/westernunion` roda o mesmo fluxo num Chromium sem tela e devolve o `scenario` que o adaptador
+Python lê. Detalhes e testes locais: `fronteira-fx/browser/README.md`.
+
+1. Crie outro projeto na Vercel com **Root Directory = `fronteira-fx/browser`**, região `gru1` (já em
+   `vercel.json`), e defina `BROWSER_SECRET` (*Sensitive*, `openssl rand -hex 32`).
+2. No backend (api e worker), defina as variáveis abaixo com o **mesmo** segredo e a URL pública do projeto.
+   Sem as duas, o backend continua abrindo o Chromium local (extra `browser`), como antes.
+
+| Variável | Valor |
+|---|---|
+| `FX_BROWSER_URL` | URL https do projeto do mini navegador (ex.: `https://fx-browser.seu-dominio.tld`); http só para localhost |
+| `FX_BROWSER_SECRET` | o mesmo `BROWSER_SECRET` da Vercel; marque como *Sensitive*; nunca em arquivo versionado |
+| `REMOTE_BROWSER_MIN_INTERVAL_S` | opcional; padrão `7200` (no máximo uma consulta remota por fonte a cada 2 h) |
+
+Com as duas primeiras definidas: o adaptador da Western Union chama `POST {FX_BROWSER_URL}/api/westernunion`
+(timeout de 130 s, Bearer) e grava a captura como evidência; `blocked` e `degraded` viram o status
+correspondente; falha de rede, `401`, `404` ou JSON inválido viram `error`, sem exceção. Pedidos sob demanda
+dessa fonte rodam direto, sem a fila do worker, e respeitam o intervalo mínimo.
+
+Custo: cada execução gasta segundos de CPU. No plano grátis da Vercel há cerca de 4 horas de CPU por mês;
+mantenha o intervalo de 2 h. O segredo fica só em variáveis de ambiente: o backend recusa o placeholder
+`TROQUE_*` e URL que não seja https (exceto localhost).
+
 ## Backend e worker em um host durável
 
 Vercel Functions não hospedam o coletor nem processos indefinidos. `api` e `worker` vão para uma VPS
