@@ -382,7 +382,8 @@ class AlertRule(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     name: Mapped[str] = mapped_column(String(200))
-    kind: Mapped[str] = mapped_column(String(24))  # cycle_roi | quote_move | source_down | opportunity_new
+    # cycle_roi | quote_move | source_down | opportunity_new | cycle_net_gain
+    kind: Mapped[str] = mapped_column(String(24))
     threshold: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     params: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
     channel: Mapped[str] = mapped_column(String(16), default="ui")  # ui | telegram | webhook | email

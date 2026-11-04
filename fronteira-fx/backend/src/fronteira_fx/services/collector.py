@@ -358,6 +358,7 @@ class Collector:
             changes=changes,
             opportunities=opp_rows,
             new_opportunity_ids=new_ids,
+            cycles=alerts_svc.cycles_for_rules(session, data_mode=self.data_mode),
         )
         outcome.alert_event_ids = [e.id for e in alerts_svc.evaluate_rules(session, ctx, data_mode=self.data_mode)]
         session.flush()

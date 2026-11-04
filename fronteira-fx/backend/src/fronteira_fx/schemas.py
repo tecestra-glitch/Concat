@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
 
 from .decimal_utils import fmt
 
@@ -473,7 +473,7 @@ class ChangeOut(ApiModel):
 
 # ---- alerts --------------------------------------------------------------------------------------
 
-AlertKind = Literal["cycle_roi", "quote_move", "source_down", "opportunity_new"]
+AlertKind = Literal["cycle_roi", "quote_move", "source_down", "opportunity_new", "cycle_net_gain"]
 AlertChannel = Literal["ui", "telegram", "webhook", "email"]
 
 
@@ -499,6 +499,18 @@ class AlertRuleCreate(ApiModel):
     target: str | None = None
     cooldown_s: int = Field(default=600, ge=0)
     enabled: bool = True
+
+    @model_validator(mode="after")
+    def _check_net_gain(self) -> AlertRuleCreate:
+        # cycle_net_gain: threshold é o ganho líquido mínimo, na moeda de params.currency
+        if self.kind != "cycle_net_gain":
+            return self
+        currency = (self.params or {}).get("currency")
+        if currency not in ("BRL", "USD", "PYG"):
+            raise ValueError("cycle_net_gain exige params.currency: BRL, USD ou PYG")
+        if self.threshold is None or self.threshold < 0:
+            raise ValueError("cycle_net_gain exige threshold (ganho líquido mínimo) maior ou igual a zero")
+        return self
 
 
 class AlertRulePatch(ApiModel):
