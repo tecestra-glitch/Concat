@@ -39,6 +39,8 @@ export interface PregaoView {
   allKeys: string[];
   /** Casas do par atual: alimentam as miniaturas da lista. */
   houseKeys: string[];
+  /** Sessões (horário) só das casas com cotação no par atual, sem referências: o resumo de mercado conta isso. */
+  pairSessions: HouseSession[];
   effectiveKey: string | null;
   selectedLevel: BookLevel | null;
   heatHouses: { source_id: string; house: string }[];
@@ -85,6 +87,8 @@ export function buildPregaoView({ quotes, sources, sessions, pair, selectedKey, 
   const allLevels = PAIRS.flatMap((p) => levelsByPair[p]);
   const allKeys = [...new Set(allLevels.map((l) => l.key))];
   const houseKeys = levels.filter((l) => !isRef(l)).map((l) => l.key);
+  const pairHouses = new Set(levels.filter((l) => !isRef(l)).map((l) => stripDemo(l.source_id)));
+  const pairSessions = sessions.filter((s) => !s.reference && pairHouses.has(stripDemo(s.source_id)));
 
   const defaultKey = defaultKeyFor(levels);
   const effectiveKey = selectedKey !== null && levels.some((l) => l.key === selectedKey) ? selectedKey : defaultKey;
@@ -104,6 +108,7 @@ export function buildPregaoView({ quotes, sources, sessions, pair, selectedKey, 
     allLevels,
     allKeys,
     houseKeys,
+    pairSessions,
     effectiveKey,
     selectedLevel,
     heatHouses,

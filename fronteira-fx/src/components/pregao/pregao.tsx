@@ -234,7 +234,7 @@ export function Pregao() {
         clocks={
           <div className="flex flex-wrap items-center gap-3">
             <SessionClock now={now} referenceNext={referenceNext} />
-            <MarketStatus sessions={sessions} now={now} />
+            <MarketStatus sessions={view.pairSessions} now={now} loading={quotesLoading} />
           </div>
         }
       />

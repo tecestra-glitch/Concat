@@ -5,11 +5,15 @@ import type { HouseSession, SessionStatus } from "@/lib/pregao/types";
 import { cn } from "@/lib/utils";
 
 export interface SessionSummary {
+  /** Casas físicas (sem referências e sem canal digital): contagem por status. */
   open: number;
   pre: number;
   closed: number;
   unknown: number;
   total: number;
+  /** Casas digitais, à parte: nunca entram no selo "aberto" nem na contagem física. */
+  digitalOpen: number;
+  digitalTotal: number;
   nextChangeAt: string | null;
   badge: "gain" | "warn" | "outline";
   label: string;
@@ -32,14 +36,20 @@ function nextChangeAfter(houses: readonly HouseSession[], now: number): string |
   return best;
 }
 
-/** Resumo das casas do pregão. Referências (BCP) ficam fora de todas as contagens. */
+/**
+ * Resumo das casas do pregão. Referências (BCP) ficam fora de todas as contagens. O selo "aberto" (verde) só vale
+ * para casa física aberta: digitais abertas com todas as físicas fechadas dão "só digitais" neutro.
+ */
 export function summarizeSessions(sessions: readonly HouseSession[], now: number): SessionSummary {
   const houses = sessions.filter((session) => !session.reference);
-  const countOf = (status: SessionStatus) => houses.filter((session) => session.status === status).length;
-  const open = countOf("open");
-  const pre = countOf("pre");
-  const closed = countOf("closed");
-  const unknown = countOf("unknown");
+  const physical = houses.filter((session) => session.channel !== "digital");
+  const digital = houses.filter((session) => session.channel === "digital");
+  const countOf = (list: readonly HouseSession[], status: SessionStatus) => list.filter((session) => session.status === status).length;
+  const open = countOf(physical, "open");
+  const pre = countOf(physical, "pre");
+  const closed = countOf(physical, "closed");
+  const unknown = countOf(physical, "unknown");
+  const digitalOpen = countOf(digital, "open");
 
   let badge: SessionSummary["badge"] = "outline";
   let label = "sem horário";
@@ -49,6 +59,9 @@ export function summarizeSessions(sessions: readonly HouseSession[], now: number
   } else if (pre >= 1) {
     badge = "warn";
     label = "pré-abertura";
+  } else if (digitalOpen >= 1) {
+    badge = "outline";
+    label = "só digitais";
   } else if (closed >= 1) {
     badge = "outline";
     label = "fechado";
@@ -59,7 +72,9 @@ export function summarizeSessions(sessions: readonly HouseSession[], now: number
     pre,
     closed,
     unknown,
-    total: houses.length,
+    total: physical.length,
+    digitalOpen,
+    digitalTotal: digital.length,
     nextChangeAt: now === 0 ? null : nextChangeAfter(houses, now),
     badge,
     label,
@@ -78,17 +93,30 @@ export function formatCountdown(targetIso: string, now: number): string {
 export interface MarketStatusProps {
   sessions: readonly HouseSession[];
   now: number;
+  /** Enquanto as cotações do par carregam, as casas do par ainda não são conhecidas: não se afirma nada. */
+  loading?: boolean;
   className?: string;
 }
 
 /** Badge com o estado agregado das casas e a próxima mudança. Puro: o `now` vem de fora. */
-export function MarketStatus({ sessions, now, className }: MarketStatusProps): ReactElement {
+export function MarketStatus({ sessions, now, loading = false, className }: MarketStatusProps): ReactElement {
+  if (loading) {
+    return (
+      <p data-testid="pregao-market-status" data-badge="outline" className={cn("text-sm text-muted", className)}>
+        Carregando horários…
+      </p>
+    );
+  }
   const summary = summarizeSessions(sessions, now);
+  const parts: string[] = [];
+  if (summary.total > 0) parts.push(`${summary.open} de ${summary.total} casas físicas abertas`);
+  if (summary.digitalTotal > 0) parts.push(`${summary.digitalOpen} de ${summary.digitalTotal} digitais abertas`);
+  if (parts.length === 0) parts.push("nenhuma casa com horário informado");
   const next = summary.nextChangeAt ? ` · próxima mudança em ${formatCountdown(summary.nextChangeAt, now)}` : "";
   return (
     <p data-testid="pregao-market-status" data-badge={summary.badge} className={cn("flex items-center gap-2 text-sm", className)}>
       <Badge variant={summary.badge}>{summary.label}</Badge>
-      <span>{`${summary.open} de ${summary.total} casas abertas${next}`}</span>
+      <span>{`${parts.join(" · ")}${next}`}</span>
     </p>
   );
 }

@@ -183,6 +183,34 @@ describe("buildPregaoView — cruzamento BRL/PYG via USD (mesma casa, mesmo cont
   });
 });
 
+describe("buildPregaoView — sessões do par", () => {
+  const sess = (source_id: string, status: HouseSession["status"], channel: HouseSession["channel"] = "physical", reference = false): HouseSession => ({
+    source_id,
+    name: source_id,
+    city: null,
+    tz: "America/Asuncion",
+    channel,
+    reference,
+    status,
+    opens_at: null,
+    closes_at: null,
+    next_change_at: null,
+    data_mode: "real",
+  });
+
+  it("pairSessions traz só as casas com cotação no par atual: sem referência e sem casas que só cotam outro par", () => {
+    const v = buildPregaoView({
+      quotes: [mkQuote({ id: "q1", source_id: "chaco" }), mkQuote({ id: "q2", source_id: "nomad", base: "BRL", buy: "1.1", sell: "1.2", channel: "digital" })],
+      sources: [src("chaco", "Cambios Chaco"), src("nomad", "Nomad", "fintech")],
+      sessions: [sess("chaco", "open"), sess("nomad", "closed", "digital"), sess("bcp", "open", "digital", true)],
+      pair: "USD/PYG",
+      selectedKey: null,
+      now: NOW,
+    });
+    expect(v.pairSessions.map((s) => s.source_id)).toEqual(["chaco"]);
+  });
+});
+
 describe("cyclePair", () => {
   it("anda na sequência de PAIRS e dá a volta nos dois sentidos", () => {
     expect(cyclePair("USD/PYG", 1)).toBe("BRL/PYG");

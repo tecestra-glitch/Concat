@@ -79,7 +79,28 @@ describe("summarizeSessions", () => {
       ],
       now,
     );
-    expect(summary).toMatchObject({ open: 1, pre: 0, closed: 1, unknown: 0, total: 2, badge: "gain", label: "aberto" });
+    expect(summary).toMatchObject({ open: 1, pre: 0, closed: 1, unknown: 0, total: 2, digitalOpen: 0, digitalTotal: 0, badge: "gain", label: "aberto" });
+  });
+
+  it("digitais não entram no 'aberto' nem nas casas físicas: só digitais abertas dão 'só digitais' neutro", () => {
+    const summary = summarizeSessions(
+      [session({ source_id: "chaco", status: "closed", city: "CDE" }), session({ source_id: "nomad", status: "open", channel: "digital" })],
+      now,
+    );
+    expect(summary).toMatchObject({ open: 0, total: 1, closed: 1, digitalOpen: 1, digitalTotal: 1, badge: "outline", label: "só digitais" });
+  });
+
+  it("'aberto' (verde) exige física aberta; digitais abertas ao lado não mudam o selo", () => {
+    const summary = summarizeSessions(
+      [session({ source_id: "chaco", status: "open", city: "CDE" }), session({ source_id: "nomad", status: "open", channel: "digital" })],
+      now,
+    );
+    expect(summary).toMatchObject({ open: 1, digitalOpen: 1, badge: "gain", label: "aberto" });
+  });
+
+  it("só digitais, sem nenhuma física no par: 'só digitais' e total físico zero", () => {
+    const summary = summarizeSessions([session({ source_id: "nomad", status: "open", channel: "digital" })], now);
+    expect(summary).toMatchObject({ total: 0, digitalTotal: 1, badge: "outline", label: "só digitais" });
   });
 
   it("com só casas sem horário, o rótulo é 'sem horário' e nunca 'fechado'", () => {
@@ -136,7 +157,7 @@ describe("formatCountdown", () => {
 });
 
 describe("MarketStatus", () => {
-  it("mostra a contagem de casas abertas e a próxima mudança com o badge gain", () => {
+  it("conta casas físicas do par e mostra o total com o badge gain, sem a palavra 'digitais' quando não há digitais", () => {
     const html = renderToStaticMarkup(
       <MarketStatus
         now={now}
@@ -149,8 +170,38 @@ describe("MarketStatus", () => {
     );
     expect(html).toContain('data-testid="pregao-market-status"');
     expect(html).toContain('data-badge="gain"');
-    expect(html).toContain("1 de 2 casas abertas · próxima mudança em 10 min");
+    expect(html).toContain("1 de 2 casas físicas abertas · próxima mudança em 10 min");
+    expect(html).not.toContain("digitais");
     expect(html).not.toContain('role="status"');
+  });
+
+  it("digitais aparecem à parte, depois das físicas, e não acendem o selo quando as físicas estão fechadas", () => {
+    const html = renderToStaticMarkup(
+      <MarketStatus
+        now={now}
+        sessions={[
+          session({ source_id: "chaco", status: "closed", city: "CDE" }),
+          session({ source_id: "norte", status: "closed", city: "ASU" }),
+          session({ source_id: "nomad", status: "open", channel: "digital" }),
+        ]}
+      />,
+    );
+    expect(html).toContain('data-badge="outline"');
+    expect(html).toContain("só digitais");
+    expect(html).toContain("0 de 2 casas físicas abertas · 1 de 1 digitais abertas");
+    expect(html).not.toContain('data-badge="gain"');
+  });
+
+  it("enquanto as cotações carregam, não afirma que não há casas: mostra 'Carregando horários…'", () => {
+    const html = renderToStaticMarkup(<MarketStatus now={now} sessions={[]} loading />);
+    expect(html).toContain("Carregando horários");
+    expect(html).not.toContain("nenhuma casa");
+  });
+
+  it("sem nenhuma casa com horário, diz isso em vez de '0 de 0'", () => {
+    const html = renderToStaticMarkup(<MarketStatus now={now} sessions={[]} />);
+    expect(html).toContain("nenhuma casa com horário informado");
+    expect(html).not.toContain("0 de 0");
   });
 });
 
