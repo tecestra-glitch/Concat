@@ -3,8 +3,8 @@
 Existing rows get 'html' as the server default; the collector overwrites it on the next
 `ensure_sources` with the value declared by each adapter, so the default is only a placeholder.
 
-Revision ID: 0003
-Revises: 0002
+Revision ID: 0004
+Revises: 0003_unit_note
 Create Date: 2026-11-04 12:00:00.000000
 """
 from __future__ import annotations
@@ -14,8 +14,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = '0003'
-down_revision: str | Sequence[str] | None = '0002'
+revision: str = '0004'
+down_revision: str | Sequence[str] | None = '0003_unit_note'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
