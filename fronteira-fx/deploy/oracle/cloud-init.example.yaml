@@ -1,0 +1,21 @@
+#cloud-config
+# Modelo do "cloud-init script" da Oracle (Compute > Instances > Create > Advanced options > Management).
+# Troque <WORKER_DB_PASSWORD> pela senha do papel fx_worker do Supabase. Nunca versione o arquivo preenchido.
+write_files:
+  - path: /etc/fronteira-fx/worker.env
+    owner: root:root
+    permissions: "0600"
+    content: |
+      DATABASE_URL=postgresql+psycopg://fx_worker.<PROJECT_REF>:<WORKER_DB_PASSWORD>@aws-1-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require
+      DATA_MODE=real
+      AUTO_CREATE_SCHEMA=0
+      SEED_KNOWLEDGE=0
+      SEED_DEMO=0
+      EVIDENCE_DIR=/app/var/evidence
+      WORKER_TICK_S=10
+      POLL_INTERVAL_S=60
+      WATCH_MAX_INTERVAL_S=180
+runcmd:
+  - [bash, -c, "apt-get update -q && apt-get install -y -q git"]
+  - [bash, -c, "git clone --quiet --depth 1 --filter=blob:none --sparse --branch claude/painel-cambio-apis-h2hj4d https://github.com/tecestra-glitch/Concat /opt/fronteira-fx && git -C /opt/fronteira-fx sparse-checkout set fronteira-fx"]
+  - [bash, /opt/fronteira-fx/fronteira-fx/deploy/oracle/setup.sh]

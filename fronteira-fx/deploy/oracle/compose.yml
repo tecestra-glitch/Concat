@@ -1,0 +1,22 @@
+# Coletor ao vivo do Fronteira FX numa VM (Oracle Cloud Always Free).
+# Só o worker roda aqui: o banco é o Supabase e o site e a API ficam na Vercel. Nenhuma porta de entrada é aberta.
+# Variáveis em /etc/fronteira-fx/worker.env (fora do Git, permissão 600). Ver docs/deploy.md, seção "Coletor ao vivo na Oracle".
+name: fronteira-fx-worker
+services:
+  worker:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.worker
+    image: fronteira-fx-worker:local
+    env_file: /etc/fronteira-fx/worker.env
+    volumes:
+      - evidence:/app/var/evidence
+    restart: unless-stopped
+    shm_size: "1gb"   # Chromium da Western Union
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  evidence:

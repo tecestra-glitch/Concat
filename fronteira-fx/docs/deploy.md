@@ -348,6 +348,42 @@ Custo: cada execução gasta segundos de CPU. No plano grátis da Vercel há cer
 mantenha o intervalo de 2 h. O segredo fica só em variáveis de ambiente: o backend recusa o placeholder
 `TROQUE_*` e URL que não seja https (exceto localhost).
 
+## Coletor ao vivo na Oracle Cloud (Always Free)
+
+No modo grátis da Vercel a coleta roda a cada 5 minutos: consultar cada fonte a cada minuto gastaria umas 16 horas de
+CPU por mês (medido: ~0,13 s por fonte), e o plano Hobby tem 4. Para a coleta ao vivo (cada fonte a cada 60 s, o
+piso do projeto, e a Western Union com Chromium local), o **worker** roda numa VM Always Free da Oracle. O site e a API
+continuam na Vercel e o banco no Supabase; a VM não abre nenhuma porta de entrada.
+
+| Peça | Onde |
+|---|---|
+| Worker (coleta a cada 60 s, Western Union com navegador, fila de tarefas) | VM Oracle, `deploy/oracle/compose.yml` |
+| Banco | Supabase, pooler em modo sessão (porta 5432) com o papel `fx_worker` |
+| API e site | Vercel (sem mudança) |
+| Agendador do Supabase | continua a cada 5 min como reserva: o estado de sondagem é o mesmo (`watch_states`, com trava de linha), então nada é consultado em dobro |
+
+**Papel do banco.** O worker usa o papel `fx_worker` (login próprio, sem DDL, com política de linha `fx_worker_all` em
+cada tabela, porque o RLS está ligado). Trocar a senha não mexe na Vercel. Migração nova que cria tabela precisa da
+política também (`create policy fx_worker_all on public.<tabela> for all to fx_worker using (true) with check (true)`).
+
+**Instalação.**
+1. Crie a conta Always Free da Oracle com região inicial **Brazil East (São Paulo)**.
+2. Compute → Instances → Create instance: imagem **Canonical Ubuntu 24.04**; forma **VM.Standard.A1.Flex** (1 OCPU,
+   6 GB; se faltar capacidade, **VM.Standard.E2.1.Micro**, que ganha 2 GB de swap no setup); rede padrão com IP público.
+3. Em *Advanced options → Management → cloud-init script*, cole o `deploy/oracle/cloud-init.example.yaml` preenchido
+   (senha do `fx_worker` e o ref do projeto). Crie a instância.
+4. O cloud-init instala Docker e git, clona a branch só com `fronteira-fx/`, grava `/etc/fronteira-fx/worker.env`
+   (600, root), sobe o worker e liga o timer `fronteira-fx-update` (a cada 5 min: se a branch mudou, reconstrói e
+   reinicia). Quem pode enviar commits para a branch controla o que roda na VM.
+
+**Variáveis do worker** (`/etc/fronteira-fx/worker.env`): `DATABASE_URL` (fx_worker, porta 5432, `sslmode=require`),
+`DATA_MODE=real`, `AUTO_CREATE_SCHEMA=0`, `SEED_KNOWLEDGE=0`, `SEED_DEMO=0`, `EVIDENCE_DIR=/app/var/evidence`,
+`WORKER_TICK_S=10`, `POLL_INTERVAL_S=60`, `WATCH_MAX_INTERVAL_S=180`. Sem `FX_SERVERLESS` (o worker usa pool normal).
+
+**Verificação.** No Supabase: `select count(*) from pg_stat_activity where usename = 'fx_worker';` maior que zero e
+cotações novas a cada minuto. Na VM (se precisar): `journalctl -u fronteira-fx-update` e
+`docker compose -f /opt/fronteira-fx/fronteira-fx/deploy/oracle/compose.yml logs -f worker`.
+
 ## Backend e worker em um host durável
 
 Vercel Functions não hospedam o coletor nem processos indefinidos. `api` e `worker` vão para uma VPS

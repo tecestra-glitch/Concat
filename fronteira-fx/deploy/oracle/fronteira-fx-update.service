@@ -1,0 +1,8 @@
+[Unit]
+Description=Fronteira FX: atualiza e reinicia o coletor quando a branch muda
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/fronteira-fx/fronteira-fx/deploy/oracle/update.sh
