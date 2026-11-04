@@ -81,6 +81,9 @@ export function legStepText(leg: Leg): string {
 export function createDemoPlan(cycle: Cycle, now: number): Plan {
   // mesma regra do backend: um plano só organiza uma rota com ganho líquido positivo
   if (!((toNumber(cycle.gain) ?? 0) > 0)) throw new ApiError(422, "só ciclo com ganho líquido positivo vira plano");
+  // validade pela cotação mais velha do ciclo (mesma regra do backend); sem data, não há como provar: não cria
+  const quotedMs = cycle.edges.map((e) => (e.quoted_at ? Date.parse(e.quoted_at) : NaN)).filter(Number.isFinite);
+  if (quotedMs.length === 0) throw new ApiError(422, "ciclo sem data de cotação; calcule os ciclos de novo");
   const id = `demo-plan-${++counter}`;
   const iso = new Date(now).toISOString();
   const steps: PlanStep[] = cycle.legs.map((leg, i) => ({
@@ -112,7 +115,7 @@ export function createDemoPlan(cycle: Cycle, now: number): Plan {
     confidence: cycle.confidence,
     minutes: cycle.minutes,
     requires_declaration: cycle.requires_declaration,
-    quotes_as_of: iso,
+    quotes_as_of: new Date(Math.min(...quotedMs)).toISOString(),
     quote_max_age_s: DEMO_QUOTE_MAX_AGE_S,
     created_at: iso,
     decided_at: null,

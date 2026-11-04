@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Cycle } from "@/lib/api/types";
-import { costRows, cycleGain, filterCycles, legLabel, legText, cycleCurrency, formatMinutes, isProfitable, NEEDS_DECLARATION_USD, pathLabel, parseMinGain } from "./cycle-helpers";
+import { costRows, cycleGain, filterCycles, legLabel, legText, cycleCurrency, formatMinutes, isProfitable, NEEDS_DECLARATION_USD, pathLabel, parseMinGain, planButtonLabel, profitBadge } from "./cycle-helpers";
 
 const cycle = (over: Partial<Cycle> = {}): Cycle => ({
   start: "BRL@brbank",
@@ -100,5 +100,31 @@ describe("ganho mínimo lê o número como o resto do app (UX-2)", () => {
       { start: "PYG@cash:CDE", gain: "12000", gain_by_currency: { BRL: "1", USD: "1", PYG: "12000" }, confidence: "quoted" },
     ] as unknown as Cycle[];
     expect(filterCycles(list, { currency: "all", minGain: "10.000", minCurrency: "PYG", includeIncomplete: true })).toHaveLength(1);
+  });
+});
+
+describe("cruzamento: contagem de lucrativos e rótulo do plano (custo pendente nunca é confirmado)", () => {
+  it("sem nenhum ciclo positivo, o selo é neutro: 0 lucrativos", () => {
+    expect(profitBadge([])).toEqual({ text: "0 lucrativos", variant: "outline" });
+  });
+
+  it("só ciclo com custo pendente: nada confirmado, selo neutro, com a contagem da estimativa", () => {
+    const badge = profitBadge([cycle({ confidence: "incomplete" }), cycle({ confidence: "incomplete" })]);
+    expect(badge.text).toBe("0 confirmados · 2 estimados (custo pendente)");
+    expect(badge.variant).toBe("outline");
+  });
+
+  it("confirmados e estimados contados em separado; o verde só aparece com confirmado", () => {
+    const badge = profitBadge([cycle({ confidence: "quoted" }), cycle({ confidence: "incomplete" })]);
+    expect(badge).toEqual({ text: "1 confirmado · 1 estimado (custo pendente)", variant: "gain" });
+  });
+
+  it("ciclo sem ganho não entra na contagem", () => {
+    expect(profitBadge([cycle({ gain: "-3", confidence: "quoted" })]).text).toBe("0 lucrativos");
+  });
+
+  it("o botão de um ciclo com custo pendente diz que é estimativa", () => {
+    expect(planButtonLabel(cycle({ confidence: "incomplete" }))).toBe("Gerar plano (estimativa)");
+    expect(planButtonLabel(cycle({ confidence: "quoted" }))).toBe("Gerar plano");
   });
 });

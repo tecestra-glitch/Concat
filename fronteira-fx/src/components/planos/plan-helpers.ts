@@ -33,6 +33,15 @@ export function gainPresentation(value: string, currency: Currency, confidence: 
   return { text: `${incomplete ? "≈ " : ""}${formatMoney(value, currency, { sign: !incomplete })}`, tone };
 }
 
+/**
+ * Saída esperada do plano com o rótulo certo: saída com custo pendente é estimativa (≈, "não confirmada"),
+ * nunca um valor exato. Vale para o plano, o diálogo do ciclo e o esperado × realizado.
+ */
+export function expectedPresentation(value: string, currency: Currency, confidence: Confidence): { label: string; text: string } {
+  const incomplete = confidence === "incomplete";
+  return { label: incomplete ? "Saída estimada (não confirmada)" : "Saída esperada", text: `${incomplete ? "≈ " : ""}${formatMoney(value, currency)}` };
+}
+
 const COST_LABEL: Record<"spread" | "fees" | "iof" | "transport", string> = { spread: "spread", fees: "tarifas", iof: "IOF", transport: "deslocamento" };
 
 /** Custos que faltam no plano, pelo nome em português (`null` = desconhecido). */

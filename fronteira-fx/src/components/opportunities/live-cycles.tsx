@@ -25,7 +25,7 @@ import { formatMoney, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MODE_LABEL, MODE_TONE } from "@/components/ui/labels";
 import type { Currency, Cycle } from "@/lib/api/types";
-import { CYCLE_CURRENCIES, cycleCurrency, cycleGain, filterCycles, formatMinutes, isProfitable, parseMinGain, pathLabel, type CycleFilter } from "./cycle-helpers";
+import { CYCLE_CURRENCIES, cycleCurrency, cycleGain, filterCycles, formatMinutes, isProfitable, parseMinGain, pathLabel, planButtonLabel, profitBadge, type CycleFilter } from "./cycle-helpers";
 import { CycleDetail } from "./cycle-detail";
 import { LegChannel } from "./leg-channel";
 
@@ -40,6 +40,7 @@ export function LiveCycles({ limit = 12, compact = false }: { limit?: number; co
   const minGainOk = parseMinGain(filter.minGain).ok;
   const rows = React.useMemo(() => filterCycles(q.data ?? [], compact ? { ...INITIAL_FILTER, includeIncomplete: false } : filter), [q.data, filter, compact]);
   const positive = rows.filter(isProfitable);
+  const profit = profitBadge(rows);
   // Os «quase lá» são o que vigiar: na visão geral (compact) ficam os 3 mais próximos, na tela cheia 5.
   const nearMiss = rows.filter((c) => !isProfitable(c)).slice(0, compact ? 3 : 5);
   const shown = [...positive.slice(0, limit), ...nearMiss];
@@ -61,7 +62,7 @@ export function LiveCycles({ limit = 12, compact = false }: { limit?: number; co
           </CardDescription>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Badge variant={positive.length ? "gain" : "outline"}>{positive.length} lucrativo{positive.length === 1 ? "" : "s"}</Badge>
+          <Badge variant={profit.variant} data-testid="cycles-profit">{profit.text}</Badge>
           {dataMode && <Badge variant={MODE_TONE[dataMode]} data-testid="cycles-mode">{MODE_LABEL[dataMode]}</Badge>}
         </div>
       </CardHeader>
@@ -162,7 +163,7 @@ export function LiveCycles({ limit = 12, compact = false }: { limit?: number; co
                       <div className="flex flex-col items-end gap-1 whitespace-nowrap">
                         <Button variant="ghost" size="sm" onClick={() => setOpen(c)} aria-label={`Ver detalhes do ciclo ${c.start} → ${pathLabel(c.path)}`}>Detalhes</Button>
                         <Button size="sm" variant={profit ? "default" : "outline"} disabled={!profit || plan.isPending} onClick={() => void makePlan(c)} title={profit ? undefined : "Só ciclos com ganho líquido positivo viram plano"} aria-label={`Gerar plano do ciclo ${c.start}`}>
-                          Gerar plano
+                          {planButtonLabel(c)}
                         </Button>
                       </div>
                     </TableCell>

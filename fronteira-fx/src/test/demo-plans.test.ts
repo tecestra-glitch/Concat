@@ -3,6 +3,7 @@ import { ApiError, api, resetDemoClient } from "@/lib/api/client";
 import { demoEdges, demoParkedBalances } from "@/lib/api/demo-graph";
 import { findCycles } from "@/lib/graph";
 import { createDemoPlan, legStepText } from "@/lib/api/demo-plans";
+import { DEMO_SERVER_TIME } from "@/lib/api/demo-data";
 import type { Cycle, Leg } from "@/lib/api/types";
 
 async function anyDemoCycle() {
@@ -15,7 +16,8 @@ describe("planos na demonstração (sem nenhuma execução)", () => {
   beforeEach(() => {
     resetDemoClient();
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(Date.parse("2026-11-04T12:00:00Z"));
+    // relógio logo depois da geração das cotações da demonstração (ela é "agora" no carregamento)
+    vi.setSystemTime(Date.parse(DEMO_SERVER_TIME) + 60_000);
   });
   afterEach(() => {
     vi.useRealTimers();

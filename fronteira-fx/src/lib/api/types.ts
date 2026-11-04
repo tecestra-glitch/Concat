@@ -225,6 +225,8 @@ export interface Edge {
   transport_fixed?: string;
   /** Balcão (ida ao caixa de uma casa na mesma cidade): não conta em `maxLen`. */
   counter?: boolean;
+  /** Instante da cotação que originou a aresta (só arestas de cotação); validade do plano sai da mais velha. */
+  quoted_at?: string | null;
   /** Custos que o motor não consegue precificar: `null` nessa categoria, nunca zero. */
   unknown_costs?: Array<"spread" | "fees" | "iof" | "transport">;
 }

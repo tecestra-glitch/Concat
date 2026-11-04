@@ -10,6 +10,7 @@ import { useCreatePlan } from "@/lib/queries";
 import { ConfidenceBadge } from "./ranking-table";
 import { LegChannel } from "./leg-channel";
 import { CHANNEL_TEXT, CYCLE_CURRENCIES, NEEDS_DECLARATION_USD, costRows, cycleCurrency, cycleGain, formatMinutes, isProfitable, legLabel, legText, pathLabel } from "./cycle-helpers";
+import { expectedPresentation } from "../planos/plan-helpers";
 
 /** Detalhe de um ciclo: pernas com canal, quebra de custos, ganho por moeda e o aviso de declaração. */
 export function CycleDetail({ cycle: c, onClose }: { cycle: Cycle | null; onClose: () => void }) {
@@ -40,7 +41,7 @@ export function CycleDetail({ cycle: c, onClose }: { cycle: Cycle | null; onClos
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Kpi label={`Ganho em ${currency}`} value={`${incomplete ? "≈ " : ""}${formatMoney(c.gain, currency, { sign: !incomplete })}`} tone={incomplete ? "muted" : isProfitable(c) ? "gain" : "loss"} strong />
               <Kpi label="ROI" value={`${incomplete ? "≈ " : ""}${formatPercent(c.roi, { sign: !incomplete })}`} tone={incomplete ? "muted" : isProfitable(c) ? "gain" : "loss"} />
-              <Kpi label="Saída" value={formatMoney(c.amount_out, currency)} />
+              <Kpi label={expectedPresentation(c.amount_out, currency, c.confidence).label} value={expectedPresentation(c.amount_out, currency, c.confidence).text} />
               <div className="flex flex-col items-start justify-center gap-1 rounded-md border border-border p-2.5">
                 <p className="text-xs text-muted">Confiança</p>
                 <ConfidenceBadge c={c.confidence} />

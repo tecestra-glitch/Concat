@@ -30,6 +30,30 @@ export function isProfitable(c: Cycle): boolean {
   return (toNumber(c.gain) ?? 0) > 0;
 }
 
+export interface ProfitBadge {
+  text: string;
+  variant: "gain" | "outline";
+}
+
+/**
+ * Selo do cruzamento: confirmados (custo conhecido) e estimados (custo pendente) contados em separado. Ciclo com
+ * custo pendente nunca é "lucro confirmado": o verde só aparece quando há ao menos um confirmado.
+ */
+export function profitBadge(list: Cycle[]): ProfitBadge {
+  const positive = list.filter(isProfitable);
+  if (positive.length === 0) return { text: "0 lucrativos", variant: "outline" };
+  const confirmed = positive.filter((c) => c.confidence !== "incomplete").length;
+  const estimated = positive.length - confirmed;
+  const parts = [`${confirmed} confirmado${confirmed === 1 ? "" : "s"}`];
+  if (estimated > 0) parts.push(`${estimated} estimado${estimated === 1 ? "" : "s"} (custo pendente)`);
+  return { text: parts.join(" · "), variant: confirmed > 0 ? "gain" : "outline" };
+}
+
+/** Rótulo do botão de plano: quem tem custo pendente vê que é estimativa antes de gerar o plano. */
+export function planButtonLabel(c: Cycle): string {
+  return c.confidence === "incomplete" ? "Gerar plano (estimativa)" : "Gerar plano";
+}
+
 export function formatMinutes(minutes: number): string {
   return minutes >= 1440 ? `${(minutes / 1440).toFixed(1).replace(".", ",")} d` : `${minutes} min`;
 }

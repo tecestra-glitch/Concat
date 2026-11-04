@@ -76,12 +76,12 @@ export function edgesFromQuotes(quotes: Quote[], venueOf: (q: Quote) => string):
     if (q.buy !== null && buy !== null && buy > 0) {
       // a fonte COMPRA a moeda base: eu entrego base e recebo quote
       const iof = iofApplies(venue, q.base, q.quote); // BRL que sai do Brasil: IOF desconhecido
-      edges.push({ from: nodeKey(q.base, venue), to: nodeKey(q.quote, venue), kind: "quote", rate: q.buy, fee_pct: pctFee, fee_fixed: "0", minutes, via: `${q.source_id} compra ${q.base}`, confidence: iof ? "incomplete" : conf, evidence_id: q.evidence_id, channel, ref_rate: mid === null ? null : dec(mid, 12) });
+      edges.push({ from: nodeKey(q.base, venue), to: nodeKey(q.quote, venue), kind: "quote", rate: q.buy, fee_pct: pctFee, fee_fixed: "0", minutes, via: `${q.source_id} compra ${q.base}`, confidence: iof ? "incomplete" : conf, evidence_id: q.evidence_id, quoted_at: q.captured_at, channel, ref_rate: mid === null ? null : dec(mid, 12) });
     }
     if (sell !== null && sell > 0) {
       // a fonte VENDE a moeda base: eu entrego quote e recebo base
       const iof = iofApplies(venue, q.quote, q.base);
-      edges.push({ from: nodeKey(q.quote, venue), to: nodeKey(q.base, venue), kind: "quote", rate: dec(1 / sell, 16), fee_pct: pctFee, fee_fixed: "0", minutes, via: `${q.source_id} vende ${q.base}`, confidence: iof ? "incomplete" : conf, evidence_id: q.evidence_id, channel, ref_rate: mid === null ? null : dec(1 / mid, 16) });
+      edges.push({ from: nodeKey(q.quote, venue), to: nodeKey(q.base, venue), kind: "quote", rate: dec(1 / sell, 16), fee_pct: pctFee, fee_fixed: "0", minutes, via: `${q.source_id} vende ${q.base}`, confidence: iof ? "incomplete" : conf, evidence_id: q.evidence_id, quoted_at: q.captured_at, channel, ref_rate: mid === null ? null : dec(1 / mid, 16) });
     }
   }
   return edges;
@@ -92,18 +92,25 @@ export function applyEdge(amount: number, e: Edge): number {
   return amount * (1 - num(e.fee_pct) - num(e.iof_pct)) * num(e.rate) - num(e.fee_fixed) - num(e.transport_fixed);
 }
 
-const BR_INSTITUTIONS = new Set(["brbank", "nubank", "itau", "bradesco", "caixa", "revolut", "nomad"]);
+// Lado paraguaio (espelho de `is_paraguayan_venue` no backend): cidades do Paraguai, banco paraguaio e as fontes
+// cujas cidades estão todas no Paraguai. Qualquer outro lugar (fintech, banco brasileiro, Western Union) não é.
+const PY_CITIES = new Set(["CDE", "ASU", "PJC", "ENC"]);
+const PY_VENUES = new Set(["banco_py", "chaco", "alberdi", "bonanza", "norte"]);
+
+export function isParaguayanVenue(venue: string): boolean {
+  const [head, city] = venue.replace(/^demo-/, "").split(":");
+  if (city !== undefined) return PY_CITIES.has(city);
+  return PY_VENUES.has(head);
+}
 
 /**
- * IOF de câmbio incide quando BRL é convertido por instituição brasileira (ou casa de FOZ/PPO). A alíquota não está
- * nos trilhos: sem ela, o IOF é desconhecido (`null`) e a aresta é `incomplete`, como no backend.
+ * IOF de câmbio pode incidir sempre que BRL é convertido fora do lado paraguaio. A alíquota não está nos trilhos:
+ * sem ela, o IOF é desconhecido (`null`) e a aresta é `incomplete`, como no backend. Nunca vira zero por falta de dado.
  */
 export function iofApplies(venue: string, from: Currency, to: Currency): boolean {
   if (from !== "BRL" || to === "BRL") return false;
-  const [head, city] = venue.split(":");
-  if (head === "cash") return false;
-  if (city !== undefined) return city === "FOZ" || city === "PPO";
-  return BR_INSTITUTIONS.has(head);
+  if (venue.startsWith("cash:")) return false; // dinheiro na mão não é conversão de instituição
+  return !isParaguayanVenue(venue);
 }
 
 const CONFIDENCE_ORDER: Confidence[] = ["quoted", "estimated", "incomplete"];

@@ -47,6 +47,7 @@ export const EdgeSchema = z.object({
   border: z.boolean().optional(),
   counter: z.boolean().optional(),
   ref_rate: NullableDecimalString.optional(),
+  quoted_at: z.string().nullable().optional(),
   unknown_costs: z.array(z.enum(["spread", "fees", "iof", "transport"])).optional(),
 });
 

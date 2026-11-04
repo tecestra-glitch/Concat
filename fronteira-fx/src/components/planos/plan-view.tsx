@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { CYCLE_CURRENCIES, formatMinutes, pathLabel } from "../opportunities/cycle-helpers";
 import { ConfidenceBadge } from "../opportunities/ranking-table";
 import { LegChannel } from "../opportunities/leg-channel";
-import { NO_MONEY_MOVED, PLAN_TONE, STEP_STATUS_LABEL, formatPlanCountdown, gainPresentation, stepCounter, unknownCostLabels } from "./plan-helpers";
+import { NO_MONEY_MOVED, PLAN_TONE, STEP_STATUS_LABEL, expectedPresentation, formatPlanCountdown, gainPresentation, stepCounter, unknownCostLabels } from "./plan-helpers";
 
 const currencyOfNode = (node: string) => node.split("@")[0] as Plan["currency"];
 
@@ -34,6 +34,16 @@ export function PlanView({ id }: { id: string }) {
   const now = useSecondNow(); // relógio de 1 s: a contagem da cotação não pode ficar congelada
   const mounted = useMounted();
   const decide = usePlanDecision(id);
+  // foco: depois de aprovar ou concluir um passo, o teclado vai ao próximo passo (ou ao resultado), e não ao topo
+  const focusNext = React.useRef(false);
+  React.useEffect(() => {
+    if (!focusNext.current) return;
+    const target = document.querySelector<HTMLElement>('[data-testid="plan-step"][data-next="true"] input') ?? document.querySelector<HTMLElement>('[data-testid="plan-result"]');
+    if (target) {
+      focusNext.current = false;
+      target.focus();
+    }
+  });
 
   if (q.isLoading) return <TableSkeleton rows={4} cols={4} />;
   if (q.isError) return <ErrorState title="O plano não carregou" error={q.error} onRetry={() => void q.refetch()} />;
@@ -57,7 +67,9 @@ export function PlanView({ id }: { id: string }) {
   return (
     <div className="space-y-4">
       <PageHeader title="Plano de execução" description={`Caminho: ${pathLabel(plan.path)}`}>
-        <Badge variant={PLAN_TONE[view.status]} data-testid="plan-status">{PLAN_STATUS_LABEL[view.status]}</Badge>
+        <span role="status" aria-live="polite">
+          <Badge variant={PLAN_TONE[view.status]} data-testid="plan-status">{PLAN_STATUS_LABEL[view.status]}</Badge>
+        </span>
         <Link href="/planos" className="text-sm text-accent underline">Todos os planos</Link>
       </PageHeader>
 
@@ -85,7 +97,7 @@ export function PlanView({ id }: { id: string }) {
         <CardContent className="space-y-3">
           <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <Item k="Capital" v={formatMoney(plan.amount_in, plan.currency)} />
-            <Item k="Saída esperada" v={formatMoney(plan.amount_out_expected, plan.currency)} />
+            <Item k={expectedPresentation(plan.amount_out_expected, plan.currency, plan.confidence).label} v={expectedPresentation(plan.amount_out_expected, plan.currency, plan.confidence).text} />
             <Item k={incomplete ? `Ganho estimado (${plan.currency}, não confirmado)` : `Ganho esperado (${plan.currency})`} v={gain.text} tone={gain.tone} strong />
             <div className="min-w-0"><dt className="text-xs text-muted">Confiança</dt><dd className="mt-0.5"><ConfidenceBadge c={plan.confidence} /></dd></div>
           </dl>
@@ -115,7 +127,7 @@ export function PlanView({ id }: { id: string }) {
             </p>
           )}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => decide.approve.mutate()} disabled={!canApprove(plan, now) || busy} data-testid="approve-plan">Aprovar plano</Button>
+            <Button onClick={() => decide.approve.mutate(undefined, { onSuccess: () => { focusNext.current = true; } })} disabled={!canApprove(plan, now) || busy} data-testid="approve-plan">Aprovar plano</Button>
             <Button variant="outline" onClick={() => decide.reject.mutate()} disabled={!canReject(plan, now) || busy} data-testid="reject-plan">Recusar plano</Button>
           </div>
           {live && <p className="text-xs text-muted">Aprovar só registra a sua decisão. Nenhum banco, casa ou API é chamado.</p>}
@@ -129,7 +141,7 @@ export function PlanView({ id }: { id: string }) {
           <CardDescription>Em ordem, um de cada vez. Ao concluir cada passo, informe o valor que você recebeu de fato.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted" data-testid="plan-progress">Feitos: {stepCounter(progress.done, progress.total)}</p>
+          <p className="text-sm text-muted" data-testid="plan-progress" role="status" aria-live="polite">Feitos: {stepCounter(progress.done, progress.total)}</p>
           <ol className="space-y-2" aria-label="Passos do plano">
             {[...view.steps].sort((a, b) => a.n - b.n).map((step) => (
               <StepRow
@@ -137,8 +149,9 @@ export function PlanView({ id }: { id: string }) {
                 step={step}
                 isNext={next?.n === step.n}
                 actionable={canCompleteStep(view, step.n, now)}
+                estimated={incomplete}
                 busy={busy}
-                onDone={(actual_out, note) => decide.completeStep.mutate({ n: step.n, body: { actual_out, note } })}
+                onDone={(actual_out, note) => decide.completeStep.mutate({ n: step.n, body: { actual_out, note } }, { onSuccess: () => { focusNext.current = true; } })}
               />
             ))}
           </ol>
@@ -152,8 +165,8 @@ export function PlanView({ id }: { id: string }) {
             <CardDescription>Plano concluído. A diferença entra no diário como resultado do plano.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <dl className="grid grid-cols-3 gap-3 text-sm" data-testid="plan-result">
-              <Item k="Esperado" v={formatMoney(result.expected, plan.currency)} />
+            <dl className="grid grid-cols-3 gap-3 text-sm" data-testid="plan-result" tabIndex={-1}>
+              <Item k={incomplete ? "Esperado (estimativa)" : "Esperado"} v={expectedPresentation(result.expected, plan.currency, plan.confidence).text} />
               <Item k="Realizado" v={formatMoney(result.realized, plan.currency)} />
               <Item k="Diferença" v={formatMoney(result.difference, plan.currency, { sign: true })} tone={Number(result.difference) < 0 ? "loss" : "gain"} strong />
             </dl>
@@ -166,7 +179,7 @@ export function PlanView({ id }: { id: string }) {
   );
 }
 
-function StepRow({ step, isNext, actionable, busy, onDone }: { step: PlanStep; isNext: boolean; actionable: boolean; busy: boolean; onDone: (actual: string, note?: string) => void }) {
+function StepRow({ step, isNext, actionable, estimated, busy, onDone }: { step: PlanStep; isNext: boolean; actionable: boolean; estimated: boolean; busy: boolean; onDone: (actual: string, note?: string) => void }) {
   const done = step.status === "done";
   const toC = currencyOfNode(step.to);
   const status = done ? STEP_STATUS_LABEL.done : isNext ? "Próximo" : STEP_STATUS_LABEL.pending;
@@ -186,7 +199,7 @@ function StepRow({ step, isNext, actionable, busy, onDone }: { step: PlanStep; i
             <span>{formatMinutes(step.minutes)}</span>
             <LegChannel channel={step.channel} />
           </p>
-          <p className="tnum text-xs text-muted">Esperado: {formatMoney(step.amount_out_expected, toC)}</p>
+          <p className="tnum text-xs text-muted">Esperado: {estimated && <span aria-hidden>≈ </span>}{formatMoney(step.amount_out_expected, toC)}{estimated && <span className="sr-only"> (estimativa, não confirmada)</span>}</p>
           {done && <p className="tnum text-xs">Realizado: {formatMoney(step.actual_out, toC)}{step.note ? ` · ${step.note}` : ""}</p>}
           {isNext && actionable && !done && <StepForm currency={toC} busy={busy} onSubmit={onDone} />}
         </div>

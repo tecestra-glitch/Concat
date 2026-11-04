@@ -311,7 +311,9 @@ export const api = {
   /** POST /v1/plans [chave]: só um caminho que é ciclo atual (`404` caso contrário). Não executa nada. */
   async createPlan(mode: Mode, body: PlanCreate): Promise<Plan> {
     if (mode !== "demo") return http<Plan>(`/v1/plans${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify(body) });
-    const cycles = await api.cycles("demo", { maxLen: 4 });
+    // mesmos limites do backend: até 21 nós (6 pernas com balcões) e a busca de até 6 pernas, sem corte
+    if (body.path.length > 21) throw new ApiError(422, "path: no máximo 21 nós");
+    const cycles = await api.cycles("demo", { maxLen: 6 });
     const cycle = cycles.find((c) => c.start === body.start && c.path.length === body.path.length && c.path.every((n, i) => n === body.path[i]));
     if (!cycle) throw new ApiError(404, "este ciclo não existe mais com as cotações e saldos atuais (demonstração)");
     return createDemoPlan(cycle, Date.now());

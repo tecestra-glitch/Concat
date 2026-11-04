@@ -70,6 +70,7 @@ describe("pernas do ciclo (contrato: legs[])", () => {
     const c = out({ fee_pct: "0.01" }, { fee_pct: "0.02" });
     // 10 BRL na primeira perna + 3,96 USD da segunda (= 20 BRL pela proporção do ciclo)
     expect(Number(c.costs?.fees)).toBeCloseTo(30, 6);
-    expect(c.costs?.iof).toBe("0");
+    // BRL convertido em venue sem alíquota conhecida: IOF desconhecido (null), nunca zero
+    expect(c.costs?.iof).toBeNull();
   });
 });
