@@ -65,6 +65,13 @@ RECEIVE_LABELS: dict[str, tuple[str, ...]] = {
     "bank_account": ("conta bancaria", "conta bancária", "bank account"),
     "cash_pickup": ("receber em dinheiro", "em uma loja", "cash pickup"),
 }
+# amplitude-id de cada tile de recebimento (para ler o estado da tela) e a troca quando a WU suspende uma opção.
+RECEIVE_AMPLITUDE: dict[str, str] = {"bank_account": "tile-fundsout-ba", "cash_pickup": "tile-fundsout-ag"}
+# Em 04/11/2026 a WU desativou "Conta Bancaria" para receber em PYG no Paraguai (aviso "Estamos a ter problemas com
+# a transferência dos fundos para a conta do beneficiário"); a retirada em loja seguiu ativa. Sem a troca, o worker
+# só pedia conta bancária e ficava sem nenhuma cotação da WU.
+RECEIVE_FALLBACK: dict[str, Receive] = {"bank_account": "cash_pickup"}
+DISABLED_TILE_CLASS = "wu-thumbnail-disabled"
 PAYMENT_TILES: dict[str, tuple[str, ...]] = {
     "pix": ('[amplitude-id="tile-fundsin-wupay"]', "#fundsIn_WUPay"),
     "bank_transfer": ('[amplitude-id="tile-fundsin-wupay"]', "#fundsIn_WUPay"),
@@ -82,9 +89,18 @@ SELECTORS = {
     "receive_amount": "#txtReceiveAmount",
     "currency_select": "#wu-currency-select",
     "cookie_close": "button.onetrust-close-btn-handler, #onetrust-accept-btn-handler",
+    "delivery_banner": "#bb_description",
 }
 _Q4 = Decimal("0.0001")
-_FEE_RE = re.compile(r"(?:taxa\s+de\s+transfer[êe]ncia|tarifa)\d*[^0-9]{0,20}?([0-9][0-9.,]*)\s*BRL", re.I)
+# Notas de rodapé coladas no rótulo: "Tarifa2 0.00 BRL" (antes) e "Tarifa2,5 0.00 BRL" (desde 11/2026). Entre a nota e o
+# valor vem espaço ou "+": sem isso o valor fica desconhecido (nunca lê "2,500.00" como nota "2,50" + "0.00").
+_FOOTNOTES = r"(?:\d+(?:\s*,\s*\d+)*)?"
+_FEE_SUMMARY_RE = re.compile(
+    r"taxa\s+de\s+transfer[êe]ncia" + _FOOTNOTES + r"(?:\s+|\s*\+\s*)\+?\s*([0-9][0-9.,]*)\s*BRL", re.I
+)
+_FEE_RE = re.compile(
+    r"(?:taxa\s+de\s+transfer[êe]ncia|tarifa)" + _FOOTNOTES + r"(?:\s+|\s*\+\s*)\+?\s*([0-9][0-9.,]*)\s*BRL", re.I
+)
 _LIST_FEE_RE = re.compile(r"\d+\s?%\s+(?:de\s+)?desconto\s+([0-9][0-9.,]*)\s*BRL", re.I)
 _RATE_RE = re.compile(r"1[.,]00\s*BRL\s*=\s*([0-9][0-9.,]*)\s*(?:PYG|Paraguay)", re.I)
 _DELIVERY_RE = re.compile(
@@ -111,6 +127,47 @@ def evidence_dir() -> Path:
     return Path(__file__).resolve().parents[3] / "var" / "evidence"
 
 
+def choose_receive(requested: Receive, tiles: dict[str, str | None]) -> tuple[Receive | None, str | None]:
+    """Qual forma de recebimento clicar, a partir do estado dos tiles na tela.
+
+    `tiles`: forma -> None quando o tile está ativo, ou o motivo quando a WU o desativou. Forma ausente do mapa = o
+    tile não apareceu (layout mudou): segue o caminho antigo (procura também pelo texto) e devolve a pedida.
+    Devolve (forma a usar, nota para a mensagem da fonte); forma None = nada a coletar, a nota diz por quê."""
+    if requested not in tiles or tiles[requested] is None:
+        return requested, None
+    reason = tiles[requested] or "opção desativada"
+    fallback = RECEIVE_FALLBACK.get(requested)
+    if fallback is not None and fallback in tiles and tiles[fallback] is None:
+        return fallback, f"{requested} suspenso pela WU ({reason}); coletado {fallback}"
+    return None, f"{requested} suspenso pela WU ({reason})"
+
+
+async def _receive_tile_states(page: Any) -> dict[str, str | None]:
+    """Estado dos tiles de recebimento na tela: None = ativo; texto = motivo da desativação (aria-label + aviso)."""
+    rows = await page.eval_on_selector_all(
+        '[amplitude-id^="tile-fundsout"]',
+        "els => els.map(e => [e.getAttribute('amplitude-id') || '', e.className || '',"
+        " e.getAttribute('aria-label') || ''])",
+    )
+    banner = ""
+    try:
+        banner = (await page.locator(SELECTORS["delivery_banner"]).first.inner_text(timeout=1_000)).strip()
+    except Exception:  # noqa: BLE001 - o aviso é opcional
+        banner = ""
+    by_amp = {amp: name for name, amp in RECEIVE_AMPLITUDE.items()}
+    states: dict[str, str | None] = {}
+    for amp, classes, label in rows:
+        name = by_amp.get(amp)
+        if name is None:
+            continue
+        if DISABLED_TILE_CLASS in str(classes).split():
+            reason = " ".join(part for part in (str(label).strip(), banner) if part)
+            states[name] = re.sub(r"\s+", " ", reason)[:240] or "opção desativada"
+        else:
+            states[name] = None
+    return states
+
+
 def _chromium_executable() -> str | None:
     """Explicit path from FX_PW_CHROMIUM, else the pre-provisioned binary when present."""
     for candidate in (os.environ.get("FX_PW_CHROMIUM", "").strip(), "/opt/pw-browsers/chromium"):
@@ -123,7 +180,10 @@ def extract_summary(body_text: str) -> dict[str, Any]:
     """Pull fee / rate / delivery / promo out of the page's visible text (pure, testable)."""
     text = re.sub(r"\s+", " ", body_text)
     out: dict[str, Any] = {}
-    m = _FEE_RE.search(text)
+    # o resumo traz a tarifa do pagamento escolhido; a lista de pagamentos traz uma tarifa por opção (na retirada em
+    # loja, R$ 75 em dinheiro e R$ 0 no Pix): só cai na primeira "Tarifa" da página se o resumo não tiver o valor
+    summary_part = text[text.find("RESUMO"):] if "RESUMO" in text else ""
+    m = _FEE_SUMMARY_RE.search(summary_part) or _FEE_RE.search(text)
     out["fee_brl"] = str(try_parse_decimal(m.group(1))) if m and try_parse_decimal(m.group(1)) is not None else None
     m = _LIST_FEE_RE.search(text)
     out["fee_before_discount_brl"] = str(try_parse_decimal(m.group(1))) if m else None
@@ -301,6 +361,7 @@ class WesternUnionAdapter:
         stamp = captured_at.strftime("%Y%m%dT%H%M%SZ")
         shot_path = out_dir / f"wu_{stamp}_{amount}_{payment}_{receive}.png"
         trail: list[str] = []
+        receive_note: str | None = None  # forma pedida suspensa pela WU (ver choose_receive)
         scenario: dict[str, Any] = {
             "origin": "BR", "destination": "PY", "send_currency": "BRL", "receive_currency": "PYG",
             "amount_brl": str(amount), "payment": payment, "receive": receive, "bank": bank, "channel": "web",
@@ -417,7 +478,16 @@ class WesternUnionAdapter:
                 # let Angular bind the tile handlers before clicking (a click on a freshly rendered tile is lost)
                 await page.wait_for_timeout(2_500)
 
-                # 3) receive method, then payment method
+                # 3) receive method, then payment method. A forma pedida pode estar desativada pela WU: troca pela
+                # alternativa ativa (o contexto da cotação passa a dizer a forma realmente coletada).
+                chosen, receive_note = choose_receive(receive, await _receive_tile_states(page))
+                if chosen is None:
+                    return await fail(AdapterStatus.DEGRADED, receive_note or f"receive option {receive!r} disabled",
+                                      page)
+                if chosen != receive:
+                    trail.append(f"receive:{receive}-suspenso->{chosen}")
+                    receive = chosen
+                    scenario["receive"] = chosen
                 if not await click_first(RECEIVE_TILES[receive], RECEIVE_LABELS[receive], "receive"):
                     return await fail(AdapterStatus.DEGRADED, f"receive option for {receive!r} not found", page)
                 # a click on a tile the SPA is still wiring is lost (observed live): the payment tiles only
@@ -465,7 +535,8 @@ class WesternUnionAdapter:
                 await browser.close()
 
         return self._result_from_scenario(scenario, shot_path=shot_path, shot_bytes=shot_bytes,
-                                          captured_at=captured_at, note=f"steps: {' > '.join(trail)}")
+                                          captured_at=captured_at,
+                                          note="; ".join(filter(None, [receive_note, f"steps: {' > '.join(trail)}"])))
 
     # ------------------------------------------------------------------ shared tail + remote (mini navegador)
     def _result_from_scenario(self, scenario: dict[str, Any], *, shot_path: Path | None, shot_bytes: bytes | None,

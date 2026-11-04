@@ -153,3 +153,67 @@ def test_extract_summary_from_live_text() -> None:
     assert summary["promo"] == "100% de desconto 45.00 BRL"
     assert summary["summary_text"].startswith("RESUMO")
     assert wu.extract_summary("nothing here")["fee_brl"] is None
+
+
+# ---- forma de recebimento suspensa pela WU (04/11/2026: "Conta Bancaria" desativada para PYG no Paraguai)
+_AVISO = "Para enviar dinheiro para uma conta bancária, tente alterar a moeda de receção."
+
+
+def test_choose_receive_ativa_segue_a_pedida() -> None:
+    assert wu.choose_receive("bank_account", {"bank_account": None, "cash_pickup": None}) == ("bank_account", None)
+
+
+def test_choose_receive_conta_suspensa_troca_por_retirada_e_explica() -> None:
+    chosen, note = wu.choose_receive("bank_account", {"bank_account": _AVISO, "cash_pickup": None})
+    assert chosen == "cash_pickup"
+    assert note is not None and "bank_account suspenso pela WU" in note and "coletado cash_pickup" in note
+    assert _AVISO in note
+
+
+def test_choose_receive_sem_alternativa_ativa_nao_coleta() -> None:
+    chosen, note = wu.choose_receive("bank_account", {"bank_account": _AVISO, "cash_pickup": "também fora"})
+    assert chosen is None and note is not None and "suspenso" in note
+    chosen, note = wu.choose_receive("cash_pickup", {"bank_account": None, "cash_pickup": "fora do ar"})
+    assert chosen is None  # retirada não tem alternativa: nunca troca por conta sem pedir
+
+
+def test_choose_receive_tile_ausente_mantem_o_caminho_antigo() -> None:
+    # layout mudou e o tile não apareceu: segue a pedida (o clique ainda tenta pelo texto) e falha com a mensagem antiga
+    assert wu.choose_receive("bank_account", {}) == ("bank_account", None)
+    assert wu.choose_receive("bank_account", {"cash_pickup": None}) == ("bank_account", None)
+
+
+def test_cotacao_de_retirada_tem_contexto_e_modalidade_proprios() -> None:
+    doc = {"scenarios": [{"amount_brl": "5000", "receive_amount_pyg": "5461841", "receive": "cash_pickup",
+                          "payment": "pix", "captured_at": "2026-11-04T18:19:00Z"}]}
+    r = wu.adapter.parse(json.dumps(doc), captured_at=datetime(2026, 11, 4, 18, 19, tzinfo=UTC), url="https://x")
+    assert len(r.quotes) == 1
+    q = r.quotes[0]
+    assert q.modality == "cash" and q.context["receive"] == "cash_pickup"
+    assert q.buy == Decimal("1092.3682")
+
+
+# Texto da página com retirada em loja + Pix, transcrito do print de 04/11/2026 18:22 UTC (notas de rodapé "2,5").
+CASH_BODY = (
+    "Como o seu destinatário quer receber o dinheiro?\nReceber em dinheiro\nem uma loja6\nConta Bancaria\n"
+    "Como você gostaria de pagar?\nPagamento em dinheiro em umaloja habilitada\nEm minutos1\nTarifa2,5 75.00 BRL\n"
+    "PIX ou transferência bancária4\nEm minutos1, 13\nTarifa2,5 0.00 BRL\nTenho um código promocional\nContinuar\n"
+    "RESUMO\nTAXA DE CÂMBIO2\n1.00 BRL = 1,092.3681 PYG\nValor da transferência\n5,000.00 BRL\n100% de desconto\n"
+    "55.00 BRL\nTaxa de transferência2,5\n+ 0.00 BRL\nTotal da transferência\n5,000.00 BRL\n"
+    "Total O destinatário recebe\n5,461,841.00 PYG\nTempo de atendimento:1, 13\nEm minutos"
+)
+
+
+def test_extract_summary_retirada_le_a_tarifa_do_resumo_com_notas_2_5() -> None:
+    summary = wu.extract_summary(CASH_BODY)
+    assert summary["fee_brl"] == "0.00"  # a do Pix escolhido (resumo), nunca os R$ 75 do pagamento em dinheiro
+    assert summary["fee_before_discount_brl"] == "55.00"
+    assert summary["exchange_rate"] == "1,092.3681"
+    assert summary["delivery"].lower() == "em minutos"
+
+
+def test_extract_summary_sem_resumo_usa_a_primeira_tarifa_e_nunca_confunde_nota_com_valor() -> None:
+    assert wu.extract_summary("Tarifa2,5 75.00 BRL")["fee_brl"] == "75.00"
+    assert wu.extract_summary("Tarifa 2,500.00 BRL")["fee_brl"] == "2500.00"
+    # nota colada no valor, sem espaço: valor desconhecido em vez de um número errado
+    assert wu.extract_summary("Tarifa2,500.00 BRL")["fee_brl"] is None
