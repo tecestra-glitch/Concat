@@ -13,6 +13,22 @@ export const EXECUTABLE_LABEL = "Executável";
 export const REFERENCE_LABEL = "Referência · não executável";
 export const SIMULATION_NOTE = "Simulação sobre o grafo de posições. Nada é enviado nem movido: é só leitura e alerta.";
 
+/** Sem saldo cadastrado, o worker simula R$ 5.000 por ponto de partida (backend: `reads.TRIANGLE_NOTIONAL_BRL`). */
+export const NO_BALANCE_NOTE =
+  "Você ainda não cadastrou saldos: cada triângulo simula R$ 5.000 (ou o equivalente na moeda do ponto de partida). Cadastre seus saldos em Contas e cartões para ver a partir do seu dinheiro.";
+
+/** Sinal do ganho a partir da string decimal da API (sem converter para float). */
+export function gainTone(gain: string): "gain" | "loss" | "flat" {
+  const t = gain.trim();
+  if (t.startsWith("-")) return /[1-9]/.test(t) ? "loss" : "flat";
+  return /[1-9]/.test(t) ? "gain" : "flat";
+}
+
+/** Sem nenhuma conta com saldo livre positivo: os triângulos vêm do saldo simulado. */
+export function hasNoBalance(accounts: readonly { balance_free: string }[]): boolean {
+  return !accounts.some((a) => gainTone(a.balance_free) === "gain");
+}
+
 /** Triângulo executável só com confiança `quoted`; `estimated` (cotação indicativa) e `incomplete` (custo ausente) não são. */
 export function triangleIsExecutable(c: Pick<Cycle, "confidence">): boolean {
   return c.confidence === "quoted";

@@ -10,18 +10,24 @@ import { FxCard } from "@/components/ui/fx/fx-card";
 import { FxChip } from "@/components/ui/fx/fx-chip";
 import { FxSkeleton } from "@/components/ui/fx/fx-skeleton";
 import { CurrencyFlag, type FlagCode } from "@/components/ui/currency-flag";
-import { useTriangles } from "@/lib/queries";
+import Link from "next/link";
+import { useAccounts, useTriangles } from "@/lib/queries";
 import type { Cycle } from "@/lib/api/types";
 import {
+  NO_BALANCE_NOTE,
   SIMULATION_NOTE,
   confidenceLabel,
   currencyOfNode,
   formatCoinAmount,
   formatPctRatio,
+  gainTone,
+  hasNoBalance,
   triangleIsExecutable,
   venueOfNode,
 } from "@/lib/api/triangulador";
 import { CardGrid, SourceLine, Notice, Tag } from "./shared";
+
+const GAIN_CLASS = { gain: "text-gain-strong", loss: "text-loss", flat: "" } as const;
 
 const FLAGS = new Set<FlagCode>(["BRL", "USD", "PYG", "ARS", "EUR", "USDT"]);
 
@@ -42,6 +48,7 @@ export function TriangleCard({ c, index }: { c: Cycle; index: number }) {
   const startCode = currencyOfNode(c.start);
   const titleId = `tri-${index}`;
   const net = c.gain_by_currency;
+  const tone = gainTone(c.gain);
   return (
     <li className="min-w-0">
       <FxCard className="min-w-0 p-4" data-testid="triangle-card" data-executable={executable ? "true" : "false"}>
@@ -71,11 +78,13 @@ export function TriangleCard({ c, index }: { c: Cycle; index: number }) {
             </div>
             <div className="min-w-0">
               <dt className="text-xs text-muted">Ganho líquido ({startCode})</dt>
-              <dd className="break-words font-medium text-gain-strong">{formatCoinAmount(c.gain, startCode)}</dd>
+              <dd className={`break-words font-medium ${GAIN_CLASS[tone]}`} data-tone={tone}>
+                {formatCoinAmount(c.gain, startCode)}
+              </dd>
             </div>
             <div className="min-w-0">
               <dt className="text-xs text-muted">ROI</dt>
-              <dd className="break-words">{formatPctRatio(c.roi)}</dd>
+              <dd className={`break-words ${GAIN_CLASS[gainTone(c.roi)]}`}>{formatPctRatio(c.roi)}</dd>
             </div>
           </dl>
           {net && (
@@ -95,7 +104,9 @@ export function TriangleCard({ c, index }: { c: Cycle; index: number }) {
 
 export function Triangulos() {
   const q = useTriangles({ limit: 50 });
+  const accounts = useAccounts();
   const list = q.data ?? [];
+  const simulatedBalance = accounts.data !== undefined && hasNoBalance(accounts.data);
   return (
     <div className="grid min-w-0 gap-4">
       <p className="text-body text-muted">
@@ -103,6 +114,14 @@ export function Triangulos() {
         Ninguém envia ordem daqui: a tela só lê e simula.
       </p>
       <Notice>{SIMULATION_NOTE}</Notice>
+      {simulatedBalance && (
+        <p className="rounded-control border border-warn/40 bg-surface-2 px-3 py-2 text-xs" data-testid="no-balance-note">
+          {NO_BALANCE_NOTE}{" "}
+          <Link href="/contas" className="inline-flex min-h-11 items-center font-medium underline underline-offset-2 sm:min-h-8">
+            Abrir Contas e cartões
+          </Link>
+        </p>
+      )}
       {!q.isError && (
         <SourceLine source="grafo de posições (motor de triângulos, atualizado a cada 60 s)" at={q.dataUpdatedAt ? new Date(q.dataUpdatedAt).toISOString() : null} />
       )}
@@ -115,7 +134,7 @@ export function Triangulos() {
       ) : q.isError ? (
         <ErrorState title="Os triângulos não carregaram" error={q.error} onRetry={() => void q.refetch()} />
       ) : list.length === 0 ? (
-        <EmptyState kind="no-data" title="Nenhum triângulo agora" description="Sem posições cadastradas ou sem lucro líquido depois das taxas." />
+        <EmptyState kind="no-data" title="Nenhum triângulo agora" description="Nenhuma volta de três pernas fecha com as cotações vivas agora. O motor recalcula a cada 60 s." />
       ) : (
         <CardGrid label="Triângulos encontrados">
           {list.map((c, i) => (

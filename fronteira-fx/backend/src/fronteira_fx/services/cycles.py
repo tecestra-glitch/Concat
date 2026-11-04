@@ -662,6 +662,24 @@ def enrich_cycle(cycle: Cycle, rates: dict[str, Decimal]) -> Cycle:
     return replace(cycle, gain_by_currency=gain_by_currency, costs=costs, requires_declaration=requires)
 
 
+def notional_balances(graph: Graph, rates: dict[str, Decimal], notional_brl: Decimal) -> dict[str, Decimal]:
+    """Saldo simulado quando não há conta cadastrada: cada nó do grafo parte do equivalente a `notional_brl` na
+    moeda dele (pela taxa de valoração BRL). Moeda sem taxa fica de fora (nunca chuta câmbio)."""
+    out: dict[str, Decimal] = {}
+    for n in sorted(graph.nodes):
+        rate = rates.get(node_currency(n))
+        if rate is not None and rate > 0:
+            out[n] = (notional_brl / rate).quantize(Decimal("0.01"))
+    return out
+
+
+def _rotation_key(cycle: Cycle) -> tuple[tuple[str, str, str], ...]:
+    """O mesmo ciclo visto de outro ponto de partida (A→B→C→A e B→C→A→B) tem a mesma chave."""
+    legs = [(e.src, e.dst, e.via) for e in cycle.edges]
+    i = legs.index(min(legs))
+    return tuple(legs[i:] + legs[:i])
+
+
 def find_cycles_for(
     session: Session,
     *,
@@ -672,19 +690,33 @@ def find_cycles_for(
     limit: int | None = 200,
     lookback_s: int = 7 * 86400,
     mode: str = "todos",
+    notional_brl: Decimal | None = None,
 ) -> list[dict[str, Any]]:
     """Cycles as contract dicts (D1), each tagged with the `data_mode` they were computed from.
-    `limit` None: sem corte. `mode` \"celular\": só ciclos com todas as pernas assistidas ou automatizáveis."""
+    `limit` None: sem corte. `mode` \"celular\": só ciclos com todas as pernas assistidas ou automatizáveis.
+    `notional_brl`: só quando NÃO há saldo cadastrado, cada nó parte do equivalente a esse valor em reais (simulação;
+    a mesma volta vista de outro nó conta uma vez só, a de maior ROI). Com saldo cadastrado o valor é ignorado."""
     # uma vez só: o grafo e a valoração (taxas BRL) usam as mesmas cotações vivas
     quotes = live_quotes(latest_quotes(session, data_mode=data_mode, lookback_s=lookback_s), discontinued_ids())
     accounts = list(session.scalars(select(Account).where(Account.data_mode == data_mode)))
     graph, balances = build_graph(quotes, accounts)
     if mode == "celular":
         graph = celular_graph(graph)
+    rates = valuation_rates(quotes)
+    simulated = False
+    if notional_brl is not None and notional_brl > 0 and not any(v > 0 for v in balances.values()):
+        simulated = True
+        balances = notional_balances(graph, rates, notional_brl)
     if start:
         balances = {k: v for k, v in balances.items() if k == start}
-    rates = valuation_rates(quotes)
-    return [
-        {**enrich_cycle(c, rates).to_dict(), "data_mode": data_mode}
-        for c in find_cycles(graph, balances, max_len=max_len, min_roi=min_roi, limit=limit)
-    ]
+    cycles = find_cycles(graph, balances, max_len=max_len, min_roi=min_roi, limit=None if simulated else limit)
+    if simulated:
+        seen: set[tuple[tuple[str, str, str], ...]] = set()
+        unique: list[Cycle] = []
+        for c in cycles:  # já vem do melhor ROI para o pior: fica a primeira vista de cada volta
+            key = _rotation_key(c)
+            if key not in seen:
+                seen.add(key)
+                unique.append(c)
+        cycles = unique if limit is None else unique[:limit]
+    return [{**enrich_cycle(c, rates).to_dict(), "data_mode": data_mode} for c in cycles]

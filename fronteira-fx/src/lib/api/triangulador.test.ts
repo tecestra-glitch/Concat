@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { gainTone, hasNoBalance } from "./triangulador";
 import {
   EXECUTABLE_LABEL,
   FxReferenceSchema,
@@ -61,5 +62,20 @@ describe("nós e preços", () => {
     expect(formatReferencePrice("5.4530")).toBe("5,4530");
     expect(formatReferencePrice("76006.95")).toBe("76.006,95");
     expect(formatReferencePrice("abc")).toBe("—");
+  });
+});
+
+describe("sinal do ganho e saldo simulado", () => {
+  it("lê o sinal da string decimal", () => {
+    expect(gainTone("12.50")).toBe("gain");
+    expect(gainTone("-0.0085")).toBe("loss");
+    expect(gainTone("0")).toBe("flat");
+    expect(gainTone("-0.00")).toBe("flat");
+    expect(gainTone("0.000001")).toBe("gain");
+  });
+  it("sem conta com saldo livre positivo, o triângulo é simulado", () => {
+    expect(hasNoBalance([])).toBe(true);
+    expect(hasNoBalance([{ balance_free: "0" }, { balance_free: "0.00" }])).toBe(true);
+    expect(hasNoBalance([{ balance_free: "0" }, { balance_free: "800.00" }])).toBe(false);
   });
 });

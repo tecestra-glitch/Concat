@@ -29,6 +29,9 @@ TRIANGLE_KIND = "triangles"
 INDICATOR_KIND = "indicators"
 TRIANGLE_MODES = ("celular", "todos")
 TRIANGLE_STORE_LIMIT = 200  # ordenados por ROI; a API filtra min_roi, start e limit sobre esta lista
+# Sem conta cadastrada, cada ponto de partida simula este valor em reais (o mesmo orçamento padrão do site,
+# DEFAULT_SETTINGS.defaultCapital). Com saldo cadastrado vale o saldo real e este número é ignorado.
+TRIANGLE_NOTIONAL_BRL = Decimal("5000")
 INDICATOR_INTERVALS = ("5m", "1d")
 INSTRUMENTS = tuple(inst for _sym, _label, inst in q.BINANCE_SYMBOLS)
 INDICATOR_FIELDS = (
@@ -100,7 +103,14 @@ def indicator_payload(instrument: str, interval: str, closed: list[Any], data_mo
     }
 
 
-def triangle_cycles(session: Session, *, data_mode: str, lookback_s: int, mode: str) -> list[dict[str, Any]]:
+def triangle_cycles(
+    session: Session,
+    *,
+    data_mode: str,
+    lookback_s: int,
+    mode: str,
+    notional_brl: Decimal | None = TRIANGLE_NOTIONAL_BRL,
+) -> list[dict[str, Any]]:
     cycles = find_cycles_for(
         session,
         data_mode=data_mode,
@@ -110,6 +120,7 @@ def triangle_cycles(session: Session, *, data_mode: str, lookback_s: int, mode: 
         limit=TRIANGLE_STORE_LIMIT,
         lookback_s=lookback_s,
         mode=mode,
+        notional_brl=notional_brl,
     )
     return [c for c in cycles if len(c["edges"]) == 3]
 
