@@ -3739,6 +3739,236 @@
           }
         }
       }
+    },
+    "/v1/market/news": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Manchetes de feeds públicos (sem texto da matéria)",
+        "operationId": "list_market_news",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "infomoney | agencia-brasil | bcb | mercopress | demo",
+              "title": "Source"
+            },
+            "description": "infomoney | agencia-brasil | bcb | mercopress | demo"
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "só manchetes publicadas (ou capturadas) a partir de",
+              "title": "Since"
+            },
+            "description": "só manchetes publicadas (ou capturadas) a partir de"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NewsOut"
+                  },
+                  "title": "Response List Market News"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/quotes": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Referências de mercado (cripto, câmbio de referência, BCB)",
+        "operationId": "get_market_quotes",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MarketQuoteOut"
+                  },
+                  "title": "Response Get Market Quotes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/volatility": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Volatilidade (EWMA, Parkinson, ATR) e selo normal / alta / muito alta",
+        "operationId": "get_market_volatility",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MarketVolatilityOut"
+                  },
+                  "title": "Response Get Market Volatility"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5325,6 +5555,239 @@
         ],
         "title": "JournalEntryOut"
       },
+      "MarketQuoteOut": {
+        "properties": {
+          "instrument": {
+            "type": "string",
+            "title": "Instrument"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "crypto",
+              "fx_reference",
+              "bcb_series"
+            ],
+            "title": "Kind"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "price": {
+            "type": "string",
+            "title": "Price"
+          },
+          "change_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Pct"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "executable": {
+            "type": "boolean",
+            "const": false,
+            "title": "Executable",
+            "default": false
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "Referência de mercado. Não é preço executável nem cotação de casa de câmbio."
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrument",
+          "label",
+          "kind",
+          "source",
+          "price",
+          "change_pct",
+          "observed_at",
+          "captured_at",
+          "data_mode"
+        ],
+        "title": "MarketQuoteOut"
+      },
+      "MarketVolatilityOut": {
+        "properties": {
+          "instrument": {
+            "type": "string",
+            "title": "Instrument"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "insufficient_data",
+              "stale_input"
+            ],
+            "title": "Status"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "last_close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Close"
+          },
+          "last_move_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Move Pct"
+          },
+          "ewma_pct_5m": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ewma Pct 5M"
+          },
+          "parkinson_1d_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parkinson 1D Pct"
+          },
+          "parkinson_20d_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parkinson 20D Pct"
+          },
+          "ratio_1d_20d": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio 1D 20D"
+          },
+          "atr_14_5m": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atr 14 5M"
+          },
+          "regime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "normal",
+                  "alta",
+                  "muito_alta"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime"
+          },
+          "alert": {
+            "type": "boolean",
+            "title": "Alert"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrument",
+          "status",
+          "as_of",
+          "last_close",
+          "last_move_pct",
+          "ewma_pct_5m",
+          "parkinson_1d_pct",
+          "parkinson_20d_pct",
+          "ratio_1d_20d",
+          "atr_14_5m",
+          "regime",
+          "alert",
+          "reasons",
+          "data_mode"
+        ],
+        "title": "MarketVolatilityOut"
+      },
       "MemoryCreate": {
         "properties": {
           "kind": {
@@ -5444,6 +5907,63 @@
         ],
         "title": "MemorySummary",
         "description": "One line per kind (`Preferências`, `Decisões`, `Fatos`, `Resultados`), newest first; `\"\"` when empty."
+      },
+      "NewsOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "feed": {
+            "type": "string",
+            "title": "Feed"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "link": {
+            "type": "string",
+            "title": "Link"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "feed",
+          "title",
+          "link",
+          "published_at",
+          "captured_at",
+          "data_mode"
+        ],
+        "title": "NewsOut"
       },
       "OpportunityOut": {
         "properties": {

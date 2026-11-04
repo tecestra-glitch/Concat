@@ -12,6 +12,7 @@ import signal
 
 from ..config import Settings, get_settings
 from ..db import create_schema, make_engine, make_session_factory
+from ..market.service import MarketPoller
 from .collector import Collector
 from .demo import ensure_demo_seeded
 
@@ -27,6 +28,7 @@ async def run_loop(settings: Settings | None = None, *, iterations: int | None =
     ensure_demo_seeded(session_factory, settings)
     collector = Collector(session_factory, settings, inline_browser=True)
     collector.ensure_sources()
+    market = MarketPoller(session_factory, settings)  # módulo market: piso de 60 s por fonte, só em real
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -42,6 +44,9 @@ async def run_loop(settings: Settings | None = None, *, iterations: int | None =
             outcomes = await collector.run_once()
             processed = await collector.process_tasks()
             pruned = collector.prune_events()
+            market_results = await market.run_once()
+            if market_results:
+                log.info("market: %d polled, %d failed", len(market_results), sum(not r.ok for r in market_results))
             log.info(
                 "tick: %d sources (%d skipped), %d tasks, %d events pruned",
                 len(outcomes),
@@ -58,6 +63,7 @@ async def run_loop(settings: Settings | None = None, *, iterations: int | None =
             await asyncio.wait_for(stop.wait(), timeout=settings.worker_tick_s)
         except TimeoutError:
             pass
+    await market.aclose()
     engine.dispose()
 
 

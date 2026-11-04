@@ -14,6 +14,7 @@ from .api import v1_router
 from .api.deps import api_key_matches
 from .config import Settings, get_settings
 from .db import create_schema, make_engine, make_session_factory, session_scope
+from .market.demo import seed_market_demo
 from .mcp import mount_mcp
 from .services.collector import Collector
 from .services.demo import ensure_demo_seeded
@@ -39,6 +40,9 @@ def create_app(settings: Settings | None = None, *, mount_mcp_server: bool = Tru
         seeded = ensure_demo_seeded(session_factory, settings)
         if seeded:
             log.info("demo data seeded: %s", seeded)
+        market_rows = seed_market_demo(session_factory, settings)
+        if market_rows:
+            log.info("market demo seeded: %d rows", market_rows)
         if settings.seed_knowledge:
             knowledge_dir = settings.knowledge_dir or default_knowledge_dir()
             with session_scope(session_factory) as session:

@@ -33,7 +33,7 @@ docker compose up                                      # postgres (pgvector) + a
 | Caminho | O que é |
 |---|---|
 | `src/app`, `src/components`, `src/lib` | telas, componentes, cliente de API, demo, SSE, grafo (espelho TS) |
-| `backend/src/fronteira_fx/{adapters,engine,graph,watch,notify,rag,memory,api,services}` | adaptadores por provedor, motor financeiro, grafo de posições, monitor, alertas, RAG, memória, rotas |
+| `backend/src/fronteira_fx/{adapters,engine,graph,watch,notify,rag,memory,market,api,services}` | adaptadores por provedor, motor financeiro, grafo de posições, monitor, alertas, RAG, memória, mercado (notícias e referências, nunca executáveis), rotas |
 | `backend/evals` | goldens e rubricas (DeepEval opcional) |
 | `docs/` | contrato, adaptadores, backend, deploy, MCPs, pesquisa, testes, screenshots |
 | `.claude/skills` (raiz do repo) | skills instaladas por commit fixo; manifesto em `docs/manifest-skills.tsv` |

@@ -29,6 +29,10 @@ MCP_OPERATIONS: list[str] = [
     "recall",
     "forget",
     "memory_summary",
+    # market (referência, nunca executável)
+    "list_market_news",
+    "get_market_quotes",
+    "get_market_volatility",
 ]
 
 
