@@ -425,10 +425,6 @@ class WesternUnionAdapter:
                             return
                         except Exception:  # noqa: BLE001 - aviso ausente é o caso normal
                             continue
-                    try:
-                        await page.keyboard.press("Escape")
-                    except Exception:  # noqa: BLE001
-                        pass
 
                 async def robust_click(loc: Any, tag: str) -> bool:
                     """Clique normal; se algo cobre o elemento, fecha avisos e tenta de novo; por fim, clique via JS no
@@ -508,33 +504,53 @@ class WesternUnionAdapter:
                     await page.select_option(SELECTORS["currency_select"], "PYG")
                 except Exception as exc:  # noqa: BLE001
                     trail.append(f"currency-select-skipped:{type(exc).__name__}")
-                amount_ok = False
-                for attempt in range(1, 4):
-                    await page.fill(SELECTORS["send_amount"], str(amount))
-                    await page.keyboard.press("Tab")
+                _AMOUNT_AND_TILES_JS = (
+                    "([sel, want]) => { const el = document.querySelector(sel); "
+                    "return !!el && el.value.replace(/[^0-9.]/g, '').startsWith(want) "
+                    "&& !!document.querySelector('[amplitude-id^=\"tile-fundsout\"]'); }"
+                )
+
+                async def ensure_amount(stage: str) -> bool:
+                    """O valor precisa continuar no campo e os tiles de recebimento na tela. O SPA às vezes zera o
+                    formulário DEPOIS de aceitar o valor (visto no worker ARM, mais lento): redigita até 3 vezes."""
+                    arg = [SELECTORS["send_amount"], str(amount)]
+                    if stage != "first" and await page.evaluate(_AMOUNT_AND_TILES_JS, arg):
+                        return True
+                    for attempt in range(1, 4):
+                        await page.fill(SELECTORS["send_amount"], str(amount))
+                        await page.keyboard.press("Tab")
+                        try:
+                            await page.wait_for_function(_AMOUNT_AND_TILES_JS, arg=arg, timeout=15_000)
+                            if stage == "first":
+                                trail.append(f"amount={amount}" + (f"(try {attempt})" if attempt > 1 else ""))
+                            else:
+                                trail.append(f"amount-again@{stage}(try {attempt})")
+                            await page.wait_for_timeout(2_500)  # Angular liga os handlers dos tiles recém-desenhados
+                            return True
+                        except PWTimeout:
+                            trail.append(f"amount-reset@{stage}(try {attempt})")
+                    return False
+
+                async def form_state() -> str:
+                    """Diagnóstico para a mensagem de falha: o que havia no campo e quantos tiles na hora."""
                     try:
-                        # the value must survive AND the receive tiles must render for it
-                        await page.wait_for_function(
-                            "([sel, want]) => { const el = document.querySelector(sel); "
-                            "return !!el && el.value.replace(/[^0-9.]/g, '').startsWith(want) "
-                            "&& !!document.querySelector('[amplitude-id^=\"tile-fundsout\"]'); }",
-                            arg=[SELECTORS["send_amount"], str(amount)], timeout=15_000,
-                        )
-                        amount_ok = True
-                        trail.append(f"amount={amount}" + (f"(try {attempt})" if attempt > 1 else ""))
-                        break
-                    except PWTimeout:
-                        trail.append(f"amount-reset(try {attempt})")
-                if not amount_ok:
+                        value = await page.input_value(SELECTORS["send_amount"], timeout=1_000)
+                    except Exception:  # noqa: BLE001
+                        value = "?"
+                    tiles = await page.locator('[amplitude-id^="tile-fundsout"]').count()
+                    return f"campo={value!r}, tiles={tiles}"
+
+                if not await ensure_amount("first"):
                     return await fail(AdapterStatus.DEGRADED,
                                       "amount did not stick / receive tiles never rendered (form reset by the SPA)",
                                       page)
-                # let Angular bind the tile handlers before clicking (a click on a freshly rendered tile is lost)
-                await page.wait_for_timeout(2_500)
 
                 # 3) receive method, then payment method. A forma pedida pode estar desativada pela WU: troca pela
                 # alternativa ativa (o contexto da cotação passa a dizer a forma realmente coletada).
                 await dismiss_overlays()
+                if not await ensure_amount("receive"):
+                    reason = f"form reset before the receive step ({await form_state()})"
+                    return await fail(AdapterStatus.DEGRADED, reason, page)
                 chosen, receive_note = choose_receive(receive, await _receive_tile_states(page))
                 if chosen is None:
                     return await fail(AdapterStatus.DEGRADED, receive_note or f"receive option {receive!r} disabled",
@@ -543,8 +559,12 @@ class WesternUnionAdapter:
                     trail.append(f"receive:{receive}-suspenso->{chosen}")
                     receive = chosen
                     scenario["receive"] = chosen
-                if not await click_first(RECEIVE_TILES[receive], RECEIVE_LABELS[receive], "receive"):
-                    return await fail(AdapterStatus.DEGRADED, f"receive option for {receive!r} not found", page)
+                if not await click_first(RECEIVE_TILES[receive], RECEIVE_LABELS[receive], "receive") and not (
+                    await ensure_amount("receive-retry")
+                    and await click_first(RECEIVE_TILES[receive], RECEIVE_LABELS[receive], "receive")
+                ):
+                    return await fail(AdapterStatus.DEGRADED,
+                                      f"receive option for {receive!r} not found ({await form_state()})", page)
                 # a click on a tile the SPA is still wiring is lost (observed live): the payment tiles only
                 # render once the receive method is really selected, so re-click up to twice if they do not show
                 for attempt in range(3):
