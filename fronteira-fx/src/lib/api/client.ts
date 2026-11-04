@@ -82,6 +82,19 @@ import {
   type NewsItem,
 } from "./market";
 import { demoNewsList, demoQuotes as demoMarketQuotes, demoVolatility as demoMarketVolatility } from "./demo-market";
+import {
+  FxReferenceListSchema,
+  IndicatorsSchema,
+  ReferenceQuoteListSchema,
+  SentimentListSchema,
+  type FxReference,
+  type Indicators,
+  type Instrument,
+  type Interval,
+  type ReferenceQuote,
+  type Sentiment,
+} from "./triangulador";
+import { demoCryptoRefs, demoFxRefs, demoIndicators, demoMacroRefs, demoSentiment } from "./demo-triangulador";
 
 export type { Mode, QuoteFilters } from "./types";
 export type { BackendStatus } from "./backend-status";
@@ -473,6 +486,37 @@ export const api = {
   async marketVolatility(mode: Mode): Promise<MarketVolatility[]> {
     if (mode !== "demo") return MarketVolatilityListSchema.parse(await http<unknown>(`/v1/market/volatility${qs(modeQuery(mode))}`));
     return demoMarketVolatility;
+  },
+  /** GET /v1/market/triangles: triângulos de três pernas no grafo de posições (`executable` só com confiança `quoted`). */
+  async triangles(mode: Mode, f: { minRoi?: string; start?: string; limit?: number } = {}): Promise<Cycle[]> {
+    if (mode !== "demo") return http<Cycle[]>(`/v1/market/triangles${qs({ min_roi: f.minRoi, start: f.start, limit: f.limit ?? 50, mode: "celular", ...modeQuery(mode) })}`);
+    const all = await api.cycles("demo", { maxLen: 3, mode: "celular" });
+    return all.filter((c) => c.edges.length === 3).slice(0, f.limit ?? 50);
+  },
+  /** GET /v1/market/crypto: cripto de referência (Binance, dados públicos). Nunca executável. */
+  async cryptoRefs(mode: Mode): Promise<ReferenceQuote[]> {
+    if (mode !== "demo") return ReferenceQuoteListSchema.parse(await http<unknown>(`/v1/market/crypto${qs(modeQuery(mode))}`));
+    return demoCryptoRefs;
+  },
+  /** GET /v1/market/references: câmbio de referência por fonte (Frankfurter, PTAX, OXR). Nunca executável. */
+  async fxRefs(mode: Mode): Promise<FxReference[]> {
+    if (mode !== "demo") return FxReferenceListSchema.parse(await http<unknown>(`/v1/market/references${qs(modeQuery(mode))}`));
+    return demoFxRefs;
+  },
+  /** GET /v1/market/macro: séries BCB e dólar amplo do FRED. Nunca executável. */
+  async macroRefs(mode: Mode): Promise<ReferenceQuote[]> {
+    if (mode !== "demo") return ReferenceQuoteListSchema.parse(await http<unknown>(`/v1/market/macro${qs(modeQuery(mode))}`));
+    return demoMacroRefs;
+  },
+  /** GET /v1/market/indicators: indicadores de velas fechadas. Nunca executável. */
+  async indicators(mode: Mode, instrument: Instrument, interval: Interval): Promise<Indicators> {
+    if (mode !== "demo") return IndicatorsSchema.parse(await http<unknown>(`/v1/market/indicators${qs({ instrument, interval, ...modeQuery(mode) })}`));
+    return demoIndicators(instrument, interval);
+  },
+  /** GET /v1/market/sentiment: Fear & Greed com atribuição. Nunca executável. */
+  async sentiment(mode: Mode, limit = 30): Promise<Sentiment[]> {
+    if (mode !== "demo") return SentimentListSchema.parse(await http<unknown>(`/v1/market/sentiment${qs({ limit, ...modeQuery(mode) })}`));
+    return demoSentiment.slice(0, limit);
   },
   async snapshot(mode: Mode): Promise<Snapshot> {
     if (mode !== "demo") return http<Snapshot>(`/v1/snapshot${qs(modeQuery(mode))}`);

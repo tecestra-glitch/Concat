@@ -9,6 +9,7 @@ import { api } from "./api/client";
 import { setBackendStatus } from "./api/backend-status";
 import type { CycleFilters, EvidenceFilters, OpportunityFilters, Plan, PlanCreate, QuoteFilters, SimulationRequest, StepDone } from "./api/types";
 import type { NewsFilters } from "./api/market";
+import type { Instrument, Interval } from "./api/triangulador";
 import { useSettings } from "./settings";
 
 export type { CycleFilters, EvidenceFilters, OpportunityFilters, QuoteFilters };
@@ -123,6 +124,32 @@ export function useMarketQuotes() {
 export function useMarketVolatility() {
   const { mode } = useSettings();
   return useQuery({ queryKey: ["market", mode, "volatility"], queryFn: () => api.marketVolatility(mode), refetchInterval: 60_000, staleTime: 30_000 });
+}
+
+/** Telas do triangulador (U09). Leitura de `/v1/market/*`, atualizada a cada 60 s (o backend cacheia no mesmo TTL). */
+export function useTriangles(f: { minRoi?: string; start?: string; limit?: number } = {}) {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["tri", mode, "triangles", f], queryFn: () => api.triangles(mode, f), refetchInterval: 60_000, staleTime: 30_000 });
+}
+export function useCryptoRefs() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["tri", mode, "crypto"], queryFn: () => api.cryptoRefs(mode), refetchInterval: 60_000, staleTime: 30_000 });
+}
+export function useFxRefs() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["tri", mode, "fx"], queryFn: () => api.fxRefs(mode), refetchInterval: 60_000, staleTime: 30_000 });
+}
+export function useMacroRefs() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["tri", mode, "macro"], queryFn: () => api.macroRefs(mode), refetchInterval: 60_000, staleTime: 30_000 });
+}
+export function useIndicators(instrument: Instrument, interval: Interval) {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["tri", mode, "indicators", instrument, interval], queryFn: () => api.indicators(mode, instrument, interval), refetchInterval: 60_000, staleTime: 30_000 });
+}
+export function useSentiment(limit = 30) {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["tri", mode, "sentiment", limit], queryFn: () => api.sentiment(mode, limit), refetchInterval: 60_000, staleTime: 30_000 });
 }
 
 /** Backend health for the current mode; in demo it is synthetic (`data_mode: "demo"`) and never hits the network. */
