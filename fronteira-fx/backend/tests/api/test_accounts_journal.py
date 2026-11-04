@@ -58,3 +58,21 @@ def test_api_key_protects_writes_and_mcp():
         assert c.post("/v1/accounts", json=body, headers={"Authorization": "Bearer s3cret"}).status_code == 201
         assert c.post("/mcp", json={}).status_code == 401
         assert c.post("/mcp", json={}, headers={"X-API-Key": "s3cret"}).status_code != 401
+
+
+def test_private_reads_need_the_key_except_health_and_cron():
+    app = create_app(make_settings(api_key="s3cret", FX_PRIVATE_READS=True))
+    with TestClient(app) as c:
+        assert c.get("/v1/health").status_code == 200
+        for path in ("/v1/accounts", "/v1/memory", "/v1/journal", "/v1/alerts/rules", "/v1/sources", "/v1/quotes"):
+            assert c.get(path).status_code == 401, path
+            assert c.get(path, headers={"X-API-Key": "wrong"}).status_code == 401, path
+            assert c.get(path, headers={"X-API-Key": "s3cret"}).status_code == 200, path
+        assert c.post("/v1/internal/collect").status_code == 404  # its own Bearer; no CRON_SECRET here
+        assert c.options("/v1/accounts").status_code != 401
+
+
+def test_private_reads_off_by_default():
+    app = create_app(make_settings(api_key="s3cret"))
+    with TestClient(app) as c:
+        assert c.get("/v1/accounts").status_code == 200

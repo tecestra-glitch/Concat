@@ -27,6 +27,9 @@ DESCRIPTION = (
 )
 
 
+PUBLIC_V1_PATHS = frozenset({"/v1/health"})
+
+
 def create_app(settings: Settings | None = None, *, mount_mcp_server: bool = True) -> FastAPI:
     settings = settings or get_settings()
     engine = make_engine(settings.database_url, serverless=settings.serverless)
@@ -66,6 +69,21 @@ def create_app(settings: Settings | None = None, *, mount_mcp_server: bool = Tru
         allow_headers=["*"],
         expose_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def private_reads_guard(request: Request, call_next):
+        path = request.url.path
+        if (
+            settings.private_reads
+            and settings.api_key
+            and request.method != "OPTIONS"
+            and path.startswith("/v1/")
+            and path not in PUBLIC_V1_PATHS
+            and not path.startswith("/v1/internal/")  # own Bearer (CRON_SECRET)
+            and not api_key_matches(settings, request.headers.get("x-api-key"), request.headers.get("authorization"))
+        ):
+            return JSONResponse({"detail": "API key inválida ou ausente"}, status_code=status.HTTP_401_UNAUTHORIZED)
+        return await call_next(request)
 
     @app.middleware("http")
     async def mcp_api_key_guard(request: Request, call_next):

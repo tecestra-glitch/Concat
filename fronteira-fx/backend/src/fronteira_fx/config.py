@@ -31,6 +31,9 @@ class Settings(BaseSettings):
 
     # Serverless (Vercel function fed by an external cron, see docs/deploy.md). Off = long-running process.
     serverless: bool = Field(default=False, validation_alias=AliasChoices("FX_SERVERLESS", "SERVERLESS"))
+    # With an API key set, every /v1 read also needs the key (health and the cron route excepted): accounts, memory,
+    # journal and alerts are personal. The frontend proxy injects the key only when the site itself is protected.
+    private_reads: bool = Field(default=False, validation_alias=AliasChoices("FX_PRIVATE_READS", "PRIVATE_READS"))
 
     # HTTP
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
