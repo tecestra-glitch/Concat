@@ -51,3 +51,45 @@ def test_placeholder_secrets_from_env_example_are_refused():
         make_settings(database_url="postgresql+psycopg://fx:TROQUE_ESTA_SENHA@postgres:5432/fx")
     assert make_settings(api_key="a" * 64).api_key == "a" * 64
     assert make_settings(api_key=None).api_key is None
+
+
+def test_mini_navegador_settings_default_off_and_read_fx_names(monkeypatch):
+    """Mini navegador: FX_BROWSER_URL / FX_BROWSER_SECRET; without both, nothing remote runs."""
+    monkeypatch.delenv("FX_BROWSER_URL", raising=False)
+    monkeypatch.delenv("FX_BROWSER_SECRET", raising=False)
+    s = Settings(_env_file=None)
+    assert s.browser_url is None and s.browser_secret is None and not s.remote_browser_enabled
+    assert s.remote_browser_min_interval_s == 7200
+
+    monkeypatch.setenv("FX_BROWSER_URL", "https://fx-browser.vercel.app/")
+    monkeypatch.setenv("FX_BROWSER_SECRET", "a" * 64)
+    s = Settings(_env_file=None)
+    assert s.browser_url == "https://fx-browser.vercel.app"  # trailing slash removed
+    assert s.remote_browser_enabled
+
+
+def test_mini_navegador_needs_both_values_and_empty_means_unset(monkeypatch):
+    monkeypatch.setenv("FX_BROWSER_URL", "https://fx-browser.vercel.app")
+    monkeypatch.setenv("FX_BROWSER_SECRET", "   ")
+    assert not Settings(_env_file=None).remote_browser_enabled
+    monkeypatch.setenv("FX_BROWSER_URL", "")
+    monkeypatch.setenv("FX_BROWSER_SECRET", "a" * 64)
+    assert not Settings(_env_file=None).remote_browser_enabled
+
+
+def test_mini_navegador_url_must_be_https_except_localhost():
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="https"):
+        make_settings(FX_BROWSER_URL="http://fx-browser.example", FX_BROWSER_SECRET="a" * 64)
+    assert make_settings(FX_BROWSER_URL="http://localhost:3001", FX_BROWSER_SECRET="a" * 64).remote_browser_enabled
+    assert make_settings(FX_BROWSER_URL="http://127.0.0.1:3001", FX_BROWSER_SECRET="a" * 64).remote_browser_enabled
+
+
+def test_mini_navegador_placeholder_secret_is_refused():
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="FX_BROWSER_SECRET"):
+        make_settings(FX_BROWSER_URL="https://fx-browser.example", FX_BROWSER_SECRET="TROQUE_ESTA_CHAVE")

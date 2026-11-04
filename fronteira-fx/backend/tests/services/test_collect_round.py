@@ -155,3 +155,16 @@ def test_unit_note_fits_long_provider_notes():
 
     note = "PYG por 1 USD (tipo de cambio referencial BCP: valor único, sem compra/venta)"
     assert Quote.__table__.c.unit_note.type.length >= len(note) and Quote.__table__.c.unit_note.type.length == 255
+
+
+async def test_browser_source_runs_in_the_round_when_the_mini_navegador_is_configured(session_factory):
+    box = {"t": 0.0}
+    wu = FakeAdapter("wu", method="browser")
+    wu.remote_browser = True
+    settings = make_settings(FX_BROWSER_URL="https://fx-browser.example", FX_BROWSER_SECRET="s3cr3t-de-teste")
+    collector = Collector(session_factory, settings, adapters={"wu": wu}, now_fn=Clock())
+
+    result = await collector.run_round(budget_s=45, clock=lambda: box["t"])
+
+    assert wu.calls == 1, [(s.source_id, s.reason) for s in result.skipped]
+    assert [o.source_id for o in result.outcomes] == ["wu"]

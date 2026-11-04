@@ -193,8 +193,8 @@ Como fica a divisão:
 | Agendador | `pg_cron` + `pg_net` no Supabase |
 | Frontend | Vercel, como na seção "Frontend na Vercel" |
 
-**Fontes com navegador não rodam nesse modo.** Hoje é só a **Western Union** (`westernunion`). Ela
-aparece em `skipped` com o motivo "requer navegador" e continua precisando do worker em container. As
+**Fontes com navegador** (hoje só a **Western Union**, `westernunion`) rodam neste modo apenas com o
+**mini navegador** (subseção abaixo). Sem ele, aparecem em `skipped` com o motivo "requer navegador". As
 demais fontes são HTML ou API oficial e rodam normalmente.
 
 **Como o SSE muda.** Em função, cada conexão de `/v1/stream` dura no máximo 4 s (`STREAM_MAX_DURATION_S=4`)
@@ -320,6 +320,33 @@ Use `<CRON_SECRET>` só no seu terminal e nunca cole a resposta de produção nu
 - O `pg_net` pode atrasar a chamada alguns segundos; o orçamento de 45 s conta só o trabalho da função.
 - Uma função morta pelo limite de 60 s deixa tarefas em `running`, como já acontece com o worker se ele cair
   no meio de uma tarefa. Não há recuperação automática nesta versão.
+
+### Mini navegador na Vercel
+
+A Western Union só tem cotação depois de um fluxo de cliques (o preço vem de uma chamada com fingerprint do
+navegador). Para rodar isso de graça, `fronteira-fx/browser/` é um projeto Vercel separado: uma função
+`POST /api/westernunion` roda o mesmo fluxo num Chromium sem tela e devolve o `scenario` que o adaptador
+Python lê. Detalhes e testes locais: `fronteira-fx/browser/README.md`.
+
+1. Crie outro projeto na Vercel com **Root Directory = `fronteira-fx/browser`**, região `gru1` (já em
+   `vercel.json`), e defina `BROWSER_SECRET` (*Sensitive*, `openssl rand -hex 32`).
+2. No backend (api e worker), defina as variáveis abaixo com o **mesmo** segredo e a URL pública do projeto.
+   Sem as duas, o backend continua abrindo o Chromium local (extra `browser`), como antes.
+
+| Variável | Valor |
+|---|---|
+| `FX_BROWSER_URL` | URL https do projeto do mini navegador (ex.: `https://fx-browser.seu-dominio.tld`); http só para localhost |
+| `FX_BROWSER_SECRET` | o mesmo `BROWSER_SECRET` da Vercel; marque como *Sensitive*; nunca em arquivo versionado |
+| `REMOTE_BROWSER_MIN_INTERVAL_S` | opcional; padrão `7200` (no máximo uma consulta remota por fonte a cada 2 h) |
+
+Com as duas primeiras definidas: o adaptador da Western Union chama `POST {FX_BROWSER_URL}/api/westernunion`
+(timeout de 130 s, Bearer) e grava a captura como evidência; `blocked` e `degraded` viram o status
+correspondente; falha de rede, `401`, `404` ou JSON inválido viram `error`, sem exceção. Pedidos sob demanda
+dessa fonte rodam direto, sem a fila do worker, e respeitam o intervalo mínimo.
+
+Custo: cada execução gasta segundos de CPU. No plano grátis da Vercel há cerca de 4 horas de CPU por mês;
+mantenha o intervalo de 2 h. O segredo fica só em variáveis de ambiente: o backend recusa o placeholder
+`TROQUE_*` e URL que não seja https (exceto localhost).
 
 ## Backend e worker em um host durável
 

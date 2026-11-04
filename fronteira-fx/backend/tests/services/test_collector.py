@@ -341,3 +341,57 @@ async def test_registered_html_adapters_use_conditional_get(session_factory, tmp
     out = (await collector.run_once())[0]
     assert route.calls.last.request.headers["If-None-Match"] == '"v1"'
     assert out.status == "not_modified" and out.quotes_stored == 0
+
+
+class RemoteBrowserFake(FakeAdapter):
+    """A browser adapter that opted in to the mini navegador (`remote_browser = True`)."""
+
+    remote_browser = True
+
+
+REMOTE_ENV = dict(FX_BROWSER_URL="https://fx-browser.example", FX_BROWSER_SECRET="a" * 64)
+
+
+async def test_remote_browser_runs_inline_not_queued_and_keeps_the_min_interval(session_factory):
+    clock = Clock()
+    settings = make_settings(**REMOTE_ENV, remote_browser_min_interval_s=7200)
+    wu = RemoteBrowserFake("wu", method="browser")
+    collector = Collector(session_factory, settings, adapters={"wu": wu}, now_fn=clock)
+
+    # with the mini navegador configured the on-demand request runs here, it is not queued for the worker
+    res = await collector.request_quote("wu", {"amount": "5000"})
+    assert res["status"] != "queued" and wu.calls == 1
+    with session_factory() as s:
+        assert s.query(Task).count() == 0
+
+    # inside the 2 h floor: the scheduler skips it and an on-demand request is refused (429 upstream)
+    clock.t = NOW + timedelta(seconds=3600)
+    skipped = (await collector.run_once())[0]
+    assert skipped.skipped and skipped.retry_after_s is not None and wu.calls == 1
+    with pytest.raises(RateLimited):
+        await collector.request_quote("wu", {"amount": "5000"})
+    assert wu.calls == 1
+
+    # after the interval the remote call is allowed again
+    clock.t = NOW + timedelta(seconds=7201)
+    await collector.request_quote("wu", {"amount": "5000"})
+    assert wu.calls == 2
+
+
+async def test_browser_adapter_without_remote_config_is_still_queued(session_factory):
+    clock = Clock()
+    wu = RemoteBrowserFake("wu", method="browser")
+    collector = Collector(session_factory, make_settings(), adapters={"wu": wu}, now_fn=clock)
+    res = await collector.request_quote("wu", {"amount": "5000"})
+    assert res["status"] == "queued" and wu.calls == 0
+
+
+async def test_remote_flag_on_a_non_browser_adapter_is_ignored(session_factory):
+    """Only browser sources can run on the mini navegador; an html source keeps the 60 s floor, not 2 h."""
+    clock = Clock()
+    html = RemoteBrowserFake("chaco", method="html")
+    collector = Collector(session_factory, make_settings(**REMOTE_ENV), adapters={"chaco": html}, now_fn=clock)
+    await collector.collect(html, force=True)
+    clock.t = NOW + timedelta(seconds=120)
+    await collector.collect(html, force=True)
+    assert html.calls == 2
