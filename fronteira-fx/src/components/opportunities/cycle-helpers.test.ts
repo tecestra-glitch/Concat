@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Cycle } from "@/lib/api/types";
-import { costRows, cycleGain, filterCycles, legLabel, legText, cycleCurrency, formatMinutes, isProfitable, NEEDS_DECLARATION_USD, pathLabel } from "./cycle-helpers";
+import { costRows, cycleGain, filterCycles, legLabel, legText, cycleCurrency, formatMinutes, isProfitable, NEEDS_DECLARATION_USD, pathLabel, parseMinGain } from "./cycle-helpers";
 
 const cycle = (over: Partial<Cycle> = {}): Cycle => ({
   start: "BRL@brbank",
@@ -76,5 +76,29 @@ describe("cycle-helpers (ganho, filtros e textos das pernas)", () => {
 describe("pathLabel", () => {
   it("troca o @ por um separador legível, sem perder a seta", () => {
     expect(pathLabel(["BRL@brbank", "USD@nomad", "BRL@brbank"])).toBe("BRL · brbank → USD · nomad → BRL · brbank");
+  });
+});
+
+describe("ganho mínimo lê o número como o resto do app (UX-2)", () => {
+  it("aceita pt-BR com separador de milhar e vírgula decimal", () => {
+    expect(parseMinGain("10.000")).toEqual({ ok: true, value: 10000 });
+    expect(parseMinGain("20,5")).toEqual({ ok: true, value: 20.5 });
+    expect(parseMinGain("1.250,50")).toEqual({ ok: true, value: 1250.5 });
+    expect(parseMinGain("")).toEqual({ ok: true, value: null });
+  });
+
+  it("entrada ilegível não deixa passar ciclo nenhum e é sinalizada", () => {
+    expect(filterCycles([cycle()], { currency: "all", minGain: "abc", minCurrency: "BRL", includeIncomplete: true })).toEqual([]);
+    expect(parseMinGain("abc")).toEqual({ ok: false, value: null });
+    expect(parseMinGain("20,5,5")).toEqual({ ok: false, value: null });
+    expect(parseMinGain("20.5")).toEqual({ ok: true, value: 20.5 }); // ponto com uma casa é decimal, como no alerta
+  });
+
+  it("10.000 em guarani deixa de deixar passar ₲ 9.107", () => {
+    const list = [
+      { start: "PYG@cash:CDE", gain: "9107", gain_by_currency: { BRL: "1", USD: "1", PYG: "9107" }, confidence: "quoted" },
+      { start: "PYG@cash:CDE", gain: "12000", gain_by_currency: { BRL: "1", USD: "1", PYG: "12000" }, confidence: "quoted" },
+    ] as unknown as Cycle[];
+    expect(filterCycles(list, { currency: "all", minGain: "10.000", minCurrency: "PYG", includeIncomplete: true })).toHaveLength(1);
   });
 });

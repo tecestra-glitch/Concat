@@ -10,7 +10,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { usePlans } from "@/lib/queries";
 import { PLAN_STATUS_LABEL } from "@/lib/plans";
-import { PLAN_TONE } from "./plan-helpers";
+import { cn } from "@/lib/utils";
+import { PLAN_TONE, gainPresentation } from "./plan-helpers";
+import type { Plan } from "@/lib/api/types";
 import { cycleCurrency, formatMinutes, pathLabel } from "../opportunities/cycle-helpers";
 
 export function PlansList() {
@@ -47,7 +49,7 @@ export function PlansList() {
                     <TableCell><Badge variant={PLAN_TONE[p.status]}>{PLAN_STATUS_LABEL[p.status]}</Badge></TableCell>
                     <TableCell className="max-w-[18rem] break-words text-xs">{pathLabel(p.path)}</TableCell>
                     <TableCell className="tnum text-right">{formatMoney(p.amount_in, cycleCurrency(p.start))}</TableCell>
-                    <TableCell className="tnum text-right text-gain">{formatMoney(p.gain_expected, p.currency, { sign: true })}</TableCell>
+                    <GainCell plan={p} />
                     <TableCell className="tnum text-right text-muted">{formatMinutes(p.minutes)}</TableCell>
                     <TableCell className="text-xs text-muted">{formatDateTime(p.created_at)}</TableCell>
                     <TableCell><Link href={`/planos/${p.id}`} className="text-accent underline" aria-label={`Abrir plano de ${formatDateTime(p.created_at)}`}>Abrir</Link></TableCell>
@@ -59,5 +61,16 @@ export function PlansList() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Ganho esperado: ≈ e tom neutro quando o custo não está confirmado; "+" e verde só com ganho confirmado. */
+function GainCell({ plan }: { plan: Plan }) {
+  const g = gainPresentation(plan.gain_expected, plan.currency, plan.confidence);
+  return (
+    <TableCell className={cn("tnum text-right", g.tone === "gain" && "text-gain", g.tone === "loss" && "text-loss", g.tone === "muted" && "text-muted")}>
+      {g.text}
+      {plan.confidence === "incomplete" && <span className="block text-xs text-muted">não confirmado</span>}
+    </TableCell>
   );
 }

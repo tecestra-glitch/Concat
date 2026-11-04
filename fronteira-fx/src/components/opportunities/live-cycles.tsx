@@ -25,7 +25,7 @@ import { formatMoney, formatPercent } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { MODE_LABEL, MODE_TONE } from "@/components/ui/labels";
 import type { Currency, Cycle } from "@/lib/api/types";
-import { CYCLE_CURRENCIES, cycleCurrency, cycleGain, filterCycles, formatMinutes, isProfitable, pathLabel, type CycleFilter } from "./cycle-helpers";
+import { CYCLE_CURRENCIES, cycleCurrency, cycleGain, filterCycles, formatMinutes, isProfitable, parseMinGain, pathLabel, type CycleFilter } from "./cycle-helpers";
 import { CycleDetail } from "./cycle-detail";
 import { LegChannel } from "./leg-channel";
 
@@ -37,6 +37,7 @@ export function LiveCycles({ limit = 12, compact = false }: { limit?: number; co
   const router = useRouter();
   const plan = useCreatePlan();
   const q = useCycles({ maxLen: 4 });
+  const minGainOk = parseMinGain(filter.minGain).ok;
   const rows = React.useMemo(() => filterCycles(q.data ?? [], compact ? { ...INITIAL_FILTER, includeIncomplete: false } : filter), [q.data, filter, compact]);
   const positive = rows.filter(isProfitable);
   // Os «quase lá» são o que vigiar: na visão geral (compact) ficam os 3 mais próximos, na tela cheia 5.
@@ -80,7 +81,8 @@ export function LiveCycles({ limit = 12, compact = false }: { limit?: number; co
             <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-2">
               <div className="grid gap-1">
                 <Label htmlFor="cyc-min">Ganho mínimo</Label>
-                <Input id="cyc-min" inputMode="decimal" placeholder="ex.: 20" value={filter.minGain} onChange={(e) => set({ minGain: e.target.value })} autoComplete="off" />
+                <Input id="cyc-min" inputMode="decimal" placeholder="ex.: 20" value={filter.minGain} onChange={(e) => set({ minGain: e.target.value })} autoComplete="off" aria-invalid={!minGainOk} aria-describedby={minGainOk ? undefined : "cyc-min-err"} />
+                {!minGainOk && <p id="cyc-min-err" role="alert" className="text-xs text-loss">Não entendi esse valor. Use, por exemplo, 20 ou 1.250,50.</p>}
               </div>
               <div className="grid gap-1">
                 <Label htmlFor="cyc-min-cur">em</Label>

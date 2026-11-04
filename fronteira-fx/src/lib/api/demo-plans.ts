@@ -30,7 +30,8 @@ export function venueName(node: string): string {
   return city ? `${name} (${city})` : name;
 }
 
-const DEMO_VENUE_NAMES: Record<string, string> = { banco_py: "Banco PY", brbank: "banco no Brasil", revolut: "Revolut", nomad: "Nomad" };
+// mesmos nomes do backend (services/plans.py INSTITUTION_NAMES)
+const DEMO_VENUE_NAMES: Record<string, string> = { banco_py: "banco paraguaio", brbank: "banco brasileiro", revolut: "Revolut", nomad: "Nomad", nubank: "Nubank", itau: "Itaú", bradesco: "Bradesco", caixa: "Caixa" };
 
 /** Valor no texto do passo: PYG sem centavos; BRL e USD com centavos só quando há. */
 export function plainAmount(value: string, currency: Plan["currency"]): string {
@@ -38,15 +39,35 @@ export function plainAmount(value: string, currency: Plan["currency"]): string {
   return `${n.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: currency === "PYG" ? 0 : 2 })} ${currency}`;
 }
 
-/** Texto pt-BR de uma perna (um passo do plano). */
+/** Força relativa para a convenção do balcão (mesma ordem do backend: USD > BRL > PYG). */
+const CURRENCY_STRENGTH: Record<Plan["currency"], number> = { USD: 3, BRL: 2, PYG: 1 };
+
+/** Cotação na convenção do balcão: "1 USD = 5,40 BRL", "1 BRL = 1.300 PYG". Nunca arredonda o preço para zero. */
+export function rateText(amountIn: string, amountOut: string, fromC: Plan["currency"], toC: Plan["currency"]): string {
+  const a = toNumber(amountIn) ?? 0;
+  const b = toNumber(amountOut) ?? 0;
+  if (!(a > 0) || !(b > 0)) return "cotação não informada";
+  const fromStronger = CURRENCY_STRENGTH[fromC] > CURRENCY_STRENGTH[toC];
+  const strong = fromStronger ? fromC : toC;
+  const weak = fromStronger ? toC : fromC;
+  const perStrong = fromStronger ? b / a : a / b;
+  const places = weak === "PYG" ? 0 : 2;
+  const body = perStrong.toLocaleString("pt-BR", { minimumFractionDigits: places, maximumFractionDigits: places });
+  return `1 ${strong} = ${body} ${weak}`;
+}
+
+/** Texto pt-BR de uma perna (um passo do plano), com as mesmas frases do backend. */
 export function legStepText(leg: Leg): string {
   const fromC = currencyOf(leg.from);
   const toC = currencyOf(leg.to);
   switch (leg.kind) {
     case "exchange":
-      return `Troque ${plainAmount(leg.amount_in, fromC)} por ${plainAmount(leg.amount_out, toC)} em ${venueName(leg.to)}`;
+      return `Compre ${plainAmount(leg.amount_out, toC)} na ${venueName(leg.from)} pagando ${plainAmount(leg.amount_in, fromC)} (cotação: ${rateText(leg.amount_in, leg.amount_out, fromC, toC)})`;
     case "transfer":
-      return `Transfira ${plainAmount(leg.amount_in, fromC)} de ${venueName(leg.from)} para ${venueName(leg.to)}`;
+      if (fromC !== toC) {
+        return `Envie ${plainAmount(leg.amount_in, fromC)} de ${venueName(leg.from)} e receba ≈ ${plainAmount(leg.amount_out, toC)} em ${venueName(leg.to)} (≈ ${leg.minutes} min)`;
+      }
+      return `Transfira ${plainAmount(leg.amount_in, fromC)} de ${venueName(leg.from)} para ${venueName(leg.to)} (≈ ${leg.minutes} min)`;
     case "deposit":
       return `Deposite ${plainAmount(leg.amount_in, fromC)} em ${venueName(leg.to)}`;
     case "withdraw":
@@ -58,6 +79,8 @@ export function legStepText(leg: Leg): string {
 
 /** Plano proposto a partir de um ciclo atual: um passo por perna, todos pendentes. */
 export function createDemoPlan(cycle: Cycle, now: number): Plan {
+  // mesma regra do backend: um plano só organiza uma rota com ganho líquido positivo
+  if (!((toNumber(cycle.gain) ?? 0) > 0)) throw new ApiError(422, "só ciclo com ganho líquido positivo vira plano");
   const id = `demo-plan-${++counter}`;
   const iso = new Date(now).toISOString();
   const steps: PlanStep[] = cycle.legs.map((leg, i) => ({
@@ -85,6 +108,7 @@ export function createDemoPlan(cycle: Cycle, now: number): Plan {
     amount_out_expected: cycle.amount_out,
     gain_expected: cycle.gain,
     gain_by_currency: cycle.gain_by_currency,
+    costs: cycle.costs ?? null,
     confidence: cycle.confidence,
     minutes: cycle.minutes,
     requires_declaration: cycle.requires_declaration,

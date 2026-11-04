@@ -75,19 +75,35 @@ export function edgesFromQuotes(quotes: Quote[], venueOf: (q: Quote) => string):
     const mid = buy !== null && sell !== null && buy > 0 && sell > 0 ? (buy + sell) / 2 : null;
     if (q.buy !== null && buy !== null && buy > 0) {
       // a fonte COMPRA a moeda base: eu entrego base e recebo quote
-      edges.push({ from: nodeKey(q.base, venue), to: nodeKey(q.quote, venue), kind: "quote", rate: q.buy, fee_pct: pctFee, fee_fixed: "0", minutes, via: `${q.source_id} compra ${q.base}`, confidence: conf, evidence_id: q.evidence_id, channel, ref_rate: mid === null ? null : dec(mid, 12) });
+      const iof = iofApplies(venue, q.base, q.quote); // BRL que sai do Brasil: IOF desconhecido
+      edges.push({ from: nodeKey(q.base, venue), to: nodeKey(q.quote, venue), kind: "quote", rate: q.buy, fee_pct: pctFee, fee_fixed: "0", minutes, via: `${q.source_id} compra ${q.base}`, confidence: iof ? "incomplete" : conf, evidence_id: q.evidence_id, channel, ref_rate: mid === null ? null : dec(mid, 12) });
     }
     if (sell !== null && sell > 0) {
       // a fonte VENDE a moeda base: eu entrego quote e recebo base
-      edges.push({ from: nodeKey(q.quote, venue), to: nodeKey(q.base, venue), kind: "quote", rate: dec(1 / sell, 16), fee_pct: pctFee, fee_fixed: "0", minutes, via: `${q.source_id} vende ${q.base}`, confidence: conf, evidence_id: q.evidence_id, channel, ref_rate: mid === null ? null : dec(1 / mid, 16) });
+      const iof = iofApplies(venue, q.quote, q.base);
+      edges.push({ from: nodeKey(q.quote, venue), to: nodeKey(q.base, venue), kind: "quote", rate: dec(1 / sell, 16), fee_pct: pctFee, fee_fixed: "0", minutes, via: `${q.source_id} vende ${q.base}`, confidence: iof ? "incomplete" : conf, evidence_id: q.evidence_id, channel, ref_rate: mid === null ? null : dec(1 / mid, 16) });
     }
   }
   return edges;
 }
 
-/** Valor que sai da aresta para `amount` entrando: custo % sobre a entrada, custo fixo na saída. */
+/** Valor que sai da aresta para `amount` entrando (contrato): `x * (1 - fee_pct - iof_pct) * rate - fee_fixed - transport_fixed`. */
 export function applyEdge(amount: number, e: Edge): number {
-  return amount * (1 - num(e.fee_pct)) * num(e.rate) - num(e.fee_fixed);
+  return amount * (1 - num(e.fee_pct) - num(e.iof_pct)) * num(e.rate) - num(e.fee_fixed) - num(e.transport_fixed);
+}
+
+const BR_INSTITUTIONS = new Set(["brbank", "nubank", "itau", "bradesco", "caixa", "revolut", "nomad"]);
+
+/**
+ * IOF de câmbio incide quando BRL é convertido por instituição brasileira (ou casa de FOZ/PPO). A alíquota não está
+ * nos trilhos: sem ela, o IOF é desconhecido (`null`) e a aresta é `incomplete`, como no backend.
+ */
+export function iofApplies(venue: string, from: Currency, to: Currency): boolean {
+  if (from !== "BRL" || to === "BRL") return false;
+  const [head, city] = venue.split(":");
+  if (head === "cash") return false;
+  if (city !== undefined) return city === "FOZ" || city === "PPO";
+  return BR_INSTITUTIONS.has(head);
 }
 
 const CONFIDENCE_ORDER: Confidence[] = ["quoted", "estimated", "incomplete"];
@@ -109,15 +125,17 @@ function legCosts(e: Edge, amountIn: number): LegCosts {
   const currency = currencyOf(e.from);
   const unknown = e.confidence === "incomplete";
   const rate = num(e.rate);
+  const converts = currencyOf(e.from) !== currencyOf(e.to);
   let spread: string | null = "0";
   if (e.kind === "quote") {
-    if (e.ref_rate && num(e.ref_rate) > 0) spread = unknown ? null : dec(amountIn * (1 - rate / num(e.ref_rate)), 8);
+    if (!unknown && e.ref_rate && num(e.ref_rate) > 0) spread = dec(amountIn * (1 - rate / num(e.ref_rate)), 8);
     else spread = null;
+  } else if (converts) {
+    spread = null; // conversão por transferência sem taxa de referência: spread desconhecido, nunca zero
   }
   const fees = unknown ? null : dec(amountIn * num(e.fee_pct) + (rate > 0 ? num(e.fee_fixed) / rate : 0), 8);
-  const convertsFromBrl = currency === "BRL" && venueOf(e.from).startsWith("brbank") && currencyOf(e.to) !== "BRL";
-  const iof = convertsFromBrl ? null : "0";
-  const transport = e.kind === "travel" ? (unknown ? null : dec(num(e.fee_fixed), 8)) : "0";
+  const iof = iofApplies(venueOf(e.from), currency, currencyOf(e.to)) ? null : "0";
+  const transport = e.kind === "travel" ? (unknown ? null : dec(num(e.transport_fixed), 8)) : "0";
   return { currency, spread, fees, iof, transport };
 }
 
@@ -187,9 +205,11 @@ export function findCycles(edges: Edge[], starts: Record<string, string | number
     const amountIn = toNumber(parked);
     if (amountIn === null || !(amountIn > 0)) continue;
     const amountInStr = typeof parked === "string" ? parked : dec(parked, 8);
-    const walk = (node: string, amount: number, path: string[], used: Edge[], minutes: number, conf: Confidence) => {
-      if (used.length >= maxLen) return;
+    // profundidade em pernas: balcão (counter) não conta, como no backend
+    const walk = (node: string, amount: number, path: string[], used: Edge[], legs: number, minutes: number, conf: Confidence) => {
       for (const e of out.get(node) ?? []) {
+        const step = e.counter ? 0 : 1;
+        if (legs + step > maxLen) continue;
         if (e.to === start) {
           if (used.length === 0) continue; // precisa de pelo menos 2 arestas para ser um ciclo real
           const amountOut = applyEdge(amount, e);
@@ -220,10 +240,10 @@ export function findCycles(edges: Edge[], starts: Record<string, string | number
         if (path.includes(e.to)) continue; // ciclo simples: não repete nós
         const next = applyEdge(amount, e);
         if (next <= 0) continue;
-        walk(e.to, next, [...path, e.to], [...used, e], minutes + e.minutes, worst(conf, e.confidence));
+        walk(e.to, next, [...path, e.to], [...used, e], legs + step, minutes + e.minutes, worst(conf, e.confidence));
       }
     };
-    walk(start, amountIn, [start], [], 0, "quoted");
+    walk(start, amountIn, [start], [], 0, 0, "quoted");
   }
   // Ciclos idênticos vistos de nós diferentes ficam: com saldos distintos o ROI muda.
   return cycles.sort((a, b) => num(b.roi) - num(a.roi));

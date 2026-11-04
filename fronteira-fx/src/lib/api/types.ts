@@ -219,6 +219,14 @@ export interface Edge {
   border?: boolean;
   /** Taxa de referência de mercado na mesma direção de `rate`; sem ela o spread é desconhecido. */
   ref_rate?: string | null;
+  /** IOF sobre a entrada (fração). Ausente = 0; alíquota desconhecida vem em `unknown_costs`. */
+  iof_pct?: string;
+  /** Custo de deslocamento, na moeda de saída (aresta `travel`). */
+  transport_fixed?: string;
+  /** Balcão (ida ao caixa de uma casa na mesma cidade): não conta em `maxLen`. */
+  counter?: boolean;
+  /** Custos que o motor não consegue precificar: `null` nessa categoria, nunca zero. */
+  unknown_costs?: Array<"spread" | "fees" | "iof" | "transport">;
 }
 
 export type LegKind = "exchange" | "transfer" | "travel" | "deposit" | "withdraw";
@@ -443,6 +451,8 @@ export interface Plan {
   decided_at: string | null;
   completed_at: string | null;
   data_mode: DataMode;
+  /** Custos do ciclo na moeda de partida; `null` em uma categoria = desconhecido (nunca zero). */
+  costs?: CycleCosts | null;
   steps: PlanStep[];
 }
 

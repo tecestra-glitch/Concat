@@ -42,6 +42,12 @@ export const EdgeSchema = z.object({
   confidence: ConfidenceSchema,
   evidence_id: z.string().nullable(),
   channel: RouteChannelSchema,
+  iof_pct: DecimalString.optional(),
+  transport_fixed: DecimalString.optional(),
+  border: z.boolean().optional(),
+  counter: z.boolean().optional(),
+  ref_rate: NullableDecimalString.optional(),
+  unknown_costs: z.array(z.enum(["spread", "fees", "iof", "transport"])).optional(),
 });
 
 /** Custos de uma perna na moeda em que ela começou; `null` = desconhecido (nunca zero). */
@@ -123,6 +129,7 @@ export const PlanSchema = z.object({
   decided_at: z.string().nullable(),
   completed_at: z.string().nullable(),
   data_mode: ModeSchema,
+  costs: z.object({ spread: NullableDecimalString, fees: NullableDecimalString, iof: NullableDecimalString, transport: NullableDecimalString }).nullish(),
   steps: z.array(PlanStepSchema),
 });
 

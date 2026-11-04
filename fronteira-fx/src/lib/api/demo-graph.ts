@@ -25,6 +25,7 @@ interface TransferSpec {
   confidence: Confidence;
   evidence_id?: string | null;
   border?: boolean;
+  counter?: boolean;
 }
 
 function transfer(from: string, to: string, spec: TransferSpec): Edge {
@@ -41,6 +42,7 @@ function transfer(from: string, to: string, spec: TransferSpec): Edge {
     evidence_id: spec.evidence_id ?? null,
     channel: spec.channel,
     ...(spec.border ? { border: true } : {}),
+    ...(spec.counter ? { counter: true } : {}),
   };
 }
 
@@ -50,8 +52,8 @@ const CURRENCIES: Currency[] = ["PYG", "USD", "BRL"];
 function counterEdges(city: "CDE" | "ASU", venues: readonly string[]): Edge[] {
   return venues.flatMap((v) =>
     CURRENCIES.flatMap((c) => [
-      transfer(nodeKey(c, `cash:${city}`), nodeKey(c, v), { channel: "presencial", minutes: 10, via: `balcão ${v}`, confidence: "quoted" }),
-      transfer(nodeKey(c, v), nodeKey(c, `cash:${city}`), { channel: "presencial", minutes: 0, via: `balcão ${v}`, confidence: "quoted" }),
+      transfer(nodeKey(c, `cash:${city}`), nodeKey(c, v), { channel: "presencial", minutes: 10, via: `balcão ${v}`, confidence: "quoted", counter: true }),
+      transfer(nodeKey(c, v), nodeKey(c, `cash:${city}`), { channel: "presencial", minutes: 0, via: `balcão ${v}`, confidence: "quoted", counter: true }),
     ]),
   );
 }

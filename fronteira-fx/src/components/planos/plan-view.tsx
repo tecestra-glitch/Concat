@@ -15,9 +15,9 @@ import { Input, Label } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ErrorState } from "@/components/ui/error-state";
-import { formatCountdown, secondsUntil } from "@/lib/api/watch";
+import { secondsUntil } from "@/lib/api/watch";
 import { formatDateTime, formatMoney, parseDecimalPtBR } from "@/lib/format";
-import { useMounted, useNow } from "@/lib/use-now";
+import { useMounted, useSecondNow } from "@/lib/use-now";
 import { usePlan, usePlanDecision } from "@/lib/queries";
 import { applyPlanClock, canApprove, canCompleteStep, canReject, nextPendingStep, progressOf, quoteDeadlineMs, resultOf, PLAN_STATUS_LABEL } from "@/lib/plans";
 import type { Plan, PlanStep } from "@/lib/api/types";
@@ -25,13 +25,13 @@ import { cn } from "@/lib/utils";
 import { CYCLE_CURRENCIES, formatMinutes, pathLabel } from "../opportunities/cycle-helpers";
 import { ConfidenceBadge } from "../opportunities/ranking-table";
 import { LegChannel } from "../opportunities/leg-channel";
-import { NO_MONEY_MOVED, PLAN_TONE, STEP_STATUS_LABEL, stepCounter } from "./plan-helpers";
+import { NO_MONEY_MOVED, PLAN_TONE, STEP_STATUS_LABEL, formatPlanCountdown, gainPresentation, stepCounter, unknownCostLabels } from "./plan-helpers";
 
 const currencyOfNode = (node: string) => node.split("@")[0] as Plan["currency"];
 
 export function PlanView({ id }: { id: string }) {
   const q = usePlan(id);
-  const now = useNow();
+  const now = useSecondNow(); // relógio de 1 s: a contagem da cotação não pode ficar congelada
   const mounted = useMounted();
   const decide = usePlanDecision(id);
 
@@ -46,8 +46,11 @@ export function PlanView({ id }: { id: string }) {
   const progress = progressOf(view);
   const result = resultOf(view);
   const expiresIso = live ? new Date(quoteDeadlineMs(plan)).toISOString() : null;
-  const expiresIn = expiresIso && mounted ? formatCountdown(expiresIso, now) : "—";
   const secondsLeft = expiresIso && mounted ? secondsUntil(expiresIso, now) : null;
+  const expiresIn = secondsLeft === null ? "—" : formatPlanCountdown(secondsLeft);
+  const incomplete = plan.confidence === "incomplete";
+  const gain = gainPresentation(plan.gain_expected, plan.currency, plan.confidence);
+  const missingCosts = unknownCostLabels(plan.costs);
   const busy = decide.approve.isPending || decide.reject.isPending || decide.completeStep.isPending;
   const errorText = [decide.approve.error, decide.reject.error, decide.completeStep.error].find(Boolean);
 
@@ -70,7 +73,7 @@ export function PlanView({ id }: { id: string }) {
       )}
       {live && (
         <p className="text-sm" data-testid="plan-countdown" aria-live="off">
-          Cotação válida por mais <span className="tnum font-semibold">{secondsLeft === 0 ? "pouco" : expiresIn}</span>. Depois disso o plano expira. Ele expira só antes do primeiro passo.
+          Cotação válida por mais <span className="tnum font-semibold">{expiresIn}</span>. Se você não começar o primeiro passo até lá, o plano expira.
         </p>
       )}
 
@@ -83,20 +86,29 @@ export function PlanView({ id }: { id: string }) {
           <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <Item k="Capital" v={formatMoney(plan.amount_in, plan.currency)} />
             <Item k="Saída esperada" v={formatMoney(plan.amount_out_expected, plan.currency)} />
-            <Item k={`Ganho esperado (${plan.currency})`} v={formatMoney(plan.gain_expected, plan.currency, { sign: true })} tone="gain" strong />
+            <Item k={incomplete ? `Ganho estimado (${plan.currency}, não confirmado)` : `Ganho esperado (${plan.currency})`} v={gain.text} tone={gain.tone} strong />
             <div className="min-w-0"><dt className="text-xs text-muted">Confiança</dt><dd className="mt-0.5"><ConfidenceBadge c={plan.confidence} /></dd></div>
           </dl>
           <ul className="grid grid-cols-3 gap-2 text-sm" aria-label="Ganho esperado nas três moedas">
             {CYCLE_CURRENCIES.map((cur) => {
               const v = plan.gain_by_currency?.[cur] ?? null;
+              const g = v === null ? null : gainPresentation(v, cur, plan.confidence);
               return (
                 <li key={cur} className={cn("rounded-md border p-2", cur === plan.currency ? "border-accent/60 bg-accent/10" : "border-border")} data-currency={cur}>
                   <p className="text-xs text-muted">{cur === plan.currency ? `${cur} (partida)` : cur}</p>
-                  <p className="tnum font-medium">{v === null ? "não convertido" : formatMoney(v, cur, { sign: true })}</p>
+                  <p className={cn("tnum font-medium", g?.tone === "gain" && "text-gain", g?.tone === "loss" && "text-loss", g?.tone === "muted" && "text-muted")}>{g ? g.text : "não convertido"}</p>
                 </li>
               );
             })}
           </ul>
+          {incomplete && (
+            <p role="note" className="rounded-md border border-warn/60 bg-warn/10 p-2 text-xs" data-testid="plan-incomplete">
+              <span className="font-medium text-warn">Ganho não confirmado. </span>
+              {missingCosts.length > 0
+                ? `Custos não informados: ${missingCosts.join(", ")}. O valor acima é uma estimativa.`
+                : "Há custo que o motor não conseguiu calcular. O valor acima é uma estimativa."}
+            </p>
+          )}
           {plan.requires_declaration && (
             <p role="note" className="rounded-md border border-warn/60 bg-warn/10 p-2 text-xs" data-testid="plan-declaration">
               <span className="font-medium text-warn">Declaração: </span>uma perna de fronteira passa de US$ 10 mil. Confira antes de atravessar.
@@ -248,11 +260,11 @@ function StepsResult({ plan }: { plan: Plan }) {
   );
 }
 
-function Item({ k, v, tone, strong }: { k: string; v: string; tone?: "gain" | "loss"; strong?: boolean }) {
+function Item({ k, v, tone, strong }: { k: string; v: string; tone?: "gain" | "loss" | "muted"; strong?: boolean }) {
   return (
     <div className="min-w-0 rounded-md border border-border p-2.5">
       <dt className="text-xs text-muted">{k}</dt>
-      <dd className={cn("tnum mt-0.5 break-words font-semibold", strong ? "text-base" : "text-sm", tone === "gain" && "text-gain", tone === "loss" && "text-loss")}>{v}</dd>
+      <dd className={cn("tnum mt-0.5 break-words font-semibold", strong ? "text-base" : "text-sm", tone === "gain" && "text-gain", tone === "loss" && "text-loss", tone === "muted" && "text-muted")}>{v}</dd>
     </div>
   );
 }

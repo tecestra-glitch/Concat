@@ -1,5 +1,5 @@
 import type { Currency, Cycle, Leg, LegKind, RouteChannel } from "@/lib/api/types";
-import { formatMoney, toNumber } from "@/lib/format";
+import { formatMoney, parseDecimalPtBR, toNumber } from "@/lib/format";
 
 /** Perna de fronteira acima deste valor em US$ pede declaração (aviso, não bloqueio). */
 export const NEEDS_DECLARATION_USD = 10_000;
@@ -45,17 +45,30 @@ export interface CycleFilter {
 }
 
 /**
+ * Lê o ganho mínimo digitado com a mesma regra do resto do app (pt-BR: "10.000", "20,5", "1.250,50").
+ * `ok: false` = não dá para ler; `value: null` com `ok: true` = campo vazio (sem mínimo).
+ */
+export function parseMinGain(raw: string): { ok: boolean; value: number | null } {
+  if (raw.trim() === "") return { ok: true, value: null };
+  const canon = parseDecimalPtBR(raw);
+  if (canon === null) return { ok: false, value: null };
+  return { ok: true, value: Number(canon) };
+}
+
+/**
  * Filtros da tela: moeda de partida, ganho mínimo (na moeda escolhida) e ciclos com custo pendente.
  * Ciclo sem conversão para a moeda do mínimo não prova que passa, então sai da lista quando há mínimo.
+ * Mínimo ilegível não filtra em silêncio: a lista fica vazia até o valor ser corrigido (a tela explica o motivo).
  */
 export function filterCycles(list: Cycle[], f: CycleFilter): Cycle[] {
-  const min = f.minGain.trim() === "" ? null : toNumber(f.minGain);
+  const min = parseMinGain(f.minGain);
+  if (!min.ok) return [];
   return list.filter((c) => {
     if (f.currency !== "all" && cycleCurrency(c.start) !== f.currency) return false;
     if (!f.includeIncomplete && c.confidence === "incomplete") return false;
-    if (min !== null) {
+    if (min.value !== null) {
       const g = cycleGain(c, f.minCurrency);
-      if (g === null || g < min) return false;
+      if (g === null || g < min.value) return false;
     }
     return true;
   });
