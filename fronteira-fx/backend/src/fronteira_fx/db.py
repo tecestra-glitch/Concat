@@ -8,7 +8,7 @@ from pathlib import Path
 
 from sqlalchemy import Engine, create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 
 from .models import Base
 
@@ -17,7 +17,9 @@ def _is_memory_sqlite(url: str) -> bool:
     return url in ("sqlite://", "sqlite:///:memory:") or ":memory:" in url
 
 
-def make_engine(url: str) -> Engine:
+def make_engine(url: str, *, serverless: bool = False) -> Engine:
+    """`serverless` (Vercel function): no pool outlives the request, and the Supabase transaction pooler
+    (port 6543) gets no server-side prepared statements. Outside serverless nothing changes."""
     kwargs: dict = {}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
@@ -27,6 +29,9 @@ def make_engine(url: str) -> Engine:
             path = url.removeprefix("sqlite:///")
             if path and not path.startswith(":"):
                 Path(path).expanduser().parent.mkdir(parents=True, exist_ok=True)
+    elif serverless and url.startswith("postgresql"):
+        kwargs["poolclass"] = NullPool
+        kwargs["connect_args"] = {"prepare_threshold": None}
     engine = create_engine(url, **kwargs)
     if url.startswith("sqlite"):
 

@@ -177,6 +177,150 @@ limita cada conexão (`STREAM_MAX_DURATION_S`, padrão 55 s) e o cliente reconec
 (`Last-Event-ID`), com fallback de snapshot; confira que o limite de duração de funções do seu plano
 Vercel é maior que esse valor. Cursor expirado (HTTP 410) força novo snapshot.
 
+## Modo grátis: API na Vercel e coleta disparada pelo Supabase
+
+Esta é uma alternativa ao host durável da seção seguinte. A API roda como **função da Vercel** (plano
+Hobby, sem custo) e a coleta é disparada de fora: o `pg_cron` do Supabase chama
+`POST /v1/internal/collect` a cada 5 minutos. Não há processo residente, nem worker, nem navegador.
+
+Como fica a divisão:
+
+| Peça | Onde roda |
+|---|---|
+| Banco (Postgres + pgvector) | Supabase (pooler em modo transação, porta 6543) |
+| API (`/v1/*`, SSE, `/v1/internal/collect`) | função Python na Vercel, projeto com raiz em `fronteira-fx/backend` |
+| Coleta | o endpoint acima, uma volta por chamada, com orçamento de 45 s |
+| Agendador | `pg_cron` + `pg_net` no Supabase |
+| Frontend | Vercel, como na seção "Frontend na Vercel" |
+
+**Fontes com navegador não rodam nesse modo.** Hoje é só a **Western Union** (`westernunion`). Ela
+aparece em `skipped` com o motivo "requer navegador" e continua precisando do worker em container. As
+demais fontes são HTML ou API oficial e rodam normalmente.
+
+**Como o SSE muda.** Em função, cada conexão de `/v1/stream` dura no máximo 4 s (`STREAM_MAX_DURATION_S=4`)
+e o `retry:` do servidor manda o navegador reconectar só depois de 30 s (`STREAM_RETRY_MS=30000`). Na
+prática o SSE vira uma consulta a cada ~30 s: barato em função, mas uma mudança de cotação chega à tela com
+até uns 35 s de atraso. Quem usa o app com a aba aberta gera uma invocação a cada ~30 s; ver os números abaixo.
+
+### Variáveis da função (Vercel → Settings → Environment Variables)
+
+Sem o prefixo `NEXT_PUBLIC_`. Marque `DATABASE_URL`, `API_KEY` e `CRON_SECRET` como *Sensitive*.
+
+| Variável | Valor | Por quê |
+|---|---|---|
+| `DATABASE_URL` | `postgresql+psycopg://postgres.<project-ref>:<senha>@aws-0-<regiao>.pooler.supabase.com:6543/postgres?sslmode=require` | pooler em modo transação (porta 6543); `sslmode=require` obrigatório |
+| `FX_SERVERLESS` | `1` | liga `NullPool` e `prepare_threshold=None` (o pooler de transação não aceita comandos preparados) |
+| `AUTO_CREATE_SCHEMA` | `0` | o esquema vem do alembic, rodado de fora (ver "Primeira rodada") |
+| `SEED_KNOWLEDGE` | `0` | a base de conhecimento já está no banco; não reindexar a cada partida a frio |
+| `DATA_MODE` | `real` | a função nunca serve demonstração |
+| `API_KEY` | `<API_KEY>` (`openssl rand -hex 32`) | protege `/mcp` e as rotas de escrita |
+| `CRON_SECRET` | `<CRON_SECRET>` (`openssl rand -hex 32`) | o Bearer que o Supabase manda; vazio = a rota responde 404 |
+| `CORS_ORIGINS` | `https://<frontend>.vercel.app` | origem do frontend; o proxy server-side já cobre o uso normal |
+| `STREAM_MAX_DURATION_S` | `4` | cada conexão SSE dura 4 s; ver acima |
+| `STREAM_RETRY_MS` | `30000` | o `retry:` do SSE: o cliente reconecta a cada 30 s |
+| `COLLECT_BUDGET_S` | `45` (padrão) | nenhuma fonte nova começa depois de 45 s; a função tem 60 s |
+| `EVIDENCE_DIR` | `/tmp/evidence` (recomendado) | o disco da função é somente leitura, exceto `/tmp`; as capturas brutas são efêmeras e os dados ficam no banco |
+
+Sem `FX_SERVERLESS=1`, a conexão em modo transação falha depois de algumas execuções (os comandos
+preparados do `psycopg`). Não troque a porta 6543 sem essa variável.
+
+### Primeira rodada
+
+1. No SQL Editor do Supabase: `CREATE EXTENSION IF NOT EXISTS vector;` (o mesmo passo da seção do Supabase).
+2. Rode as migrações **de fora da Vercel**, pela porta de sessão 5432 (migrações não cabem no modo transação):
+
+   ```bash
+   cd backend
+   DATABASE_URL='postgresql+psycopg://postgres.<project-ref>:<senha>@aws-0-<regiao>.pooler.supabase.com:5432/postgres?sslmode=require' \
+     uv run alembic upgrade head
+   ```
+
+3. Vincule o projeto da Vercel com **Root Directory = `fronteira-fx/backend`** e cadastre as variáveis acima.
+   O `vercel.json` desta pasta fixa a região `gru1` (São Paulo) e `maxDuration` de 60 s para `app.py`.
+   O `app.py` expõe a `app` do FastAPI e coloca `src/` no caminho de importação.
+4. Confira: `curl -fsS https://<API_VERCEL>/v1/health` deve responder `data_mode: "real"`.
+
+### Agendador no Supabase (modelo)
+
+Use os marcadores no lugar dos valores. O segredo fica no **Vault** do Supabase, não em arquivo nem no
+comando do agendamento: o comando lê o Vault na hora de disparar.
+
+```sql
+-- 1. Extensões (uma vez, no SQL Editor)
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- 2. Segredo no Vault: troque <CRON_SECRET> pelo mesmo valor da variável da Vercel
+select vault.create_secret('<CRON_SECRET>', 'fx_cron_secret', 'Bearer de /v1/internal/collect');
+
+-- 3. Agendamento a cada 5 minutos
+select cron.schedule(
+  'fx-collect',
+  '*/5 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://<API_VERCEL>/v1/internal/collect',
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'fx_cron_secret'),
+      'Content-Type', 'application/json'
+    ),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 55000
+  );
+  $$
+);
+```
+
+- `<API_VERCEL>` é o domínio da função (ex.: `<projeto>.vercel.app`), sem barra no fim.
+- `net.http_post` é assíncrono: a resposta fica em `net._http_response` (código HTTP e corpo). Para ver se a
+  rodada deu certo, consulte essa tabela; o corpo traz só o resumo do endpoint, sem segredo.
+- Para trocar o segredo: `select vault.update_secret(...)` com o novo valor e a mesma variável na Vercel.
+- Para parar: `select cron.unschedule('fx-collect');`.
+
+### Limites do plano Hobby e por que 5 minutos
+
+Números do plano Hobby da Vercel, como informados ao projeto:
+
+- 4 horas de CPU ativa por mês;
+- 360 GB-hora de memória por mês;
+- 1 milhão de invocações por mês.
+
+Estourar um limite **pausa as funções por 30 dias**. Confira o consumo no painel de uso da Vercel depois
+do primeiro dia.
+
+Por que 5 minutos:
+
+- o intervalo padrão de sondagem de uma fonte já é 300 s (`POLL_INTERVAL_S`); chamar a cada 5 minutos
+  acompanha o agendamento real, e uma chamada mais frequente quase só encontra fontes "não vencidas";
+- cada chamada gasta CPU ativa (importar o app, consultas, parse). Na conta: 5 minutos são 8.640 chamadas
+  por mês, ~0,9% do limite de invocações, mas o limite de CPU de 4 h dá **~1,7 s de CPU por chamada**.
+  Esse é o ponto apertado. Se o painel mostrar consumo alto de CPU, troque o agendamento por
+  `*/10 * * * *` (ou mais lento): `select cron.unschedule('fx-collect');` e de novo `cron.schedule(...)` com o novo intervalo;
+- o SSE de quem deixa o app aberto soma invocações: uma a cada ~30 s por aba, ~86 mil por mês para uma
+  aba 24 horas por dia. Com o limite de 1 milhão, isso comporta poucas abas abertas o mês inteiro.
+
+Os números de CPU são uma estimativa de projeto, não uma medição: meça no primeiro mês antes de confiar.
+
+### Verificação
+
+```bash
+# sem segredo configurado: a rota não existe (404)
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://<API_VERCEL>/v1/internal/collect
+# segredo errado: 401
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST -H 'Authorization: Bearer <SEGREDO_ERRADO>' https://<API_VERCEL>/v1/internal/collect
+# segredo certo: 200 com o resumo da rodada
+curl -sS -X POST -H "Authorization: Bearer <CRON_SECRET>" https://<API_VERCEL>/v1/internal/collect
+```
+
+Use `<CRON_SECRET>` só no seu terminal e nunca cole a resposta de produção num arquivo versionado.
+
+### O que não está garantido nesta seção
+
+- Não foi medido em produção: consumo real de CPU, tempo de cold start e o limite de 4 s do SSE na Vercel.
+- O `pg_net` pode atrasar a chamada alguns segundos; o orçamento de 45 s conta só o trabalho da função.
+- Uma função morta pelo limite de 60 s deixa tarefas em `running`, como já acontece com o worker se ele cair
+  no meio de uma tarefa. Não há recuperação automática nesta versão.
+
 ## Backend e worker em um host durável
 
 Vercel Functions não hospedam o coletor nem processos indefinidos. `api` e `worker` vão para uma VPS
@@ -282,8 +426,9 @@ Não verificado (e por isso não prometido):
    **Por que não o modo transação (porta 6543).** O `psycopg` 3 cria comandos preparados no servidor a
    partir da 5ª execução, e o pooler em modo transação não os suporta. Habilitar o modo transação
    exigiria `connect_args={"prepare_threshold": None}` no `create_engine`, uma mudança de código fora
-   desta seção, registrada como pendência em `docs/pregao.md` (seção "Pendências"). Até lá, o modo
-   transação não é suportado.
+   desta seção, registrada como pendência em `docs/pregao.md` (seção "Pendências"). Essa mudança já existe
+   para o modo serverless (`FX_SERVERLESS=1`, ver "Modo grátis" abaixo), que usa o pooler em modo transação
+   (porta 6543). Fora do serverless o modo transação continua sem suporte: use a porta 5432.
 
    Exemplo de URL, com placeholders:
 

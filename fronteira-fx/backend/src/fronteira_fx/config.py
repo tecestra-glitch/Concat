@@ -28,15 +28,20 @@ class Settings(BaseSettings):
     data_mode: DataMode = "real"
     seed_demo: bool = Field(default=False, validation_alias=AliasChoices("FX_SEED_DEMO", "SEED_DEMO"))
 
+    # Serverless (Vercel function fed by an external cron, see docs/deploy.md). Off = long-running process.
+    serverless: bool = Field(default=False, validation_alias=AliasChoices("FX_SERVERLESS", "SERVERLESS"))
+
     # HTTP
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     api_key: str | None = None  # when set, protects /mcp and write endpoints (X-API-Key / Bearer)
+    cron_secret: str | None = None  # Bearer of POST /v1/internal/collect; unset = that route answers 404
     app_version: str = "0.1.0"
 
     # Event stream
     event_retention: int = 20000  # max events kept (oldest pruned first)
     event_retention_s: int = 86400  # events older than this are pruned
     stream_max_duration_s: float = 55.0  # bounded SSE connection; clients resume by cursor
+    stream_retry_ms: int = 1000  # `retry:` sent on connect; serverless sets 30000 (reconnect every ~30 s)
     stream_heartbeat_s: float = 15.0
     stream_poll_s: float = 1.0
     stream_batch: int = 500
@@ -52,6 +57,7 @@ class Settings(BaseSettings):
     history_default_grid_s: int = 300
     watch_min_interval_s: int = 60
     watch_max_interval_s: int = 900
+    collect_budget_s: float = 45  # one round started by POST /v1/internal/collect stops starting sources after this
 
     # Notifications (secrets only via environment)
     telegram_bot_token: str | None = None
@@ -75,6 +81,8 @@ class Settings(BaseSettings):
         """SEC-05: the `TROQUE_ESTA_*` placeholders of `.env.example` are public; never run with them."""
         if self.api_key and self.api_key.strip().upper().startswith(PLACEHOLDER_PREFIX):
             raise ValueError("API_KEY ainda é o placeholder do .env.example; gere uma com `openssl rand -hex 32`")
+        if self.cron_secret and self.cron_secret.strip().upper().startswith(PLACEHOLDER_PREFIX):
+            raise ValueError("CRON_SECRET ainda é o placeholder do .env.example; gere com `openssl rand -hex 32`")
         if PLACEHOLDER_PREFIX in self.database_url.upper():
             raise ValueError(
                 "POSTGRES_PASSWORD (DATABASE_URL) ainda é o placeholder do .env.example; "
@@ -95,6 +103,11 @@ class Settings(BaseSettings):
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
+
+    @property
+    def cron_secret_enabled(self) -> bool:
+        """An empty CRON_SECRET counts as unset: the internal collect route then answers 404."""
+        return bool(self.cron_secret and self.cron_secret.strip())
 
 
 @lru_cache

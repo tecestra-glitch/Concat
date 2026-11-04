@@ -124,7 +124,8 @@ SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|
 | GET | `/v1/evidence?source=&from=&q=&limit=100` / `/v1/evidence/{id}` | `Evidence[]` / `Evidence` (`q` = substring do `excerpt`; `limit` 1..500) |
 | GET/POST **[chave]** | `/v1/journal` | `JournalEntry[]` (POST exige chave) |
 | GET | `/v1/snapshot` | `{cursor, quotes, sources, opportunities, server_time, data_mode}` |
-| GET | `/v1/stream` | SSE. Header `Last-Event-ID` ou `?cursor=` para replay; `410 Gone` se cursor expirou → cliente refaz snapshot |
+| GET | `/v1/stream` | SSE. Header `Last-Event-ID` ou `?cursor=` para replay; `410 Gone` se cursor expirou → cliente refaz snapshot. O primeiro evento traz `retry:` (`STREAM_RETRY_MS`, 1000 por padrão; 30000 no modo serverless) |
+| POST | `/v1/internal/collect` | rodada de coleta disparada por agendador externo, sem navegador (ver abaixo). Só com `Authorization: Bearer <CRON_SECRET>`; sem `CRON_SECRET` a rota responde `404` |
 
 ## Grafo de posições e ciclos (cruzamento ao vivo)
 
@@ -374,3 +375,38 @@ Memory { "id": "uuid", "kind": "decision", "text": "...", "tags": ["ueno"], "cre
 MemorySummary { "summary": "Preferências: prefere Pix para receber\nFatos: ueno cobra IOF; …" }
 ```
 MCP: `remember`, `recall`, `forget`, `memory_summary`.
+
+## Coleta disparada de fora — módulo `internal` (modo serverless)
+
+Uso: o agendador (no Supabase, `pg_cron` + `pg_net`, ver `docs/deploy.md`) chama a rota a cada 5 minutos. Não é
+para o frontend. Cada chamada faz **uma volta** do laço do worker, sem processo residente:
+
+- fontes vencidas pelo agendamento e pelo recuo já existentes (nunca forçadas; piso de 60 s por fonte);
+- tarefas da fila de cotação sob demanda, exceto as de fontes com navegador (ficam `queued` para o worker);
+- limpeza do stream de eventos;
+- fontes de método `browser` são puladas com motivo: não há navegador nesse modo;
+- nenhuma fonte nova (nem tarefa) começa depois de `COLLECT_BUDGET_S` (padrão 45 s; a função tem 60 s).
+
+| Método | Rota | Autenticação | Respostas |
+|---|---|---|---|
+| POST | `/v1/internal/collect` | `Authorization: Bearer <CRON_SECRET>` | `200` rodada; `401` segredo ausente ou errado; `404` `CRON_SECRET` não definido |
+
+Resposta `200` (`CollectRoundOut`):
+
+```jsonc
+{
+  "duration_ms": 1832,
+  "data_mode": "real",
+  "budget_s": 45.0,
+  "budget_exhausted": false,
+  "sources": [ { "id": "chaco", "status": "ok", "health": "ok", "changed": true, "quotes_stored": 4 } ],
+  "skipped": [ { "id": "wu", "reason": "requer navegador; só o worker coleta essa fonte" } ],
+  "tasks_processed": 0,
+  "events_pruned": 0
+}
+```
+
+- `changed` é `true` quando uma cotação mudou em relação à captura anterior (captura nova).
+- `skipped[].reason` é texto do servidor, nunca mensagem de provedor. A resposta não traz segredo, cabeçalho
+  nem corpo de terceiros.
+- Fora do modo `real` a rodada não consulta provedores: `sources` e `skipped` vêm vazios.

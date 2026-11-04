@@ -1,7 +1,11 @@
-"""Registry of provider adapters. The collector and the API look adapters up here."""
+"""Registry of provider adapters. The collector and the API look adapters up here.
+
+ueno bank is out: it entered resolution by the Banco Central del Paraguay on 2026-11-03. Its adapter module stays
+only as history (and for the demo data until that is migrated); it is no longer collected or listed.
+"""
 from __future__ import annotations
 
-from . import alberdi, bcp, bonanza, chaco, dolarpy, maxicambios, myd, nomad, norte, revolut, ueno, westernunion
+from . import alberdi, bcp, bonanza, chaco, dolarpy, maxicambios, myd, nomad, norte, revolut, westernunion
 from .base import Adapter
 
 _ALL: tuple[Adapter, ...] = (
@@ -10,7 +14,6 @@ _ALL: tuple[Adapter, ...] = (
     bonanza.adapter,
     norte.adapter,
     bcp.adapter,
-    ueno.adapter,
     nomad.adapter,
     revolut.adapter,
     westernunion.adapter,

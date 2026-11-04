@@ -8,13 +8,18 @@ from fronteira_fx.adapters import registry
 from fronteira_fx.adapters.base import AdapterInfo
 
 EXPECTED = {
-    "chaco", "alberdi", "bonanza", "norte", "bcp", "ueno", "nomad", "revolut", "westernunion",
+    "chaco", "alberdi", "bonanza", "norte", "bcp", "nomad", "revolut", "westernunion",
     "maxicambios", "myd", "dolarpy",
 }
 
 
+def test_ueno_is_retired() -> None:
+    # ueno bank entered resolution by the BCP on 2026-11-03: no longer collected or listed.
+    assert "ueno" not in registry.ADAPTERS
+
+
 def test_registry_has_all_adapters() -> None:
-    assert set(registry.ADAPTERS) == EXPECTED and len(registry.ADAPTERS) == 12
+    assert set(registry.ADAPTERS) == EXPECTED and len(registry.ADAPTERS) == 11
     assert list(registry.ADAPTERS) == sorted(EXPECTED)  # deterministic order for the API/collector
     for aid, adapter in registry.ADAPTERS.items():
         assert isinstance(adapter.info, AdapterInfo) and adapter.info.id == aid
