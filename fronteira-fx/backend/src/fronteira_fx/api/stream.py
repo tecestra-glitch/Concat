@@ -80,7 +80,7 @@ async def stream_events(request: Request, settings: SettingsDep, cursor: CursorD
     started = time.monotonic()
     last_sent = started
     deadline = started + settings.stream_max_duration_s
-    yield ServerSentEvent(comment="connected", retry=1000)
+    yield ServerSentEvent(comment="connected", retry=settings.stream_retry_ms)
     while time.monotonic() < deadline:
         if await request.is_disconnected():
             return

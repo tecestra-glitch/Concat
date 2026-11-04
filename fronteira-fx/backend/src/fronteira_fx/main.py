@@ -29,7 +29,7 @@ DESCRIPTION = (
 
 def create_app(settings: Settings | None = None, *, mount_mcp_server: bool = True) -> FastAPI:
     settings = settings or get_settings()
-    engine = make_engine(settings.database_url)
+    engine = make_engine(settings.database_url, serverless=settings.serverless)
     session_factory = make_session_factory(engine)
 
     @asynccontextmanager
