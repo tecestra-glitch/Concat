@@ -1,0 +1,11 @@
+{
+  "disclaimer": "Usage subject to terms: https://openexchangerates.org/terms",
+  "license": "https://openexchangerates.org/license",
+  "timestamp": 1793793600,
+  "base": "USD",
+  "rates": {
+    "BRL": 5.4,
+    "PYG": 5950.0,
+    "EUR": 0.92
+  }
+}
