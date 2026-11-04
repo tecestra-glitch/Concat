@@ -99,6 +99,7 @@ def test_cycles_from_parked_balances(client, db):
         "via",
         "confidence",
         "evidence_id",
+        "quoted_at",
         "channel",
         "border",
         "counter",

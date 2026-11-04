@@ -12,8 +12,9 @@ A cost the engine cannot price is never zero: the edge lists it in `unknown` and
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -32,6 +33,8 @@ LEG_KIND: dict[str, LegKind] = {
     "withdraw": "withdraw",
 }
 COST_KEYS = ("spread", "fees", "iof", "transport")
+# montante usado para escolher alternativa quando a busca não tem montante (só testes e uso direto do grafo)
+CHOICE_PROBE = Decimal(1000)
 
 
 def node(currency: str, venue: str) -> str:
@@ -77,6 +80,8 @@ class Edge:
     via: str = ""
     confidence: Confidence = "estimated"
     evidence_id: str | None = None
+    # instante da cotação que originou a aresta (só arestas de cotação); None = sem cotação datada
+    quoted_at: datetime | None = None
     # amount window (in the source currency) the quote is valid for; None = unbounded
     min_in: Decimal | None = None
     max_in: Decimal | None = None
@@ -139,6 +144,7 @@ class Edge:
             "via": self.via,
             "confidence": self.confidence,
             "evidence_id": self.evidence_id,
+            "quoted_at": self.quoted_at.isoformat() if self.quoted_at is not None else None,
             "channel": self.channel,
             "border": self.border,
             "counter": self.counter,
@@ -227,14 +233,24 @@ def _money_map(values: dict[str, Decimal | None] | None) -> dict[str, str | None
 
 @dataclass(slots=True)
 class Graph:
+    """Arestas paralelas (mesmo par de nós) são alternativas: nenhuma some do grafo. A busca escolhe uma por perna
+    (`choose_edge`), conforme o montante que chega a ela."""
+
     edges: list[Edge] = field(default_factory=list)
     _out: dict[str, list[Edge]] = field(default_factory=dict, repr=False)
+    _groups: dict[str, dict[str, list[Edge]]] = field(default_factory=dict, repr=False)
 
     def add(self, edge: Edge) -> None:
         if edge.rate <= 0 or edge.src == edge.dst:
             return
         self.edges.append(edge)
         self._out.setdefault(edge.src, []).append(edge)
+        self._groups.setdefault(edge.src, {}).setdefault(edge.dst, []).append(edge)
+
+    def alternatives(self, n: str) -> list[tuple[str, list[Edge]]]:
+        """Saídas de `n` agrupadas por destino (cada grupo é o conjunto de alternativas do par), em ordem fixa."""
+        groups = self._groups.get(n, {})
+        return [(dst, groups[dst]) for dst in sorted(groups)]
 
     def extend(self, edges: Iterable[Edge]) -> None:
         for e in edges:
@@ -295,26 +311,42 @@ class Graph:
         found: list[tuple[Edge, ...]] = []
 
         def dfs(current: str, visited: set[str], trail: list[Edge], legs: int, x: Decimal | None) -> None:
-            for e in self.out_edges(current):
-                if x is not None and not e.accepts(x):
+            for dst, alternatives in self.alternatives(current):
+                e = choose_edge(alternatives, x)  # uma aresta por par, pelo montante que chega a ela
+                if e is None:
                     continue
                 step = 0 if e.counter else 1
                 if legs + step > max_len:
                     continue
-                if e.dst == start:
+                if dst == start:
                     if len(trail) + 1 >= min_len:
                         found.append((*trail, e))
                     continue
-                if e.dst in visited:
+                if dst in visited:
                     continue
-                visited.add(e.dst)
+                visited.add(dst)
                 trail.append(e)
-                dfs(e.dst, visited, trail, legs + step, e.apply(x) if x is not None else None)
+                dfs(dst, visited, trail, legs + step, e.apply(x) if x is not None else None)
                 trail.pop()
-                visited.discard(e.dst)
+                visited.discard(dst)
 
         dfs(start, {start}, [], 0, amount_in)
         return found
+
+
+def choose_edge(alternatives: Sequence[Edge], amount: Decimal | None) -> Edge | None:
+    """Alternativa de um par de nós para o montante `amount` que chega a ela (None: sem montante, usa CHOICE_PROBE).
+
+    Só entram as que aceitam o montante (janela de cotação). Entre elas, custo conhecido vence custo desconhecido
+    (a aresta incompleta tem tarifa placeholder zero e não pode ganhar só por isso); depois, a que dá mais saída.
+    Como o encadeamento é crescente no montante, escolher a melhor saída em cada perna é o melhor caminho do par."""
+    fits = [e for e in alternatives if amount is None or e.accepts(amount)]
+    if not fits:
+        return None
+    known = [e for e in fits if e.confidence != "incomplete"]
+    pool = known or fits
+    probe = CHOICE_PROBE if amount is None else amount
+    return max(pool, key=lambda e: (e.apply(probe), e.via, e.channel))
 
 
 def find_cycles(
@@ -323,9 +355,12 @@ def find_cycles(
     *,
     max_len: int = 4,
     min_roi: Decimal | None = None,
-    limit: int = 200,
+    limit: int | None = 200,
 ) -> list[Cycle]:
-    """Evaluate cycles from every node with a positive free balance; best ROI first (deterministic)."""
+    """Evaluate cycles from every node with a positive free balance; best ROI first (deterministic).
+
+    `limit` corta a lista DEPOIS de ordenar por ROI (None: sem corte). Quem filtra por confiança precisa de None,
+    senão os incompletos, de ROI inflado, ocupam o topo."""
     max_len = max(2, min(int(max_len), 6))  # pernas (balcão não conta)
     out: list[Cycle] = []
     for start in sorted(balances):
@@ -338,4 +373,4 @@ def find_cycles(
                 continue
             out.append(cyc)
     out.sort(key=lambda c: (-c.roi, c.minutes, len(c.edges), c.start, c.path))
-    return out[:limit]
+    return out if limit is None else out[:limit]

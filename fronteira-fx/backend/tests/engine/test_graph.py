@@ -117,6 +117,7 @@ def test_max_len_min_roi_and_balances_filter():
         "via",
         "confidence",
         "evidence_id",
+        "quoted_at",
         "channel",
         "border",
         "counter",
