@@ -515,6 +515,40 @@ class MarketBookTop(Base):
     captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
+class FxReferenceQuote(Base):
+    """Cotação de referência de câmbio (Frankfurter, PTAX, Open Exchange Rates) com a data de coleta.
+
+    `referencia` é sempre verdadeiro: referência de mercado nunca é executável nem vira aresta de ciclo.
+    Uma linha por (fonte, instrumento, data observada): o histórico serve para comparar fontes no mesmo dia.
+    """
+
+    __tablename__ = "fx_reference_quotes"
+    __table_args__ = (
+        UniqueConstraint("source", "instrument", "observed_at", "data_mode", name="uq_fx_reference_quote"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    instrument: Mapped[str] = mapped_column(String(32), index=True)  # USD/BRL, USD/PYG, EUR/USD
+    source: Mapped[str] = mapped_column(String(32), index=True)  # frankfurter | bcb-ptax-venda | openexchangerates
+    price: Mapped[Decimal] = mapped_column(Money)
+    observed_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    collected_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    referencia: Mapped[bool] = mapped_column(Boolean, default=True)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class ReferenceApiUsage(Base):
+    """Contador de chamadas por fonte e mês UTC (`period` = AAAA-MM). Persistido: sobrevive a reinícios do worker."""
+
+    __tablename__ = "reference_api_usage"
+    __table_args__ = (UniqueConstraint("source", "period", name="uq_reference_api_usage"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(32))
+    period: Mapped[str] = mapped_column(String(7))
+    calls: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class ExecutionPlan(Base):
     """Plano de execução: só organiza os passos de um ciclo. Nada aqui move dinheiro (fase A).
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from decimal import Decimal
 from functools import lru_cache
 from typing import Literal, Self
 from urllib.parse import urlsplit
@@ -107,6 +108,16 @@ class Settings(BaseSettings):
         default=None, validation_alias=AliasChoices("FX_OPENFINANCE_CLIENT_SECRET")
     )
 
+    # Referências de câmbio (módulo market, U03). Tudo é REFERÊNCIA, nunca executável. Open Exchange Rates só entra
+    # com OXR_APP_ID (chave só por variável de ambiente); sem ela a fonte fica desligada e nenhuma chamada é feita.
+    oxr_app_id: str | None = Field(default=None, validation_alias=AliasChoices("OXR_APP_ID"))
+    # teto mensal de chamadas à OXR (UTC). O plano gratuito permite 1.000; nunca passa de 1.000 (ver reference.py).
+    oxr_monthly_cap: int = Field(default=1000, ge=0, validation_alias=AliasChoices("OXR_MONTHLY_CAP"))
+    # desvio absoluto (%) entre duas fontes de referência para o mesmo instrumento que dispara alerta (acima dele)
+    fx_reference_deviation_alert_pct: Decimal = Field(
+        default=Decimal("1.0"), gt=0, validation_alias=AliasChoices("FX_REFERENCE_DEVIATION_ALERT_PCT")
+    )
+
     # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
     # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).
     # One-off alternative: `python -m fronteira_fx.cli seed-knowledge`.
@@ -129,6 +140,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "FX_CONNECTIONS_KEY ainda é o placeholder do .env.example; gere com `openssl rand -base64 32`"
             )
+        if self.oxr_app_id and self.oxr_app_id.strip().upper().startswith(PLACEHOLDER_PREFIX):
+            raise ValueError("OXR_APP_ID ainda é o placeholder do .env.example; use a chave da sua conta OXR")
         if self.browser_secret and self.browser_secret.strip().upper().startswith(PLACEHOLDER_PREFIX):
             raise ValueError("FX_BROWSER_SECRET ainda é o placeholder do .env.example; gere com `openssl rand -hex 32`")
         return self
@@ -144,6 +157,13 @@ class Settings(BaseSettings):
             local = parts.hostname in ("localhost", "127.0.0.1", "::1")
             if parts.scheme != "https" and not (parts.scheme == "http" and local):
                 raise ValueError("FX_BROWSER_URL precisa ser https:// (http só é aceito para localhost)")
+        return self
+
+    @model_validator(mode="after")
+    def _normalise_reference_settings(self) -> Self:
+        """Chave vazia conta como desligada; o teto mensal da OXR nunca passa de 1.000 (limite do plano gratuito)."""
+        self.oxr_app_id = (self.oxr_app_id or "").strip() or None
+        self.oxr_monthly_cap = min(self.oxr_monthly_cap, 1000)
         return self
 
     @model_validator(mode="after")
