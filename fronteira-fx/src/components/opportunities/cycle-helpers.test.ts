@@ -1,23 +1,80 @@
 import { describe, expect, it } from "vitest";
 import type { Cycle } from "@/lib/api/types";
-import { cycleCurrency, formatMinutes, isProfitable } from "./cycle-helpers";
+import { costRows, cycleGain, filterCycles, legLabel, legText, cycleCurrency, formatMinutes, isProfitable, NEEDS_DECLARATION_USD, pathLabel } from "./cycle-helpers";
 
-const base: Cycle = { start: "BRL@brbank", path: [], edges: [], amount_in: "25000", amount_out: "25041.20", gain: "41.20", roi: "0.001648", minutes: 4320, confidence: "estimated", data_mode: "real" };
+const cycle = (over: Partial<Cycle> = {}): Cycle => ({
+  start: "BRL@brbank",
+  path: ["BRL@brbank", "USD@nomad", "BRL@brbank"],
+  edges: [],
+  legs: [
+    { kind: "transfer", channel: "assistida", from: "BRL@brbank", to: "USD@nomad", via: "Pix → Nomad", minutes: 1440, border: false, amount_in: "5000", amount_out: "920", costs: { currency: "BRL", spread: null, fees: "0", iof: "0", transport: "0" } },
+    { kind: "transfer", channel: "assistida", from: "USD@nomad", to: "BRL@brbank", via: "Nomad → Pix", minutes: 1440, border: false, amount_in: "920", amount_out: "5042", costs: { currency: "USD", spread: null, fees: "0", iof: "0", transport: "0" } },
+  ],
+  amount_in: "5000",
+  amount_out: "5042.10",
+  gain: "42.10",
+  roi: "0.00842",
+  gain_by_currency: { BRL: "42.10", USD: "7.80", PYG: "46000" },
+  costs: { spread: null, fees: "0", iof: "0", transport: "0" },
+  requires_declaration: false,
+  minutes: 2880,
+  confidence: "estimated",
+  data_mode: "demo",
+  ...over,
+});
 
-describe("cycle helpers (D1: strings decimais)", () => {
-  it("moeda do nó inicial", () => {
-    expect(cycleCurrency("BRL@brbank")).toBe("BRL");
+describe("cycle-helpers (ganho, filtros e textos das pernas)", () => {
+  it("lê o ganho em qualquer moeda; null quando a conversão falta", () => {
+    expect(cycleGain(cycle(), "USD")).toBe(7.8);
+    expect(cycleGain(cycle({ gain_by_currency: { BRL: "42.10", USD: null, PYG: null } }), "PYG")).toBeNull();
+    expect(cycleGain(cycle({ gain_by_currency: null }), "BRL")).toBe(42.1);
+  });
+
+  it("lucrativo = ganho na moeda de partida > 0", () => {
+    expect(isProfitable(cycle())).toBe(true);
+    expect(isProfitable(cycle({ gain: "-3" }))).toBe(false);
+  });
+
+  it("filtro: moeda de partida, ganho mínimo na moeda escolhida e incluir incompletos", () => {
+    const ok = cycle();
+    const incompleto = cycle({ start: "USD@nomad", confidence: "incomplete" });
+    const semConversao = cycle({ start: "PYG@banco_py", gain_by_currency: { BRL: null, USD: null, PYG: null } });
+    const list = [ok, incompleto, semConversao];
+    expect(filterCycles(list, { currency: "all", minGain: "", minCurrency: "BRL", includeIncomplete: true })).toHaveLength(3);
+    expect(filterCycles(list, { currency: "all", minGain: "", minCurrency: "BRL", includeIncomplete: false })).toEqual([ok, semConversao]);
+    expect(filterCycles(list, { currency: "USD", minGain: "", minCurrency: "BRL", includeIncomplete: true })).toEqual([incompleto]);
+    // ganho mínimo com conversão desconhecida: não há como provar que passa, então sai da lista
+    expect(filterCycles(list, { currency: "all", minGain: "10", minCurrency: "PYG", includeIncomplete: true })).toEqual([ok, incompleto]);
+    expect(filterCycles(list, { currency: "all", minGain: "50", minCurrency: "BRL", includeIncomplete: true })).toEqual([]);
+  });
+
+  it("texto da perna: tipo e destino em português simples, sem nó técnico", () => {
+    expect(legLabel("exchange", "presencial")).toBe("Troca presencial");
+    expect(legLabel("travel", "presencial")).toBe("Deslocamento");
+    expect(legLabel("transfer", "automatizavel")).toBe("Transferência automatizável");
+    expect(legText(cycle().legs[0])).toContain("Pix → Nomad");
+    expect(legText(cycle().legs[0])).toContain("5.000");
+  });
+
+  it("linhas de custo: custo desconhecido aparece como não informado, nunca como zero", () => {
+    const rows = costRows(cycle({ costs: { spread: null, fees: "9.9", iof: null, transport: "0" } }), "BRL");
+    expect(rows.map((r) => r.label)).toEqual(["Spread", "Tarifas", "IOF", "Deslocamento"]);
+    expect(rows[0].value).toBeNull();
+    expect(rows[1].value).toBe("R$ 9,90");
+    expect(rows[2].value).toBeNull();
+    expect(costRows(cycle({ costs: null }), "BRL").every((r) => r.value === null)).toBe(true);
+  });
+
+  it("limite de declaração é US$ 10 000 e tempo sai em minutos ou dias", () => {
+    expect(NEEDS_DECLARATION_USD).toBe(10000);
+    expect(formatMinutes(40)).toBe("40 min");
+    expect(formatMinutes(2880)).toBe("2,0 d");
     expect(cycleCurrency("PYG@chaco:CDE")).toBe("PYG");
   });
-  it("lucro comparado como número, não como string", () => {
-    expect(isProfitable(base)).toBe(true);
-    expect(isProfitable({ ...base, gain: "0" })).toBe(false);
-    expect(isProfitable({ ...base, gain: "-0.5" })).toBe(false);
-    // "9" > "10" seria verdadeiro em comparação de strings
-    expect(isProfitable({ ...base, gain: "0.0000001" })).toBe(true);
-  });
-  it("prazo em dias a partir de 24 h, senão minutos", () => {
-    expect(formatMinutes(4320)).toBe("3,0 d");
-    expect(formatMinutes(90)).toBe("90 min");
+});
+
+describe("pathLabel", () => {
+  it("troca o @ por um separador legível, sem perder a seta", () => {
+    expect(pathLabel(["BRL@brbank", "USD@nomad", "BRL@brbank"])).toBe("BRL · brbank → USD · nomad → BRL · brbank");
   });
 });

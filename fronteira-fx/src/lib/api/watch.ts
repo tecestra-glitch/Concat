@@ -6,7 +6,7 @@
  */
 import { ApiError, http, modeQuery, qs, type Mode } from "./client";
 import type { DataMode } from "./types";
-import { formatPercent, parseDecimalPtBR, toNumber } from "../format";
+import { formatMoney, formatPercent, parseDecimalPtBR, toNumber } from "../format";
 import {
   demoAlertEvents,
   demoAlertRules,
@@ -24,7 +24,8 @@ import {
 
 export type WatchState = "ok" | "degraded" | "blocked" | "stale" | "error" | "needs_session";
 export type ChangeKind = "quote_change" | "layout_change" | "status_change";
-export type AlertKind = "cycle_roi" | "quote_move" | "source_down" | "opportunity_new";
+/** `cycle_net_gain`: limite em dinheiro (ganho líquido mínimo de um ciclo), na moeda de `params.currency`. */
+export type AlertKind = "cycle_roi" | "quote_move" | "source_down" | "opportunity_new" | "cycle_net_gain";
 export type AlertChannel = "ui" | "telegram" | "webhook" | "email";
 
 export interface WatchStatus {
@@ -59,13 +60,15 @@ export interface Change {
 export interface AlertParams {
   pair?: string;
   city?: string | null;
+  /** Moeda do limite de `cycle_net_gain` (BRL | USD | PYG). */
+  currency?: "BRL" | "USD" | "PYG";
 }
 
 export interface AlertRule {
   id: string;
   name: string;
   kind: AlertKind;
-  /** Decimal string. Ratio for cycle_roi / quote_move / opportunity_new; seconds for source_down. */
+  /** Decimal string. Ratio for cycle_roi / quote_move / opportunity_new; seconds for source_down; money for cycle_net_gain. */
   threshold: string;
   params: AlertParams | null;
   channel: AlertChannel;
@@ -144,6 +147,7 @@ export const ALERT_KIND_LABEL: Record<AlertKind, string> = {
   quote_move: "Movimento de cotação",
   source_down: "Fonte fora do ar",
   opportunity_new: "Nova oportunidade",
+  cycle_net_gain: "Ganho líquido de ciclo",
 };
 
 export const ALERT_CHANNEL_LABEL: Record<AlertChannel, string> = {
@@ -153,6 +157,7 @@ export const ALERT_CHANNEL_LABEL: Record<AlertChannel, string> = {
   email: "E-mail",
 };
 
+/** Tipos oferecidos no formulário de Alertas. `cycle_net_gain` é configurado em Configurações (moeda + limite). */
 export const ALERT_KINDS: AlertKind[] = ["cycle_roi", "quote_move", "source_down", "opportunity_new"];
 export const ALERT_CHANNELS: AlertChannel[] = ["ui", "telegram", "webhook", "email"];
 export const ALERT_PAIRS = ["USD/PYG", "BRL/PYG", "USD/BRL"] as const;
@@ -213,11 +218,12 @@ export function formatInterval(seconds: number | null | undefined): string {
 
 /** Kinds whose threshold is a ratio (shown as pt-BR percent). source_down uses seconds. */
 export function isRatioKind(kind: AlertKind): boolean {
-  return kind !== "source_down";
+  return kind !== "source_down" && kind !== "cycle_net_gain";
 }
 
-/** Human form of a stored threshold: ratio → "0,20 %", seconds → "15 min". */
-export function formatThreshold(kind: AlertKind, threshold: string | number | null | undefined): string {
+/** Human form of a stored threshold: ratio → "0,20 %", seconds → "15 min", money → "R$ 20,00". */
+export function formatThreshold(kind: AlertKind, threshold: string | number | null | undefined, currency: "BRL" | "USD" | "PYG" = "BRL"): string {
+  if (kind === "cycle_net_gain") return formatMoney(threshold, currency);
   if (isRatioKind(kind)) return formatPercent(threshold);
   const n = toNumber(threshold);
   return n === null ? "—" : formatInterval(n);
@@ -234,6 +240,10 @@ export function validateThreshold(kind: AlertKind, raw: string): ThresholdValida
   // pt-BR input ("5.000", "0,25") → canonical decimal string (F7) → number only for the range checks.
   const parsed = parseDecimalPtBR(raw);
   const n = parsed === null ? null : Number(parsed);
+  if (kind === "cycle_net_gain") {
+    if (parsed === null || n === null || n < 0) return { ok: false, error: "Informe um valor em dinheiro, igual a zero ou maior (ex.: 20 ou 1.250,50)." };
+    return { ok: true, value: parsed };
+  }
   if (isRatioKind(kind)) {
     if (n === null || n <= 0 || n > 100) return { ok: false, error: "Informe um percentual entre 0 e 100 (ex.: 0,25)." };
     // Avoid binary noise: 0.25 / 100 → 0.0025 exactly, as a decimal string.

@@ -240,12 +240,12 @@ describe("BookLadder", () => {
     expect(html).toContain('data-mode="demo"');
   });
 
-  it("com demoBook: alberdi é a melhor compra, ueno a melhor venda, bcp é a referência", () => {
+  it("com demoBook: alberdi é a melhor compra e a melhor venda, bcp é a referência", () => {
     const now = new Date(NOW);
     const levelsDemo = demoBook("USD/PYG", now);
     const { bids, asks, refs } = splitBook(levelsDemo);
     expect(bids[0].source_id).toBe("alberdi");
-    expect(asks[0].source_id).toBe("ueno");
+    expect(asks[0].source_id).toBe("alberdi");
     expect(refs[0].source_id).toBe("bcp");
     const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={levelsDemo} />);
     expect(html).toContain('data-mode="demo"');

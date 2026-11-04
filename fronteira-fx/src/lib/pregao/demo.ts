@@ -31,7 +31,6 @@ export const DEMO_HOUSES: readonly DemoHouse[] = [
   { id: "alberdi", name: "Cambios Alberdi", city: "CDE", channel: "physical", reference: false, pairs: ["USD/PYG", "BRL/PYG"] },
   { id: "norte", name: "Cambios Norte", city: "ASU", channel: "physical", reference: false, pairs: ["USD/PYG"] },
   { id: "bonanza", name: "Bonanza Cambios", city: "ASU", channel: "physical", reference: false, pairs: ["USD/PYG", "BRL/PYG"] },
-  { id: "ueno", name: "ueno", city: null, channel: "digital", reference: false, pairs: ["USD/PYG", "BRL/PYG"] },
   { id: "nomad", name: "Nomad", city: null, channel: "digital", reference: false, pairs: ["USD/BRL"] },
   { id: "bcp", name: "BCP (referência)", city: null, channel: "digital", reference: true, pairs: ["USD/PYG", "BRL/PYG"] },
 ];
@@ -42,7 +41,6 @@ export const DEMO_HOURS: Record<string, HouseHours> = {
   alberdi: { name: "Cambios Alberdi", city: "CDE", channel: "physical", tz: "America/Asuncion", days: [1, 2, 3, 4, 5, 6], opens: "07:30", closes: "17:30" },
   norte: { name: "Cambios Norte", city: "ASU", channel: "physical", tz: "America/Asuncion", days: [1, 2, 3, 4, 5], opens: "08:00", closes: "17:00" },
   bonanza: { name: "Bonanza Cambios", city: "ASU", channel: "physical", tz: "America/Asuncion", days: [1, 2, 3, 4, 5, 6], opens: "08:00", closes: "18:00" },
-  ueno: { name: "ueno", city: null, channel: "digital", tz: "America/Asuncion", days: [1, 2, 3, 4, 5, 6, 7], opens: "00:00", closes: "24:00" },
   nomad: { name: "Nomad", city: null, channel: "digital", tz: "America/Sao_Paulo", days: [1, 2, 3, 4, 5, 6, 7], opens: "00:00", closes: "24:00" },
   bcp: { name: "BCP (referência)", city: null, channel: "digital", tz: "America/Asuncion", days: [1, 2, 3, 4, 5], opens: "08:00", closes: "17:00" },
 };

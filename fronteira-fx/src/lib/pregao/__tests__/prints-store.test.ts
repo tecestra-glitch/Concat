@@ -19,7 +19,7 @@ function houseQuote(sourceId: string, base: Quote["base"]): Quote {
 }
 
 const q1: Quote = { ...houseQuote("chaco", "USD"), id: "q1-id", captured_at: iso(T0) };
-const q2: Quote = { ...houseQuote("ueno", "USD"), id: "q2-id", captured_at: iso(T0 + 5 * 60_000) };
+const q2: Quote = { ...houseQuote("bonanza", "USD"), id: "q2-id", captured_at: iso(T0 + 5 * 60_000) };
 
 /** Modelo de print vindo do próprio conversor; os testes trocam só id e instante. */
 function template(): Print {

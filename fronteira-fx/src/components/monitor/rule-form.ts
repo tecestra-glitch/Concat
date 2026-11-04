@@ -6,6 +6,8 @@ export interface RuleForm {
   kind: AlertKind;
   threshold: string;
   pair: string;
+  /** Moeda do limite de `cycle_net_gain`; ignorada pelos outros tipos. */
+  currency: "BRL" | "USD" | "PYG";
   city: string;
   channel: AlertChannel;
   target: string;
@@ -15,12 +17,13 @@ export interface RuleForm {
   originalThreshold?: string;
 }
 
-export const EMPTY_RULE_FORM: RuleForm = { name: "", kind: "cycle_roi", threshold: "", pair: "USD/PYG", city: "CDE", channel: "ui", target: "", cooldown: "600", enabled: true };
+export const EMPTY_RULE_FORM: RuleForm = { name: "", kind: "cycle_roi", threshold: "", pair: "USD/PYG", currency: "BRL", city: "CDE", channel: "ui", target: "", cooldown: "600", enabled: true };
 
 /** Limite armazenado → texto do formulário: ratio vira percentual pt-BR ("0.002" → "0,2"); segundos viram minutos. */
 export function thresholdToForm(kind: AlertKind, threshold: string): string {
   const n = toNumber(threshold);
   if (n === null) return "";
+  if (kind === "cycle_net_gain") return threshold.replace(".", ",");
   if (isRatioKind(kind)) return String(Math.round(n * 1e8) / 1e6).replace(".", ",");
   return String(Math.round(n / 60));
 }
@@ -31,6 +34,7 @@ export function ruleToForm(r: AlertRule): RuleForm {
     kind: r.kind,
     threshold: thresholdToForm(r.kind, r.threshold),
     pair: r.params?.pair ?? EMPTY_RULE_FORM.pair,
+    currency: r.params?.currency ?? EMPTY_RULE_FORM.currency,
     city: r.params && r.params.city !== undefined ? (r.params.city ?? "digital") : EMPTY_RULE_FORM.city,
     channel: r.channel,
     target: r.target ?? "",
@@ -51,7 +55,7 @@ export function formToInput(f: RuleForm): AlertRuleInput | null {
     kind: f.kind,
     threshold: untouched ? f.originalThreshold! : th.value,
     // Q-04: «Digital (sem cidade)» is the explicit value "digital" (only city-less quotes); null would mean any city.
-    params: f.kind === "quote_move" ? { pair: f.pair, city: f.city } : null,
+    params: f.kind === "quote_move" ? { pair: f.pair, city: f.city } : f.kind === "cycle_net_gain" ? { currency: f.currency } : null,
     channel: f.channel,
     target: tg.value,
     cooldown_s: Number(f.cooldown),

@@ -36,9 +36,9 @@ describe("zonedToUtc", () => {
 
 describe("isAlwaysOpen", () => {
   it("is true only for 7 days from 00:00 to 24:00", () => {
-    expect(isAlwaysOpen(DEMO_HOURS.ueno)).toBe(true);
+    expect(isAlwaysOpen(DEMO_HOURS.nomad)).toBe(true);
     expect(isAlwaysOpen(DEMO_HOURS.chaco)).toBe(false);
-    expect(isAlwaysOpen({ ...DEMO_HOURS.ueno, days: [1, 2, 3, 4, 5, 6] })).toBe(false);
+    expect(isAlwaysOpen({ ...DEMO_HOURS.nomad, days: [1, 2, 3, 4, 5, 6] })).toBe(false);
   });
 });
 
@@ -78,8 +78,8 @@ describe("houseStatus — exemplos de §0.7 (chaco, America/Asuncion)", () => {
     // Monday 06:00 local.
     expect(houseStatus(DEMO_HOURS.chaco, utc(2026, 11, 2, 9, 0))).toMatchObject({ status: "closed", opens_at: iso(2026, 11, 2, 10, 30), next_change_at: iso(2026, 11, 2, 10, 0) });
   });
-  it("ueno is always open with null times", () => {
-    expect(houseStatus(DEMO_HOURS.ueno, utc(2026, 11, 1, 3, 0))).toEqual({ status: "open", opens_at: null, closes_at: null, next_change_at: null });
+  it("a digital house open 24 h is always open with null times", () => {
+    expect(houseStatus(DEMO_HOURS.nomad, utc(2026, 11, 1, 3, 0))).toEqual({ status: "open", opens_at: null, closes_at: null, next_change_at: null });
   });
   it("a source without hours is unknown", () => {
     const none = { status: "unknown", opens_at: null, closes_at: null, next_change_at: null };
