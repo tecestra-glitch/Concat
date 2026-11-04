@@ -70,7 +70,7 @@
     "source_url": "https://www.nomadglobal.com/conta-corrente-nomad",
     "checked_at": "2026-11-04",
     "fx_cost": {
-      "spread_pct": { "value": "0.01", "source_url": "https://www.nomadglobal.com/conteudos/nomad-ou-wise", "checked_at": "2026-11-04", "note": "Conversão a partir de 1%; o próprio post cita de 1% a 2% conforme o nível do Nomad Pass." },
+      "spread_pct": { "value": null, "source_url": "https://www.nomadglobal.com/conteudos/nomad-ou-wise", "checked_at": "2026-11-04", "note": "Faixa de 1% a 2% conforme o nível do Nomad Pass (a conversão começa em 1%); 1% é só o piso, não confirmado. Custo total com IOF: 4,5% a 5,5%." },
       "iof_pct": { "value": "0.035", "source_url": "https://benomad.zendesk.com/hc/en-us/articles/360052871234-Full-Table-Fees-limits", "checked_at": "2026-11-04", "note": "Aparece como 'Expenses' de 3,5%; 1,1% para investimento." },
       "fee_pct": { "value": null },
       "fee_fixed": { "value": null }

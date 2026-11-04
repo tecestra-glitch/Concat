@@ -125,6 +125,15 @@ def test_conditional_figures_stay_null_with_their_condition(real):
     airtm = real["airtm"].fx_cost
     assert airtm.fee_fixed.value is None and "Enterprise" in airtm.fee_fixed.note
     assert airtm.fee_pct.value is None
+    # Nomad: a conversão "a partir de 1%" é só o piso de uma faixa de 1% a 2% conforme o Nomad Pass.
+    nomad = real["nomad"].fx_cost.spread_pct
+    assert nomad.value is None and "Nomad Pass" in nomad.note
+
+
+def test_nomad_spread_is_a_range_not_a_confirmed_value(real):
+    # a pesquisa (bancos.md, linha 96) diz "a partir de 1%" e "de 1% a 2%": 1% não é um número confirmado.
+    assert real["nomad"].fx_cost.spread_pct.value is None
+    assert real["nomad"].fx_cost.iof_pct.value == "0.035"
 
 
 def test_research_date_is_recorded(real):
