@@ -695,35 +695,70 @@ class Collector:
         deadline = clock() + budget_s
         adapters = self.adapters()
         for source_id in sorted(adapters):
-            adapter = adapters[source_id]
-            if adapter.info.method == "browser" and not self._uses_remote_browser(adapter):
-                result.skipped.append(SkippedSource(source_id, "requer navegador; só o worker coleta essa fonte"))
-                continue
-            if clock() >= deadline:
-                result.budget_exhausted = True
-                result.skipped.append(SkippedSource(source_id, "orçamento de tempo da rodada esgotado"))
-                continue
-            try:
-                outcome = await self.collect(adapter)
-            except Exception as exc:  # one source failing to store (e.g. a constraint) must not sink the round
-                log.exception("source %s failed during the serverless round", source_id)
-                result.skipped.append(SkippedSource(source_id, f"erro ao coletar ou gravar: {type(exc).__name__}"))
-                continue
-            if outcome.retry_after_s is not None:
-                result.skipped.append(
-                    SkippedSource(
-                        source_id, f"sondada há pouco; piso de {FORCE_FLOOR_S} s (tente em {outcome.retry_after_s} s)"
-                    )
-                )
-            elif outcome.skipped:
-                result.skipped.append(SkippedSource(source_id, outcome.message or "não vencida"))
-            else:
-                result.outcomes.append(outcome)
+            await self._round_one(result, adapters[source_id], deadline=deadline, clock=clock, force=False)
         result.tasks_processed = await self.process_tasks(skip_browser=True, may_start=lambda: clock() < deadline)
         if clock() >= deadline:
             result.budget_exhausted = True
         result.events_pruned = self.prune_events()
         return result
+
+    async def run_selected(
+        self, source_ids: list[str], *, budget_s: float, clock: Callable[[], float] = time.monotonic
+    ) -> RoundResult:
+        """A round for the sources a caller names (the Supabase vigia asks after a change on the source's page).
+
+        Each source is collected now, whatever its schedule says (forced), but never twice inside the 60 s floor
+        (D6). Browser sources are skipped unless the mini navegador is configured. No tasks and no event pruning:
+        this call is only the forced polls. Ids are validated by the caller; unknown ids raise UnknownSource.
+        """
+        result = RoundResult(data_mode=self.data_mode)
+        if self.data_mode != "real":
+            return result
+        adapters = self.adapters()
+        for source_id in source_ids:
+            if source_id not in adapters:
+                raise UnknownSource(source_id)
+        deadline = clock() + budget_s
+        for source_id in source_ids:
+            await self._round_one(result, adapters[source_id], deadline=deadline, clock=clock, force=True)
+        if clock() >= deadline:
+            result.budget_exhausted = True
+        return result
+
+    async def _round_one(
+        self,
+        result: RoundResult,
+        adapter: Adapter,
+        *,
+        deadline: float,
+        clock: Callable[[], float],
+        force: bool,
+    ) -> None:
+        """One source inside a round: the outcome goes to `result.outcomes`, or the reason to `result.skipped`."""
+        source_id = adapter.info.id
+        if adapter.info.method == "browser" and not self._uses_remote_browser(adapter):
+            result.skipped.append(SkippedSource(source_id, "requer navegador; só o worker coleta essa fonte"))
+            return
+        if clock() >= deadline:
+            result.budget_exhausted = True
+            result.skipped.append(SkippedSource(source_id, "orçamento de tempo da rodada esgotado"))
+            return
+        try:
+            outcome = await self.collect(adapter, force=force)
+        except Exception as exc:  # one source failing to store (e.g. a constraint) must not sink the round
+            log.exception("source %s failed during the serverless round", source_id)
+            result.skipped.append(SkippedSource(source_id, f"erro ao coletar ou gravar: {type(exc).__name__}"))
+            return
+        if outcome.retry_after_s is not None:
+            result.skipped.append(
+                SkippedSource(
+                    source_id, f"sondada há pouco; piso de {FORCE_FLOOR_S} s (tente em {outcome.retry_after_s} s)"
+                )
+            )
+        elif outcome.skipped:
+            result.skipped.append(SkippedSource(source_id, outcome.message or "não vencida"))
+        else:
+            result.outcomes.append(outcome)
 
     def prune_events(self) -> int:
         with session_scope(self.session_factory) as session:

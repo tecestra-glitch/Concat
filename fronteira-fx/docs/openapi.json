@@ -3788,6 +3788,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CollectRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3798,6 +3815,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "lista `sources` com id desconhecido ou com mais de 30 ids"
           },
           "401": {
             "description": "segredo ausente ou errado (Authorization: Bearer <CRON_SECRET>)"
@@ -4657,6 +4677,28 @@
           "summary"
         ],
         "title": "ChangeOut"
+      },
+      "CollectRequest": {
+        "properties": {
+          "sources": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CollectRequest",
+        "description": "Corpo opcional. Sem `sources` (ou corpo `{}`): a rodada normal de agendamento."
       },
       "CollectRoundOut": {
         "properties": {

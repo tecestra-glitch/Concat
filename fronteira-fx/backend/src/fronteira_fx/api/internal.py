@@ -1,8 +1,11 @@
 """Internal routes for schedulers (not part of the public contract used by the frontend).
 
 `POST /v1/internal/collect` runs one collector round when something outside the process calls it every few
-minutes (the Supabase cron in serverless mode, see docs/deploy.md). It is only reachable with the cron secret:
-without `CRON_SECRET` the route answers 404 as if it did not exist; a wrong or missing secret gets 401.
+minutes (the Supabase cron in serverless mode, see docs/deploy.md). With a body `{"sources": [...]}` it polls
+only those sources, forced (the Supabase vigia asks after a change), still under the 60 s floor per source.
+
+It is only reachable with the cron secret: without `CRON_SECRET` the route answers 404 as if it did not
+exist; a wrong or missing secret gets 401.
 """
 
 from __future__ import annotations
@@ -11,11 +14,20 @@ import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .deps import CollectorDep, SettingsDep, cron_secret_matches
 
 router = APIRouter(prefix="/internal", tags=["internal"])
+MAX_SELECTED_SOURCES = 30
+
+
+class CollectRequest(BaseModel):
+    """Corpo opcional. Sem `sources` (ou corpo `{}`): a rodada normal de agendamento."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sources: list[str] | None = None  # ids conhecidos, até 30; só essas fontes, com agendamento forçado
 
 
 class CollectedSourceOut(BaseModel):
@@ -63,13 +75,25 @@ def require_cron_secret(
     dependencies=[Depends(require_cron_secret)],
     summary="Uma rodada de coleta disparada de fora (agendador); sem navegador",
     responses={
+        400: {"description": "lista `sources` com id desconhecido ou com mais de 30 ids"},
         401: {"description": "segredo ausente ou errado (Authorization: Bearer <CRON_SECRET>)"},
         404: {"description": "CRON_SECRET não definido nesta instância"},
     },
 )
-async def internal_collect(collector: CollectorDep, settings: SettingsDep) -> CollectRoundOut:
+async def internal_collect(
+    collector: CollectorDep, settings: SettingsDep, body: CollectRequest | None = None
+) -> CollectRoundOut:
     started = time.monotonic()
-    result = await collector.run_round(budget_s=settings.collect_budget_s)
+    if body is not None and body.sources is not None:
+        ids = list(dict.fromkeys(body.sources))  # sem repetidos, ordem preservada
+        if len(body.sources) > MAX_SELECTED_SOURCES:
+            raise HTTPException(status_code=400, detail=f"no máximo {MAX_SELECTED_SOURCES} fontes por chamada")
+        if any(source_id not in collector.adapters() for source_id in ids):
+            # sem eco: o id enviado não volta na resposta
+            raise HTTPException(status_code=400, detail="fonte desconhecida na lista `sources`")
+        result = await collector.run_selected(ids, budget_s=settings.collect_budget_s)
+    else:
+        result = await collector.run_round(budget_s=settings.collect_budget_s)
     return CollectRoundOut(
         duration_ms=round((time.monotonic() - started) * 1000),
         data_mode=result.data_mode,

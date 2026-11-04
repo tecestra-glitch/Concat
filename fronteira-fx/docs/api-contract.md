@@ -389,7 +389,22 @@ para o frontend. Cada chamada faz **uma volta** do laço do worker, sem processo
 
 | Método | Rota | Autenticação | Respostas |
 |---|---|---|---|
-| POST | `/v1/internal/collect` | `Authorization: Bearer <CRON_SECRET>` | `200` rodada; `401` segredo ausente ou errado; `404` `CRON_SECRET` não definido |
+| POST | `/v1/internal/collect` | `Authorization: Bearer <CRON_SECRET>` | `200` rodada; `400` lista `sources` inválida; `401` segredo ausente ou errado; `404` `CRON_SECRET` não definido |
+
+**Corpo opcional `{"sources": ["chaco", "alberdi"]}`** (`CollectRequest`, sem campos extras). Sem corpo ou com `{}`,
+vale a rodada normal acima. Com a lista, a rota faz só o seguinte:
+
+- coleta **só** as fontes listadas, com agendamento **forçado** (não espera o `next_poll_at`);
+- o piso de 60 s por fonte continua valendo: uma fonte sondada há menos de 60 s entra em `skipped` com o motivo
+  "sondada há pouco; piso de 60 s";
+- fontes de método `browser` entram em `skipped` ("requer navegador") sem mini navegador configurado;
+- ids repetidos são colapsados; até 30 ids por chamada (mais que isso: `400`);
+- id desconhecido: `400` com `"fonte desconhecida na lista `sources`"`. O valor enviado **não** volta na resposta
+  e nenhuma fonte é consultada;
+- não processa a fila de tarefas nem limpa eventos (isso fica na rodada normal);
+- a resposta tem o mesmo formato `CollectRoundOut`; `tasks_processed` e `events_pruned` valem `0`.
+
+Quem chama: o vigia do Supabase (`fronteira-fx/deploy/supabase/vigia.sql`), só quando uma fonte mudou.
 
 Resposta `200` (`CollectRoundOut`):
 
