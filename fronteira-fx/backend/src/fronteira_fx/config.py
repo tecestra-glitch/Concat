@@ -121,6 +121,11 @@ class Settings(BaseSettings):
     # fonte FRED fica desligada. BRAPI_TOKEN só serve a testes e validação manual da B3 (nunca ao agendador).
     fred_api_key: SecretStr | None = Field(default=None, validation_alias=AliasChoices("FRED_API_KEY"))
     brapi_token: SecretStr | None = Field(default=None, validation_alias=AliasChoices("BRAPI_TOKEN"))
+    # slippage por perna de exchange de cripto (fração: 0,0005 = 0,05%), somado ao VWAP do tamanho alvo. Premissa
+    # configurável, não é taxa de fonte; zero é aceito mas o dono deve escolher um valor consciente.
+    crypto_slippage_pct: Decimal = Field(
+        default=Decimal("0.0005"), ge=0, le=Decimal("0.05"), validation_alias=AliasChoices("FX_CRYPTO_SLIPPAGE_PCT")
+    )
 
     # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
     # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).
