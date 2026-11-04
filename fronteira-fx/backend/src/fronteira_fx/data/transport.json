@@ -1,0 +1,67 @@
+[
+  {
+    "id": "foz-cde",
+    "from_city": "FOZ",
+    "to_city": "CDE",
+    "mode": "car",
+    "cost": null,
+    "minutes": 40,
+    "border": true,
+    "symmetric": true,
+    "source_url": null,
+    "checked_at": null,
+    "verified": false
+  },
+  {
+    "id": "cde-asu",
+    "from_city": "CDE",
+    "to_city": "ASU",
+    "mode": "bus",
+    "cost": null,
+    "minutes": 240,
+    "border": false,
+    "symmetric": true,
+    "source_url": null,
+    "checked_at": null,
+    "verified": false
+  },
+  {
+    "id": "asu-pjc",
+    "from_city": "ASU",
+    "to_city": "PJC",
+    "mode": "bus",
+    "cost": null,
+    "minutes": 540,
+    "border": false,
+    "symmetric": true,
+    "source_url": null,
+    "checked_at": null,
+    "verified": false
+  },
+  {
+    "id": "pjc-ppo",
+    "from_city": "PJC",
+    "to_city": "PPO",
+    "mode": "car",
+    "cost": null,
+    "minutes": 15,
+    "border": true,
+    "symmetric": true,
+    "source_url": null,
+    "checked_at": null,
+    "verified": false
+  },
+  {
+    "id": "cde-enc",
+    "from_city": "CDE",
+    "to_city": "ENC",
+    "mode": "bus",
+    "cost": null,
+    "minutes": 330,
+    "border": false,
+    "symmetric": true,
+    "source_url": null,
+    "checked_at": null,
+    "verified": false
+  }
+]
