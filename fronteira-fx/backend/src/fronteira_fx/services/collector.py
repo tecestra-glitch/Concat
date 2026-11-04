@@ -688,7 +688,12 @@ class Collector:
                 result.budget_exhausted = True
                 result.skipped.append(SkippedSource(source_id, "orçamento de tempo da rodada esgotado"))
                 continue
-            outcome = await self.collect(adapter)
+            try:
+                outcome = await self.collect(adapter)
+            except Exception as exc:  # one source failing to store (e.g. a constraint) must not sink the round
+                log.exception("source %s failed during the serverless round", source_id)
+                result.skipped.append(SkippedSource(source_id, f"erro ao coletar ou gravar: {type(exc).__name__}"))
+                continue
             if outcome.retry_after_s is not None:
                 result.skipped.append(
                     SkippedSource(

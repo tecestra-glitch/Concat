@@ -128,3 +128,30 @@ async def test_round_does_nothing_outside_real_mode(session_factory):
 
     assert result.data_mode == "demo" and result.outcomes == [] and result.skipped == []
     assert adapter.calls == 0
+
+
+
+
+async def test_a_source_that_fails_to_store_does_not_sink_the_round(session_factory, monkeypatch):
+    box = {"t": 0.0}
+    adapters = {"a": FakeAdapter("a"), "b": FakeAdapter("b")}
+    collector = Collector(session_factory, make_settings(), adapters=adapters, now_fn=Clock())
+    original = collector.collect
+
+    async def collect(adapter, **kwargs):
+        if adapter.info.id == "a":
+            raise RuntimeError("value too long for type character varying(64)")
+        return await original(adapter, **kwargs)
+
+    monkeypatch.setattr(collector, "collect", collect)
+    result = await collector.run_round(budget_s=45, clock=lambda: box["t"])
+
+    assert [o.source_id for o in result.outcomes] == ["b"]
+    assert any(s.source_id == "a" and s.reason.startswith("erro ao coletar ou gravar") for s in result.skipped)
+
+
+def test_unit_note_fits_long_provider_notes():
+    from fronteira_fx.models import Quote
+
+    note = "PYG por 1 USD (tipo de cambio referencial BCP: valor único, sem compra/venta)"
+    assert Quote.__table__.c.unit_note.type.length >= len(note) and Quote.__table__.c.unit_note.type.length == 255

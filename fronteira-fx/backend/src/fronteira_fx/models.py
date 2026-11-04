@@ -186,7 +186,7 @@ class Quote(Base):
     quote: Mapped[str] = mapped_column(String(3))
     buy: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     sell: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
-    unit_note: Mapped[str] = mapped_column(String(64), default="")
+    unit_note: Mapped[str] = mapped_column(String(255), default="")
     amount_base: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     modality: Mapped[str] = mapped_column(String(16))
     kind: Mapped[str] = mapped_column(String(24))
