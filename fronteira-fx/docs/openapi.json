@@ -1519,11 +1519,11 @@
               "type": "integer",
               "maximum": 6,
               "minimum": 2,
-              "description": "máximo de arestas por ciclo",
+              "description": "máximo de pernas por ciclo (balcão não conta)",
               "default": 4,
               "title": "Max Len"
             },
-            "description": "máximo de arestas por ciclo"
+            "description": "máximo de pernas por ciclo (balcão não conta)"
           },
           {
             "name": "min_roi",
@@ -5377,6 +5377,16 @@
             "title": "Fee Fixed",
             "default": "0"
           },
+          "iof_pct": {
+            "type": "string",
+            "title": "Iof Pct",
+            "default": "0"
+          },
+          "transport_fixed": {
+            "type": "string",
+            "title": "Transport Fixed",
+            "default": "0"
+          },
           "minutes": {
             "type": "integer",
             "title": "Minutes",
@@ -5415,6 +5425,41 @@
             ],
             "title": "Channel",
             "default": "presencial"
+          },
+          "border": {
+            "type": "boolean",
+            "title": "Border",
+            "default": false
+          },
+          "counter": {
+            "type": "boolean",
+            "title": "Counter",
+            "default": false
+          },
+          "ref_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Rate"
+          },
+          "unknown_costs": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "spread",
+                "fees",
+                "iof",
+                "transport"
+              ]
+            },
+            "type": "array",
+            "title": "Unknown Costs",
+            "default": []
           }
         },
         "type": "object",
@@ -5426,7 +5471,8 @@
           "via",
           "confidence"
         ],
-        "title": "EdgeOut"
+        "title": "EdgeOut",
+        "description": "Aresta do ciclo. Aplicar os campos reproduz `amount_out`: `x * (1 - fee_pct - iof_pct) * rate - fee_fixed\n- transport_fixed`. `unknown_costs` lista os custos que o motor não consegue precificar (nunca zero)."
       },
       "EvidenceOut": {
         "properties": {
@@ -5973,15 +6019,36 @@
             "title": "Spread"
           },
           "fees": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fees"
           },
           "iof": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Iof"
           },
           "transport": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Transport"
           }
         },
@@ -6418,6 +6485,35 @@
               }
             ],
             "title": "Gain By Currency"
+          },
+          "costs": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "spread",
+                    "fees",
+                    "iof",
+                    "transport"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costs"
           },
           "confidence": {
             "type": "string",
@@ -7781,6 +7877,11 @@
             "type": "string",
             "title": "Data Mode",
             "default": "real"
+          },
+          "discontinued": {
+            "type": "boolean",
+            "title": "Discontinued",
+            "default": false
           }
         },
         "type": "object",

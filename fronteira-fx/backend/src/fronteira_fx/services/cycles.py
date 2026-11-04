@@ -29,6 +29,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..adapters.registry import discontinued_ids
 from ..decimal_utils import ONE, ZERO
 from ..engine.graph import Cycle, Edge, Graph, find_cycles, node, node_currency
 from ..engine.routes import Confidence
@@ -57,6 +58,10 @@ ENDPOINT_BY_VENUE = {
     "caixa": "br_bank",
     "banco_py": "py_bank",
 }
+# IOF de câmbio incide sobre BRL convertido por instituição brasileira (e casas de FOZ/PPO). A alíquota não está nos
+# trilhos (`iof_pct` null): sem alíquota conhecida a aresta fica `incomplete` com IOF desconhecido, nunca zero.
+IOF_ENDPOINTS = frozenset({"br_bank", "revolut", "nomad"})
+IOF_CITIES = frozenset({"FOZ", "PPO"})
 
 Window = tuple[Decimal | None, Decimal | None]
 Family = tuple[str, str | None, str | None, str, str, str, str]
@@ -99,22 +104,22 @@ def convert(amount: Decimal | None, src: str, dst: str, rates: dict[str, Decimal
     return None
 
 
-def _fee_terms(q: Quote, src_ccy: str, dst_ccy: str, rate: Decimal) -> tuple[Decimal, Decimal, Confidence]:
-    """Return (fee_pct on the input, fee_fixed in dst currency, confidence).
+def _fee_terms(q: Quote, src_ccy: str, dst_ccy: str, rate: Decimal) -> tuple[Decimal, Decimal, frozenset[str]]:
+    """Return (fee_pct on the input, fee_fixed in dst currency, custos desconhecidos).
 
-    `incomplete` only when a cost is really unknown: a fee with neither amount nor pct, or a non-zero fee in a
-    third currency that cannot be folded into the edge. Zero fees and percentage fees are known costs.
+    `fees` é desconhecido só quando uma tarifa não tem valor nem percentual, ou quando há tarifa não nula em uma
+    terceira moeda que não cabe na aresta. Tarifa zero e percentual são custos conhecidos.
     """
     pct = ZERO
     fixed = ZERO
-    conf: Confidence = "quoted" if q.kind == "executable" else "estimated"
+    unknown = False
     for f in q.fees or []:
         if f.get("pct") is not None:
             pct += Decimal(str(f["pct"]))
         amount = f.get("amount")
         if amount is None:
             if f.get("pct") is None:
-                return pct, fixed, "incomplete"
+                unknown = True
             continue
         amt = Decimal(str(amount))
         if amt == 0:
@@ -124,8 +129,17 @@ def _fee_terms(q: Quote, src_ccy: str, dst_ccy: str, rate: Decimal) -> tuple[Dec
         elif f.get("currency") == dst_ccy:
             fixed += amt
         else:
-            return pct, fixed, "incomplete"
-    return pct, fixed, conf
+            unknown = True
+    return pct, fixed, frozenset({"fees"}) if unknown else frozenset()
+
+
+def iof_applies(venue: str, src_ccy: str, dst_ccy: str) -> bool:
+    """True quando a conversão de BRL acontece em instituição brasileira (ou casa de FOZ/PPO): incide IOF."""
+    if src_ccy != "BRL" or dst_ccy == "BRL" or venue.startswith("cash:"):
+        return False
+    if ":" in venue:
+        return venue.split(":", 1)[1] in IOF_CITIES
+    return endpoint_of_venue(venue) in IOF_ENDPOINTS
 
 
 def _family(q: Quote) -> Family:
@@ -190,34 +204,35 @@ def _rail(rails: dict[str, Rail], src: str | None, dst: str | None, ccy: str, *,
 
 
 def _rail_terms(
-    rail: Rail | None, dst_ccy: str, src_endpoint: str | None, rates: dict[str, Decimal]
-) -> tuple[Decimal, Decimal, Decimal, bool]:
-    """(fee_pct, fee_fixed em dst, iof_pct, conhecido). Qualquer valor null vira `conhecido = False`."""
-    if rail is None:
-        return ZERO, ZERO, ZERO, False
-    known = True
+    rail: Rail | None, dst_ccy: str, iof_on: bool, rates: dict[str, Decimal]
+) -> tuple[Decimal, Decimal, Decimal, frozenset[str]]:
+    """(fee_pct, fee_fixed em dst, iof_pct, custos desconhecidos). Valor null ou trilho ausente é desconhecido,
+    nunca zero; os placeholders ZERO guardados nessas categorias não entram como custo conhecido."""
+    unknown: set[str] = set()
     pct = ZERO
-    if rail.fee_pct is None:
-        known = False
-    else:
-        pct = rail.fee_pct
     fixed = ZERO
-    if rail.fee_fixed is None:
-        known = False
-    else:
-        converted = convert(rail.fee_fixed.amount, rail.fee_fixed.currency, dst_ccy, rates)
-        if converted is None:
-            known = False
-        else:
-            fixed = converted
     iof = ZERO
-    # IOF: conversão de BRL por instituição brasileira (o trilho sai de um banco BR para moeda estrangeira)
-    if rail.currency == "BRL" and rail.converts and src_endpoint == "br_bank":
-        if rail.iof_pct is None:
-            known = False
+    if rail is None:
+        unknown.add("fees")
+    else:
+        if rail.fee_pct is None:
+            unknown.add("fees")
+        else:
+            pct = rail.fee_pct
+        if rail.fee_fixed is None:
+            unknown.add("fees")
+        else:
+            converted = convert(rail.fee_fixed.amount, rail.fee_fixed.currency, dst_ccy, rates)
+            if converted is None:
+                unknown.add("fees")
+            else:
+                fixed = converted
+    if iof_on:
+        if rail is None or rail.iof_pct is None:
+            unknown.add("iof")
         else:
             iof = rail.iof_pct
-    return pct, fixed, iof, known
+    return pct, fixed, iof, frozenset(unknown)
 
 
 def _transfer_edge(
@@ -227,7 +242,7 @@ def _transfer_edge(
     dst_ccy: str,
     *,
     rail: Rail | None,
-    src_endpoint: str | None,
+    iof_on: bool,
     rates: dict[str, Decimal],
     kind: str,
     channel: str,
@@ -242,9 +257,9 @@ def _transfer_edge(
         rate = convert(ONE, src_ccy, dst_ccy, rates)
         if rate is None or rate <= 0:
             return None
-    pct, fixed, iof, known = _rail_terms(rail, dst_ccy, src_endpoint, rates)
+    pct, fixed, iof, unknown = _rail_terms(rail, dst_ccy, iof_on, rates)
     if src_ccy != dst_ccy:
-        known = False
+        unknown = unknown | {"spread"}  # sem taxa de referência do trilho: spread desconhecido
     return Edge(
         src,
         dst,
@@ -254,16 +269,24 @@ def _transfer_edge(
         fee_fixed=fixed,
         minutes=rail.minutes if rail is not None else unknown_minutes,
         via=via,
-        confidence="estimated" if known else "incomplete",
+        confidence="incomplete" if unknown else "estimated",
         min_in=rail.min_amount if rail is not None else None,
         max_in=rail.max_amount if rail is not None else None,
         iof_pct=iof,
         mid_rate=ONE if src_ccy == dst_ccy else None,
         channel=channel,  # type: ignore[arg-type]
+        unknown=unknown,
     )
 
 
-def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[Graph, dict[str, Decimal]]:
+def build_graph(
+    quotes: Sequence[Quote], accounts: Sequence[Account], *, excluded: frozenset[str] | None = None
+) -> tuple[Graph, dict[str, Decimal]]:
+    """Grafo de posições. `excluded`: fontes/instituições fora do grafo (por padrão, as descontinuadas, como o ueno,
+    que está em resolução desde 03/11/2026): cotação dela, cotação com destino nela e conta nela não entram."""
+    excluded = discontinued_ids() if excluded is None else excluded
+    accounts = [a for a in accounts if account_venue(a) not in excluded]
+    quotes = [q for q in quotes if q.source_id not in excluded]
     edges: dict[tuple, Edge] = {}
     balances: dict[str, Decimal] = {}
     account_nodes: dict[str, str] = {}  # node -> venue
@@ -290,6 +313,8 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
         channel = "presencial" if q.channel == "physical" else "assistida"
         ctx = q.context or {}
         dst_venue = ctx.get("bank") if ctx.get("receive") == "bank_account" and ctx.get("bank") else venue
+        if dst_venue in excluded:
+            continue
         if q.channel == "physical" and q.city:
             physical_venues.setdefault(venue, (q.city, set()))[1].update({q.base, q.quote})
         else:
@@ -299,8 +324,11 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
         via = f"{q.source_id} {q.modality}" + (f" @{q.city}" if q.city else "")
         window = _window(q, ladders)  # in q.base, the input of the buy leg
         mid = (q.buy + q.sell) / 2 if q.buy and q.sell and q.buy > 0 and q.sell > 0 else None
+        base_conf: Confidence = "quoted" if q.kind == "executable" else "estimated"
         if q.buy is not None and q.buy > 0:
-            pct, fixed, conf = _fee_terms(q, q.base, q.quote, q.buy)
+            pct, fixed, unknown = _fee_terms(q, q.base, q.quote, q.buy)
+            # sem taxa de referência (só compra ou só venda) o spread fica null, mas a taxa cotada é o preço total
+            unknown = set(unknown) | ({"iof"} if iof_applies(venue, q.base, q.quote) else set())
             lo, hi = window
             _best(
                 edges,
@@ -313,7 +341,8 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
                     fee_fixed=fixed,
                     minutes=minutes,
                     via=f"{via} (compra {q.buy})",
-                    confidence=conf,
+                    confidence="incomplete" if unknown else base_conf,
+                    unknown=frozenset(unknown),
                     evidence_id=q.evidence_id,
                     min_in=lo,
                     max_in=hi,
@@ -323,7 +352,8 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
             )
         if q.sell is not None and q.sell > 0 and dst_venue == venue:
             rate = ONE / q.sell
-            pct, fixed, conf = _fee_terms(q, q.quote, q.base, rate)
+            pct, fixed, unknown = _fee_terms(q, q.quote, q.base, rate)
+            unknown = set(unknown) | ({"iof"} if iof_applies(venue, q.quote, q.base) else set())
             lo, hi = _scale(window, q.sell)  # the sell leg is fed in q.quote: amount_base * sell
             _best(
                 edges,
@@ -336,7 +366,8 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
                     fee_fixed=fixed,
                     minutes=minutes,
                     via=f"{via} (venda {q.sell})",
-                    confidence=conf,
+                    confidence="incomplete" if unknown else base_conf,
+                    unknown=frozenset(unknown),
                     evidence_id=q.evidence_id,
                     min_in=lo,
                     max_in=hi,
@@ -362,14 +393,14 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
                     (n, node(ccy, dv), rail_out, ep_src, f"transferência {venue}→{dv}"),
                     (node(ccy, dv), n, rail_in, ep_dst, f"resgate {dv}→{venue}"),
                 )
-                for src, dst, rail_src, ep, label in legs_digital:
+                for src, dst, rail_src, _ep, label in legs_digital:
                     edge = _transfer_edge(
                         src,
                         dst,
                         ccy,
                         ccy,
                         rail=rail_src,
-                        src_endpoint=ep,
+                        iof_on=False,  # mesma moeda: não é conversão
                         rates=rates,
                         kind="transfer",
                         channel="assistida",
@@ -391,7 +422,7 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
                     ccy,
                     out,
                     rail=rail,
-                    src_endpoint=ep_src,
+                    iof_on=iof_applies(venue, ccy, out),
                     rates=rates,
                     kind="transfer",
                     channel="assistida",
@@ -414,9 +445,9 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
             rail_in = _rail(rails, "exchange_house", ep_src, ccy, converts=False)
             if rail_out is None and rail_in is None:
                 continue
-            for src, dst, rail_leg, ep, label in (
-                (n, node(ccy, pv), rail_out, ep_src, f"transferência {venue}→{pv}"),
-                (node(ccy, pv), n, rail_in, "exchange_house", f"transferência {pv}→{venue}"),
+            for src, dst, rail_leg, label in (
+                (n, node(ccy, pv), rail_out, f"transferência {venue}→{pv}"),
+                (node(ccy, pv), n, rail_in, f"transferência {pv}→{venue}"),
             ):
                 edge = _transfer_edge(
                     src,
@@ -424,7 +455,7 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
                     ccy,
                     ccy,
                     rail=rail_leg,
-                    src_endpoint=ep,
+                    iof_on=False,  # mesma moeda: não é conversão
                     rates=rates,
                     kind="transfer",
                     channel="assistida",
@@ -440,8 +471,16 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
         cities.add(city)
         for ccy in currencies:
             cash = node(ccy, f"cash:{city}")
-            _best(edges, Edge(cash, node(ccy, venue), "deposit", ONE, ZERO, ZERO, 20, f"balcão {venue}", "estimated"))
-            _best(edges, Edge(node(ccy, venue), cash, "withdraw", ONE, ZERO, ZERO, 0, f"balcão {venue}", "estimated"))
+            _best(
+                edges,
+                Edge(cash, node(ccy, venue), "deposit", ONE, ZERO, ZERO, 20, f"balcão {venue}", "estimated",
+                     mid_rate=ONE, counter=True),
+            )
+            _best(
+                edges,
+                Edge(node(ccy, venue), cash, "withdraw", ONE, ZERO, ZERO, 0, f"balcão {venue}", "estimated",
+                     mid_rate=ONE, counter=True),
+            )
 
     # contas digitais <-> caixa (saque/depósito em ATM): trilho `->cash`; sem trilho, incomplete
     for n, venue in account_nodes.items():
@@ -457,7 +496,7 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
                 ccy,
                 ccy,
                 rail=_rail(rails, ep_src, "cash", ccy, converts=False),
-                src_endpoint=ep_src,
+                iof_on=False,  # mesma moeda
                 rates=rates,
                 kind="withdraw",
                 channel="presencial",
@@ -477,6 +516,8 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
                     via=f"depósito em {venue} em {city} (não validado)",
                     confidence="incomplete",
                     channel="presencial",
+                    mid_rate=ONE,
+                    unknown=frozenset({"fees"}),  # depósito em ATM não validado: tarifa desconhecida
                 ),
             )
 
@@ -488,11 +529,13 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
         for a, b in pairs:
             for ccy in CURRENCIES:
                 transport = ZERO
-                known = route.cost is not None
-                if route.cost is not None:
+                unknown: frozenset[str] = frozenset()
+                if route.cost is None:
+                    unknown = frozenset({"transport"})
+                else:
                     converted = convert(route.cost.amount, route.cost.currency, ccy, rates)
                     if converted is None:
-                        known = False
+                        unknown = frozenset({"transport"})
                     else:
                         transport = converted
                 _best(
@@ -504,11 +547,12 @@ def build_graph(quotes: Sequence[Quote], accounts: Sequence[Account]) -> tuple[G
                         ONE,
                         minutes=route.minutes,
                         via=f"deslocamento {a}→{b} ({route.mode})",
-                        confidence="estimated" if known else "incomplete",
+                        confidence="incomplete" if unknown else "estimated",
                         transport_fixed=transport,
                         mid_rate=ONE,
                         channel="presencial",
                         border=route.border,
+                        unknown=unknown,
                     ),
                 )
 

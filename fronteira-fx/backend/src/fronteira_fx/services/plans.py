@@ -22,6 +22,19 @@ from ..engine.graph import node_currency
 from ..models import Evidence, ExecutionPlan, ExecutionStep, JournalEntry
 
 ACTIVE_BEFORE_START = ("proposed", "approved")
+# força relativa para a convenção do balcão: a cotação é "1 <moeda forte> = quanto da fraca" (1 USD = 5,40 BRL)
+CURRENCY_STRENGTH = {"USD": 3, "BRL": 2, "PYG": 1}
+# nomes de contas e instituições sem adaptador, em português simples
+INSTITUTION_NAMES = {
+    "nubank": "Nubank",
+    "itau": "Itaú",
+    "bradesco": "Bradesco",
+    "caixa": "Caixa",
+    "brbank": "banco brasileiro",
+    "banco_py": "banco paraguaio",
+    "revolut": "Revolut",
+    "nomad": "Nomad",
+}
 
 
 class PlanError(Exception):
@@ -44,15 +57,29 @@ def money_text(value: Decimal, currency: str) -> str:
 
 
 def place_name(venue: str) -> str:
-    """Nome para o usuário: 'Cambios Chaco (CDE)', 'dinheiro vivo em CDE', 'Revolut'."""
+    """Nome para o usuário: 'Cambios Chaco (CDE)', 'dinheiro vivo em CDE', 'Revolut', 'Nubank'."""
     if venue.startswith("cash:"):
         return f"dinheiro vivo em {venue.split(':', 1)[1]}"
     if ":" in venue:
         source, city = venue.split(":", 1)
         adapter = ADAPTERS.get(source)
-        return f"{adapter.info.name if adapter else source} ({city})"
+        return f"{adapter.info.name if adapter else INSTITUTION_NAMES.get(source, source)} ({city})"
     adapter = ADAPTERS.get(venue)
-    return adapter.info.name if adapter else venue
+    if adapter is not None:
+        return adapter.info.name
+    return INSTITUTION_NAMES.get(venue, venue)
+
+
+def rate_text(a_in: Decimal, a_out: Decimal, src_ccy: str, dst_ccy: str) -> str:
+    """Cotação na convenção do balcão: 1 unidade da moeda mais forte = quanto da mais fraca.
+    Ex.: '1 USD = 5,40 BRL', '1 BRL = 1.300 PYG'. Nunca arredonda o preço para zero."""
+    if not a_in or not a_out:
+        return "cotação não informada"
+    if CURRENCY_STRENGTH.get(src_ccy, 0) > CURRENCY_STRENGTH.get(dst_ccy, 0):
+        strong, weak, per_strong = src_ccy, dst_ccy, a_out / a_in
+    else:
+        strong, weak, per_strong = dst_ccy, src_ccy, a_in / a_out
+    return f"1 {strong} = {money_text(per_strong, weak)}"
 
 
 def _split(node_id: str) -> tuple[str, str]:
@@ -75,8 +102,16 @@ def leg_text(leg: dict[str, Any]) -> str:
     if kind == "travel":
         return f"Leve o dinheiro de {_city_of(src_venue)} para {_city_of(dst_venue)} (≈ {minutes} min)"
     if kind == "exchange":
-        price = a_in / a_out if a_out else a_in
-        return f"Compre {money_text(a_out, dst_ccy)} na {place_name(src_venue)} a {money_text(price, src_ccy)}"
+        return (
+            f"Compre {money_text(a_out, dst_ccy)} na {place_name(src_venue)} pagando {money_text(a_in, src_ccy)} "
+            f"(cotação: {rate_text(a_in, a_out, src_ccy, dst_ccy)})"
+        )
+    if kind == "transfer" and src_ccy != dst_ccy:
+        # transferência que converte: diz o que sai (na moeda de origem) e o que chega (aproximado)
+        return (
+            f"Envie {money_text(a_in, src_ccy)} de {place_name(src_venue)} e receba ≈ {money_text(a_out, dst_ccy)} "
+            f"em {place_name(dst_venue)} (≈ {minutes} min)"
+        )
     if kind == "transfer":
         return (
             f"Transfira {money_text(a_out, dst_ccy)} de {place_name(src_venue)} para {place_name(dst_venue)} "
@@ -143,6 +178,9 @@ def create_plan(
     match = next((c for c in cycles if c.get("start") == start and list(c.get("path") or []) == path), None)
     if match is None:
         raise PlanError(404, "ciclo não encontrado com as cotações e saldos atuais; calcule os ciclos de novo")
+    if Decimal(str(match["gain"])) <= 0:
+        # um plano só organiza uma rota que ganha dinheiro; ciclo sem ganho líquido positivo não vira plano
+        raise PlanError(422, "só ciclo com ganho líquido positivo vira plano")
     quotes_as_of = _oldest_quote(session, match) or now
     plan = ExecutionPlan(
         status="proposed",

@@ -146,7 +146,7 @@ def test_demo_session_stats_summarises_the_day_of_the_series():
     assert stats.key == KEY
     assert stats.day_start == datetime(2026, 11, 2, 0, 0, tzinfo=ZoneInfo("America/Asuncion"))
     assert stats.n_quotes > 0
-    assert stats.houses == 5
+    assert stats.houses == 4  # sem o ueno (descontinuado): chaco, alberdi, norte, bonanza
     assert Decimal(stats.low) <= Decimal(stats.open) <= Decimal(stats.high)
     assert Decimal(stats.change_abs) == Decimal(stats.last) - Decimal(stats.open)
     assert stats.last_at.minute % 15 == 14
@@ -173,13 +173,12 @@ def test_demo_session_stats_on_sunday_are_empty():
 
 def test_demo_house_sessions_follow_demo_houses_order_and_metadata():
     sessions = demo_house_sessions(NOW)
-    assert len(sessions) == len(DEMO_HOUSES) == 7
+    assert len(sessions) == len(DEMO_HOUSES) == 6  # ueno saiu do monitor demo
     assert [s.source_id for s in sessions] == [
         "demo-chaco",
         "demo-alberdi",
         "demo-norte",
         "demo-bonanza",
-        "demo-ueno",
         "demo-nomad",
         "demo-bcp",
     ]

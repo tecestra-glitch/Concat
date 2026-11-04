@@ -166,7 +166,8 @@ def test_search_discards_edges_outside_their_window():
 def test_wu_tiers_from_the_market_keep_the_promo_tier_in_the_ladder(db):
     seed_market(db)
     quotes = latest_quotes(db, data_mode="real", lookback_s=None)
-    graph, _ = build_graph(quotes, [])
+    # ueno é descontinuado (fora do grafo por padrão): aqui só interessa a escada de faixas da WU
+    graph, _ = build_graph(quotes, [], excluded=frozenset())
     wu = {e.min_in: e for e in edges_between(graph, "BRL@wu", "PYG@ueno")}
     assert set(wu) == {D(5000), D(10000), D(25000), D(50000)}
     promo = wu[D(25000)]

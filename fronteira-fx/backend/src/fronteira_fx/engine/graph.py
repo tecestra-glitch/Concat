@@ -1,7 +1,13 @@
 """Position graph: nodes are `<currency>@<venue>`, edges are quotes/transfers/deposits/withdrawals.
 
-Simple cycles of 2..max_len edges starting (and ending) at a node with a parked balance are evaluated
-by folding the edges: `x = x * (1 - fee_pct) * rate - fee_fixed`. Pure Decimal, deterministic.
+Simple cycles starting (and ending) at a node with a parked balance are evaluated by folding the edges:
+`x = x * (1 - fee_pct - iof_pct) * rate - fee_fixed - transport_fixed`. Pure Decimal, deterministic.
+
+`max_len` counts LEGS (trocas, transferências, deslocamentos, saques ATM), not balcão walk-ins: an edge with
+`counter=True` (ida ao caixa de uma casa da mesma cidade) is free of depth, so a route that buys dollars in one
+house and sells them in another in the same city (or carries cash from one city to another) fits in max_len=4.
+
+A cost the engine cannot price is never zero: the edge lists it in `unknown` and `leg_costs` returns None for it.
 """
 
 from __future__ import annotations
@@ -38,21 +44,25 @@ def node_currency(n: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class LegCosts:
-    """Custos de uma perna, na moeda de origem da perna. `spread` é None quando não há taxa de valoração."""
+    """Custos de uma perna, na moeda de origem da perna. None = desconhecido (nunca zero)."""
 
     spread: Decimal | None
-    fees: Decimal
-    iof: Decimal
-    transport: Decimal
+    fees: Decimal | None
+    iof: Decimal | None
+    transport: Decimal | None
 
     def as_dict(self, currency: str) -> dict[str, Any]:
         return {
             "currency": currency,
-            "spread": fmt(self.spread) if self.spread is not None else None,
-            "fees": fmt(self.fees),
-            "iof": fmt(self.iof),
-            "transport": fmt(self.transport),
+            "spread": _opt(self.spread),
+            "fees": _opt(self.fees),
+            "iof": _opt(self.iof),
+            "transport": _opt(self.transport),
         }
+
+
+def _opt(value: Decimal | None) -> str | None:
+    return fmt(value) if value is not None else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,18 +86,33 @@ class Edge:
     mid_rate: Decimal | None = None
     channel: Channel = "presencial"
     border: bool = False  # a perna cruza a fronteira BR↔PY
+    # balcão (ida ao caixa de uma casa na mesma cidade): não conta no limite de pernas (`max_len`)
+    counter: bool = False
+    # categorias de custo que o motor não consegue precificar (⊆ COST_KEYS). Os valores ZERO guardados nelas
+    # são só placeholders: `leg_costs` devolve None e a aresta é sempre `incomplete`.
+    unknown: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        stray = set(self.unknown) - set(COST_KEYS)
+        if stray:
+            raise ValueError(f"custo desconhecido inválido: {sorted(stray)}")
+        if self.unknown and self.confidence != "incomplete":
+            object.__setattr__(self, "confidence", "incomplete")
 
     def apply(self, amount: Decimal) -> Decimal:
         return amount * (ONE - self.fee_pct - self.iof_pct) * self.rate - self.fee_fixed - self.transport_fixed
 
     def leg_costs(self, amount: Decimal) -> LegCosts:
-        """Custos da perna convertidos para a moeda de origem (`amount` nessa moeda)."""
-        spread = amount * (ONE - self.rate / self.mid_rate) if self.mid_rate else None
+        """Custos da perna convertidos para a moeda de origem (`amount` nessa moeda). Desconhecido = None."""
+        unknown = self.unknown
+        spread = None
+        if "spread" not in unknown and self.mid_rate:
+            spread = amount * (ONE - self.rate / self.mid_rate)
         return LegCosts(
             spread=spread,
-            fees=amount * self.fee_pct + self.fee_fixed / self.rate,
-            iof=amount * self.iof_pct,
-            transport=self.transport_fixed / self.rate,
+            fees=None if "fees" in unknown else amount * self.fee_pct + self.fee_fixed / self.rate,
+            iof=None if "iof" in unknown else amount * self.iof_pct,
+            transport=None if "transport" in unknown else self.transport_fixed / self.rate,
         )
 
     def accepts(self, amount: Decimal) -> bool:
@@ -99,7 +124,8 @@ class Edge:
         return True
 
     def to_dict(self) -> dict[str, Any]:
-        """Contract shape (D1): snake_case, money as decimal strings."""
+        """Contract shape (D1): snake_case, money as decimal strings. Aplicar estes campos reproduz `amount_out`:
+        `x * (1 - fee_pct - iof_pct) * rate - fee_fixed - transport_fixed`, a cada aresta, na ordem do ciclo."""
         return {
             "from": self.src,
             "to": self.dst,
@@ -107,11 +133,17 @@ class Edge:
             "rate": fmt(self.rate),
             "fee_pct": fmt(self.fee_pct),
             "fee_fixed": fmt(self.fee_fixed),
+            "iof_pct": fmt(self.iof_pct),
+            "transport_fixed": fmt(self.transport_fixed),
             "minutes": self.minutes,
             "via": self.via,
             "confidence": self.confidence,
             "evidence_id": self.evidence_id,
             "channel": self.channel,
+            "border": self.border,
+            "counter": self.counter,
+            "ref_rate": _opt(self.mid_rate),
+            "unknown_costs": [k for k in COST_KEYS if k in self.unknown],
         }
 
 
@@ -254,30 +286,34 @@ class Graph:
     def simple_cycles_from(
         self, start: str, *, max_len: int = 4, min_len: int = 2, amount_in: Decimal | None = None
     ) -> list[tuple[Edge, ...]]:
-        """All simple cycles (no repeated node) of min_len..max_len edges that return to `start`.
+        """All simple cycles (no repeated node) that return to `start`, with at least `min_len` edges and at most
+        `max_len` legs (balcão edges, `counter=True`, do not count as legs).
 
         With `amount_in`, the amount is folded along the trail and an edge whose `min_in`/`max_in`
         window does not accept the amount reaching it is discarded (a quote for 25 000 BRL is not
         valid for 5 000 BRL)."""
         found: list[tuple[Edge, ...]] = []
 
-        def dfs(current: str, visited: set[str], trail: list[Edge], x: Decimal | None) -> None:
+        def dfs(current: str, visited: set[str], trail: list[Edge], legs: int, x: Decimal | None) -> None:
             for e in self.out_edges(current):
                 if x is not None and not e.accepts(x):
+                    continue
+                step = 0 if e.counter else 1
+                if legs + step > max_len:
                     continue
                 if e.dst == start:
                     if len(trail) + 1 >= min_len:
                         found.append((*trail, e))
                     continue
-                if e.dst in visited or len(trail) + 1 >= max_len:
+                if e.dst in visited:
                     continue
                 visited.add(e.dst)
                 trail.append(e)
-                dfs(e.dst, visited, trail, e.apply(x) if x is not None else None)
+                dfs(e.dst, visited, trail, legs + step, e.apply(x) if x is not None else None)
                 trail.pop()
                 visited.discard(e.dst)
 
-        dfs(start, {start}, [], amount_in)
+        dfs(start, {start}, [], 0, amount_in)
         return found
 
 
@@ -290,7 +326,7 @@ def find_cycles(
     limit: int = 200,
 ) -> list[Cycle]:
     """Evaluate cycles from every node with a positive free balance; best ROI first (deterministic)."""
-    max_len = max(2, min(int(max_len), 6))
+    max_len = max(2, min(int(max_len), 6))  # pernas (balcão não conta)
     out: list[Cycle] = []
     for start in sorted(balances):
         amount = balances[start]

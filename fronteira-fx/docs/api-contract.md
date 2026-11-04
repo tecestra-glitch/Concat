@@ -120,9 +120,9 @@ SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|
 | POST **[chave]** | `/v1/simulations/routes` | body `{capital_brl, objective:"cycle|remittance|purchase", destination?:Position, valuation_currency:"BRL", channels:["digital","physical"], amounts?:["5000","10000","25000","50000"], persist?:false}` → `{opportunities: Opportunity[], search:{amounts_tested:[string], boundaries:[{low, high, low_winner, high_winner, low_roi_sign, high_roi_sign, reason, refined}]}, simulation_id:"uuid|null"}`. Com `persist`, as linhas são gravadas com `data_mode:"simulation"` (D3) |
 | POST **[chave]** | `/v1/simulations/cycle` | body `{capital:"5000", steps:[StepSpec], valuation_currency:"BRL", valuation_rates?:{"USD":"5.40"}}` → `RouteResult`. Aplica cada passo sobre o valor recebido no anterior; `422` se um passo não encadeia |
 | GET | `/v1/opportunities?capital=&channel=&city=&kind=` | `Opportunity[]` (ranking principal + secundário) |
-| GET | `/v1/opportunities/cycles?max_len=4&min_roi=&start=&limit=200` | `Cycle[]` — ciclos no grafo de posições a partir dos saldos estacionados (ver abaixo) |
+| GET | `/v1/opportunities/cycles?max_len=4&min_roi=&start=&limit=200` | `Cycle[]` — ciclos no grafo de posições a partir dos saldos estacionados; `max_len` conta pernas, balcão não conta (ver abaixo) |
 | GET | `/v1/plans?limit=50` | `PlanOut[]` — planos de execução deste modo, do mais recente (ver "Planos de execução") |
-| POST **[chave]** | `/v1/plans` | body `{start, path}` (nós de um ciclo atual de `/v1/opportunities/cycles`) → `201 PlanOut`; `404` se o ciclo não existe mais com as cotações e saldos atuais. Não executa nada |
+| POST **[chave]** | `/v1/plans` | body `{start, path}` (nós de um ciclo atual de `/v1/opportunities/cycles`) → `201 PlanOut`; `404` se o ciclo não existe mais com as cotações e saldos atuais; `422` se o ciclo não tem ganho líquido positivo. Não executa nada |
 | GET | `/v1/plans/{id}` | `PlanOut` (com `steps`) |
 | POST **[chave]** | `/v1/plans/{id}/approve` | `PlanOut`; só grava a decisão. `409` se não estiver `proposed` ou se expirou |
 | POST **[chave]** | `/v1/plans/{id}/reject` | `PlanOut`; recusa um plano `proposed` ou `approved` (antes de qualquer passo) |
@@ -139,20 +139,33 @@ com `<cidade>` em CDE, ASU, PJC, ENC, FOZ ou PPO).
 Aresta = cotação (compra: base→quote a `buy`; venda: quote→base a `1/sell`), transferência (entre contas e lugares
 digitais, ou entre contas e casas, priceada por `data/rails.json`), depósito/saque (balcão, ATM) ou deslocamento
 (`kind: travel`, entre cidades, priceado por `data/transport.json`). Campos: `rate`, `fee_pct` (sobre a entrada),
-`fee_fixed` (na moeda de saída), `minutes`, `via`, `confidence`, `evidence_id`, `channel`.
+`fee_fixed` (na moeda de saída), `iof_pct` (sobre a entrada), `transport_fixed` (deslocamento, na moeda de saída),
+`minutes`, `via`, `confidence`, `evidence_id`, `channel`, `border` (cruza BR↔PY), `ref_rate` (taxa de referência na
+mesma direção de `rate`; `null` = sem referência) e `counter` (balcão: não conta em `max_len`) e `unknown_costs` (lista de `spread|fees|iof|transport` que o motor
+não consegue precificar).
+Aplicar as arestas de `edges[]` em ordem reproduz `amount_out`: a cada aresta,
+`x = x * (1 - fee_pct - iof_pct) * rate - fee_fixed - transport_fixed`, começando em `amount_in`.
+Uma aresta com deslocamento usa `transport_fixed` (não `fee_fixed`).
+Balcão (ida ao caixa de uma casa na mesma cidade) é uma aresta de custo zero que **não conta** em `max_len`: comprar
+dólar numa casa e vender noutra da mesma cidade cabe em `max_len=4`, e levar dinheiro vivo de uma cidade para outra
+com troca nas duas pontas também.
 `channel`: `presencial` (casa, dinheiro vivo, deslocamento), `assistida` (app de banco), `automatizavel` (nenhuma hoje).
 Cotações com `kind: market_reference` ou `modality: reference` (BCP, PTAX) **não** viram aresta: servem só de comparação.
-Ciclos simples de 2 a `max_len` arestas são avaliados com o saldo livre do nó inicial; uma aresta cuja cotação depende
-do montante (`amount_base`) só é usada dentro da faixa em que foi cotada. Dinheiro em string decimal (D1).
+Ciclos simples com até `max_len` pernas (2 a 6, padrão 4) são avaliados com o saldo livre do nó inicial; uma aresta cuja
+cotação depende do montante (`amount_base`) só é usada dentro da faixa em que foi cotada. Dinheiro em string decimal (D1).
+Fontes descontinuadas (hoje o ueno, em resolução pelo BCP desde 03/11/2026) não entram no grafo: nem cotação da fonte,
+nem cotação com destino nela, nem conta nela. `GET /v1/sources` marca a fonte com `discontinued: true`.
 
-**Custo desconhecido nunca vira zero.** Trilho ausente ou com valor `null`, rota de deslocamento sem `cost`, ou taxa
-de valoração que falta para converter, dá `confidence: "incomplete"` na aresta e no ciclo. Ciclo `incomplete` não é
-"lucro confirmado" e nunca dispara alerta de ganho.
+**Custo desconhecido nunca vira zero.** Trilho ausente ou com valor `null`, rota de deslocamento sem `cost`, taxa
+de valoração que falta para converter, ou IOF de BRL convertido em instituição brasileira (ou casa de FOZ/PPO) sem
+alíquota conhecida, dá `confidence: "incomplete"` na aresta e no ciclo, e a categoria aparece em `unknown_costs`. Na
+perna e no ciclo essa categoria sai `null`, nunca `"0"`. Ciclo `incomplete` não é "lucro confirmado" e nunca dispara
+alerta de ganho. Sem taxa de referência, o `spread` da perna de câmbio é `null` (a taxa cotada é o preço total).
 
 **Pernas (`legs[]`)**, uma por aresta, na ordem do ciclo: `kind` (`exchange` (troca, a aresta `quote`) |
 `transfer` | `travel` | `deposit` | `withdraw`), `channel`, `from`, `to`, `via`, `minutes`, `border` (cruza BR↔PY),
 `amount_in`, `amount_out` e `costs` = `{currency, spread, fees, iof, transport}`, todos na moeda em que a perna
-começou. `spread` é a diferença entre a taxa usada e a taxa de valoração (null sem referência); `fees` tarifas; `iof`
+começou; cada custo é `null` quando desconhecido. `spread` é a diferença entre a taxa usada e a taxa de valoração (null sem referência); `fees` tarifas; `iof`
 IOF de conversão de BRL por instituição brasileira; `transport` custo de deslocamento.
 
 **Ganhos e avisos do ciclo**: `gain_by_currency` = `{BRL, USD, PYG}` (ganho líquido convertido pelas taxas de
@@ -160,14 +173,15 @@ valoração; `null` quando não dá para converter); `costs` = `{spread, fees, i
 partida (`null` se algum custo for desconhecido); `requires_declaration: true` quando uma perna de fronteira move
 mais de US$ 10 000 (ou não dá para converter). É um aviso: não bloqueia.
 
-Parâmetros de `GET /v1/opportunities/cycles`: `max_len` (2..6, padrão 4), `min_roi` (string decimal, ex. `"0.001"`;
+Parâmetros de `GET /v1/opportunities/cycles`: `max_len` (2..6, padrão 4; conta pernas, balcão não conta), `min_roi` (string decimal, ex. `"0.001"`;
 sem ele, ciclos com ganho ≤ 0 também aparecem como "quase lá"), `start` (nó de partida, ex. `BRL@nubank`),
 `limit` (1..500, padrão 200). Ordenação: melhor ROI primeiro.
 
 ```jsonc
 Edge  { "from": "BRL@brbank", "to": "PYG@banco_py", "kind": "quote|transfer|deposit|withdraw|travel", "rate": "1366.5",
-        "fee_pct": "0", "fee_fixed": "9.9", "minutes": 240, "via": "wu", "confidence": "quoted|estimated|incomplete",
-        "evidence_id": "uuid|null", "channel": "presencial|assistida|automatizavel" }
+        "fee_pct": "0", "fee_fixed": "9.9", "iof_pct": "0", "transport_fixed": "0", "minutes": 240, "via": "wu",
+        "confidence": "quoted|estimated|incomplete", "evidence_id": "uuid|null", "channel": "presencial|assistida|automatizavel",
+        "border": false, "counter": false, "ref_rate": "1370.2|null", "unknown_costs": ["spread|fees|iof|transport"] }
 Leg   { "kind": "exchange|transfer|travel|deposit|withdraw", "channel": "presencial", "from": "PYG@chaco:CDE",
         "to": "USD@chaco:CDE", "via": "chaco cash @CDE (venda 7300)", "minutes": 15, "border": false,
         "amount_in": "7300000", "amount_out": "1000",
@@ -188,7 +202,9 @@ casa ou API. Aprovar grava a decisão; cada passo grava o valor realizado que o 
 PlanOut { "id": "uuid", "status": "proposed|approved|in_progress|done|rejected|expired", "start": "PYG@cash:CDE",
   "path": ["PYG@cash:CDE", "PYG@chaco:CDE", "USD@chaco:CDE", "USD@cash:CDE"], "currency": "PYG",
   "amount_in": "7300000", "amount_out_expected": "7400000", "gain_expected": "100000",
-  "gain_by_currency": {"BRL": "70", "USD": "13.7", "PYG": "100000"}, "confidence": "quoted", "minutes": 55,
+  "gain_by_currency": {"BRL": "70", "USD": "13.7", "PYG": "100000"},
+  "costs": {"spread": "0", "fees": null, "iof": "0", "transport": "0"} /* null = custo desconhecido */,
+  "confidence": "quoted", "minutes": 55,
   "requires_declaration": false, "quotes_as_of": "2026-11-04T12:00:00Z", "quote_max_age_s": 900,
   "created_at": "...", "decided_at": "...|null", "completed_at": "...|null", "data_mode": "real|simulation|demo",
   "steps": [PlanStepOut] }
@@ -197,8 +213,12 @@ PlanStepOut { "n": 1, "kind": "travel", "channel": "presencial", "text": "Leve o
   "status": "pending|done", "actual_out": "string|null", "note": "string|null", "done_at": "...|null" }
 ```
 
-- **Textos em pt-BR simples**: "Compre 1.000 USD na Cambios Chaco (CDE) a 7.300 PYG", "Leve o dinheiro de CDE para FOZ
-  (≈ 40 min)". Valores inteiros sem centavos; guarani sem centavos.
+- **Ganho com custo pendente** (`confidence: incomplete`) é estimativa: a tela mostra "≈", sem sinal, em tom neutro, com
+  o rótulo "não confirmado" e os custos `null` pelo nome. Um ciclo sem ganho positivo não vira plano (`422`).
+- **Textos em pt-BR simples**: "Compre 1.000 USD na Cambios Chaco (CDE) pagando 7.300.000 PYG (cotação: 1 USD = 7.300 PYG)",
+  "Envie 5.000 BRL de banco brasileiro e receba ≈ 920 USD em Nomad (≈ 60 min)", "Leve o dinheiro de CDE para FOZ
+  (≈ 40 min)". A cotação segue a convenção do balcão: 1 unidade da moeda mais forte (USD > BRL > PYG) = quanto da
+  mais fraca, sem arredondar o preço para zero. Valores inteiros sem centavos; guarani sem centavos.
 - **Estados**: `proposed` → `approved` → `in_progress` → `done`; ou `rejected`; ou `expired`. Um plano que ainda não
   começou expira quando a cotação mais velha dele passa de `quote_max_age_s` (900 s por padrão, `PLAN_QUOTE_MAX_AGE_S`).
   Depois que o primeiro passo é feito, o plano não expira mais.

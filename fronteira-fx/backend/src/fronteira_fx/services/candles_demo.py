@@ -51,14 +51,6 @@ DEMO_HOUSES: list[dict] = [
         "reference": False,
         "pairs": ["USD/PYG", "BRL/PYG"],
     },
-    {
-        "id": "ueno",
-        "name": "ueno",
-        "city": None,
-        "channel": "digital",
-        "reference": False,
-        "pairs": ["USD/PYG", "BRL/PYG"],
-    },
     {"id": "nomad", "name": "Nomad", "city": None, "channel": "digital", "reference": False, "pairs": ["USD/BRL"]},
     {
         "id": "bcp",

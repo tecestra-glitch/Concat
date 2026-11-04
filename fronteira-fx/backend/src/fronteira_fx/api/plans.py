@@ -18,6 +18,13 @@ from .deps import ApiKey, DataModeDep, DbDep, SettingsDep
 router = APIRouter(prefix="/plans", tags=["plans"])
 
 
+def _costs(raw) -> dict | None:
+    """Custos do ciclo guardados no plano; cada categoria segue null quando desconhecida."""
+    if not isinstance(raw, dict):
+        return None
+    return {k: (str(raw[k]) if raw.get(k) is not None else None) for k in ("spread", "fees", "iof", "transport")}
+
+
 def _out(plan: ExecutionPlan, now) -> PlanOut:
     refresh_status(plan, now=now)
     return PlanOut(
@@ -30,6 +37,7 @@ def _out(plan: ExecutionPlan, now) -> PlanOut:
         amount_out_expected=plan.amount_out_expected,
         gain_expected=plan.gain_expected,
         gain_by_currency=_money(plan.gain_by_currency),
+        costs=_costs((plan.snapshot or {}).get("costs")),
         confidence=plan.confidence,  # type: ignore[arg-type]
         minutes=plan.minutes,
         requires_declaration=plan.requires_declaration,

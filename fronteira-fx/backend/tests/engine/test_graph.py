@@ -111,11 +111,17 @@ def test_max_len_min_roi_and_balances_filter():
         "rate",
         "fee_pct",
         "fee_fixed",
+        "iof_pct",
+        "transport_fixed",
         "minutes",
         "via",
         "confidence",
         "evidence_id",
         "channel",
+        "border",
+        "counter",
+        "ref_rate",
+        "unknown_costs",
     }
     assert e0["from"] == "BRL@nubank" and isinstance(e0["rate"], str) and e0["fee_pct"] == "0"
 

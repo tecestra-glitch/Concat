@@ -53,3 +53,35 @@ def test_demo_receiving_bank_is_never_ueno():
     assert "banco_py" in banks  # o banco PY genérico recebe o WU em PYG
     assert "ueno" not in {q.get("source_id") for q in specs}
     assert "ueno" not in {s["id"] for s in demo.SOURCES}
+
+
+def test_demo_pregao_has_no_ueno_house():
+    # o monitor do pregão demo não lista o ueno (o frontend demo também não); o histórico real continua
+    from datetime import UTC, datetime
+
+    from fronteira_fx.services.candles_demo import demo_house_sessions
+
+    ids = {s.source_id for s in demo_house_sessions(datetime(2026, 11, 4, 12, tzinfo=UTC))}
+    assert "demo-ueno" not in ids
+    assert "demo-chaco" in ids and "demo-nomad" in ids
+
+
+def test_real_pregao_sessions_leave_discontinued_houses_out(app, client, db):
+    from fronteira_fx.api.candles import router
+    from tests.api.test_candles_api import _mount
+    from tests.conftest import seed_market
+
+    _mount(app)
+    seed_market(db)
+    ids = [s["source_id"] for s in client.get("/v1/pregao/sessions").json()]
+    assert "ueno" not in ids and "chaco" in ids
+    assert router is not None
+
+
+def test_sources_list_flags_the_discontinued_source(app, client, db):
+    from tests.conftest import seed_market
+
+    seed_market(db)
+    rows = {s["id"]: s for s in client.get("/v1/sources").json()}
+    assert rows["ueno"]["discontinued"] is True
+    assert rows["wu"]["discontinued"] is False

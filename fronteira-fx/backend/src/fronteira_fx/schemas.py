@@ -59,11 +59,16 @@ class SourceOut(ApiModel):
     coverage: Coverage = Field(default_factory=Coverage)
     poll_interval_s: int = 300
     data_mode: str = "real"
+    # fonte descontinuada (ex.: ueno, em resolução desde 03/11/2026): fora de novos ciclos e do monitor; histórico fica
+    discontinued: bool = False
 
     @classmethod
     def from_row(cls, row: Any) -> SourceOut:
+        from .adapters.registry import discontinued_ids
+
         return cls(
             id=row.id,
+            discontinued=row.id in discontinued_ids(),
             name=row.name,
             kind=row.kind,
             method=row.method,
@@ -375,18 +380,32 @@ LegKind = Literal["exchange", "transfer", "travel", "deposit", "withdraw"]
 ChannelKind = Literal["presencial", "assistida", "automatizavel"]
 
 
+CostKey = Literal["spread", "fees", "iof", "transport"]
+
+
 class EdgeOut(ApiModel):
+    """Aresta do ciclo. Aplicar os campos reproduz `amount_out`: `x * (1 - fee_pct - iof_pct) * rate - fee_fixed
+    - transport_fixed`. `unknown_costs` lista os custos que o motor não consegue precificar (nunca zero)."""
+
     from_: str = Field(alias="from", serialization_alias="from")
     to: str
     kind: EdgeKind
     rate: DecStr
     fee_pct: DecStr = Decimal(0)
     fee_fixed: DecStr = Decimal(0)
+    iof_pct: DecStr = Decimal(0)
+    transport_fixed: DecStr = Decimal(0)
     minutes: int = 0
     via: str
     confidence: Confidence
     evidence_id: str | None = None
     channel: ChannelKind = "presencial"
+    border: bool = False
+    # balcão (ida ao caixa de uma casa na mesma cidade): não conta em `max_len`
+    counter: bool = False
+    # taxa de referência na mesma direção de `rate`; null = sem referência (spread desconhecido)
+    ref_rate: DecStr | None = None
+    unknown_costs: list[CostKey] = []
 
 
 class LegCostsOut(ApiModel):
@@ -394,9 +413,9 @@ class LegCostsOut(ApiModel):
 
     currency: Currency
     spread: DecStr | None = None
-    fees: DecStr
-    iof: DecStr
-    transport: DecStr
+    fees: DecStr | None
+    iof: DecStr | None
+    transport: DecStr | None
 
 
 class LegOut(ApiModel):
@@ -423,7 +442,7 @@ class CycleOut(ApiModel):
     roi: DecStr
     # ganho líquido em BRL, USD e PYG (null quando falta taxa de valoração); custos na moeda de partida
     gain_by_currency: dict[Currency, DecStr | None] | None = None
-    costs: dict[Literal["spread", "fees", "iof", "transport"], DecStr | None] | None = None
+    costs: dict[CostKey, DecStr | None] | None = None
     requires_declaration: bool = False
     minutes: int
     confidence: Confidence
@@ -655,6 +674,8 @@ class PlanOut(ApiModel):
     amount_out_expected: DecStr
     gain_expected: DecStr
     gain_by_currency: dict[Currency, DecStr | None] | None = None
+    # custos do ciclo na moeda de partida (null = desconhecido): a tela nomeia o que falta no plano
+    costs: dict[CostKey, DecStr | None] | None = None
     confidence: Confidence
     minutes: int
     requires_declaration: bool = False

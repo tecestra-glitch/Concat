@@ -38,3 +38,8 @@ def list_adapters() -> list[Adapter]:
 def active_adapters() -> dict[str, Adapter]:
     """Adaptadores que o coletor e o monitor sondam: sem as fontes descontinuadas (o histórico fica no banco)."""
     return {aid: a for aid, a in ADAPTERS.items() if not a.info.discontinued}
+
+
+def discontinued_ids() -> frozenset[str]:
+    """Fontes descontinuadas: fora de novos ciclos, planos e alertas (o histórico continua no banco)."""
+    return frozenset(aid for aid, a in ADAPTERS.items() if a.info.discontinued)
