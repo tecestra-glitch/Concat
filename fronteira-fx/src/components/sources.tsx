@@ -101,8 +101,8 @@ function SourcesInner() {
               <div className="flex flex-wrap gap-1">{s.capabilities.length ? s.capabilities.map((c) => <Badge key={c} variant="accent">{c}</Badge>) : <Badge variant="outline">nenhuma capacidade comprovada</Badge>}</div>
               <ul className="list-disc pl-4 text-muted">{s.limitations.map((l) => <li key={l}>{l}</li>)}</ul>
               <div className="flex items-center justify-between pt-1">
-                <a className="inline-flex min-h-11 items-center text-accent underline sm:min-h-6" href={s.url} target="_blank" rel="noreferrer noopener">site<span className="sr-only"> de {s.name} (abre em nova aba)</span></a>
-                <button type="button" className="inline-flex min-h-11 items-center rounded-chip text-accent underline focus-visible:outline-2 focus-visible:outline-ring sm:min-h-6" onClick={() => setSel(sel === s.id ? undefined : s.id)} aria-pressed={sel === s.id}>
+                <a className="inline-flex min-h-11 min-w-11 items-center text-accent underline sm:min-h-6 sm:min-w-0" href={s.url} target="_blank" rel="noreferrer noopener">site<span className="sr-only"> de {s.name} (abre em nova aba)</span></a>
+                <button type="button" className="inline-flex min-h-11 items-center rounded-chip py-1 text-accent underline focus-visible:outline-2 focus-visible:outline-ring sm:min-h-6" onClick={() => setSel(sel === s.id ? undefined : s.id)} aria-pressed={sel === s.id}>
                   {sel === s.id ? "todas as evidências" : "ver evidências"}
                 </button>
               </div>
@@ -165,7 +165,7 @@ function HashDialog({ evidence: e }: { evidence: Evidence }) {
   return (
     <Dialog onOpenChange={() => setCopied(false)}>
       <DialogTrigger asChild>
-        <button type="button" className="tnum rounded-sm underline decoration-dotted focus-visible:outline-2 focus-visible:outline-ring" aria-label={`Ver hash completo da evidência ${e.id}`}>{e.sha256.slice(0, 12)}…</button>
+        <button type="button" className="tnum inline-flex items-center rounded-sm py-1 underline decoration-dotted focus-visible:outline-2 focus-visible:outline-ring" aria-label={`Ver hash completo da evidência ${e.id}`}>{e.sha256.slice(0, 12)}…</button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>Evidência {e.id}</DialogTitle><DialogDescription>{e.kind} · capturada em {formatDateTime(e.captured_at)} · <a className="text-accent underline" href={e.url} target="_blank" rel="noreferrer noopener">origem</a></DialogDescription></DialogHeader>

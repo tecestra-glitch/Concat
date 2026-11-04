@@ -60,6 +60,17 @@ test.describe("Fronteira FX terminal", () => {
     await expect(card).toContainText("BCP");
   });
 
+  test("faixa de cotações de Mercados: uma faixa por par, até 96 px em 1440 (ME1)", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop-1440", "a altura da faixa é medida em 1440");
+    await page.goto("/mercados");
+    const strip = page.getByRole("region", { name: "Cotações por par" });
+    await expect(page.getByTestId("price-card-USDPYG")).toBeVisible();
+    const box = await strip.boundingBox();
+    expect(box?.height ?? 999).toBeLessThanOrEqual(96);
+    await expect(page.getByTestId("price-card-USDPYG")).toContainText("Compra");
+    await expect(page.getByTestId("price-card-USDPYG")).toContainText("Venda");
+  });
+
   test("connection indicator shows demo state and quote age is separate", async ({ page }) => {
     await page.goto("/mercados");
     const status = page.getByTestId("connection-status");

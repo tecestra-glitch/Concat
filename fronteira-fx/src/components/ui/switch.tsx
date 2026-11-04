@@ -1,4 +1,8 @@
 "use client";
+/**
+ * Crédito Uiverse.io: slug `alternador`; elemento Voxybuns_horrible-shrimp-47; autor Voxybuns; licença MIT; link https://uiverse.io/Voxybuns/horrible-shrimp-47
+ * Texto completo da licença: docs/creditos-uiverse.md.
+ */
 import * as React from "react";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { cn } from "@/lib/utils";

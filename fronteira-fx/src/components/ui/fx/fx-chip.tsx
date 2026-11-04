@@ -1,6 +1,8 @@
 /**
  * Chip de estado (4 tons). Elemento Uiverse «chip-estado» (kamehame-ha), MIT, Uiverse.io. Reescrito com os tokens
  * do app; sem CSS copiado. Ver `docs/creditos-uiverse.md` e `credits.ts`.
+ * Crédito Uiverse.io: slug `chip-estado`; elemento kamehame-ha_swift-penguin-73; autor kamehame-ha; licença MIT; link https://uiverse.io/kamehame-ha/swift-penguin-73
+ * Texto completo da licença: docs/creditos-uiverse.md.
  */
 import * as React from "react";
 import { cn } from "@/lib/utils";

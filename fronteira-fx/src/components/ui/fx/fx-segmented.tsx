@@ -1,5 +1,9 @@
 "use client";
 /**
+ * Crédito Uiverse.io: slug `abas-segmentadas`; elemento zanina-yassine_curly-shrimp-52; autor zanina-yassine; licença MIT; link https://uiverse.io/zanina-yassine/curly-shrimp-52
+ * Texto completo da licença: docs/creditos-uiverse.md.
+ */
+/**
  * Abas segmentadas. Elemento Uiverse «abas-segmentadas» (zanina-yassine), MIT, Uiverse.io. O indicador desliza por
  * transform (nunca por left), em --motion-base. Semântica de `role="tablist"` com setas, Home e End.
  */

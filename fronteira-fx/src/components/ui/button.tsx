@@ -1,3 +1,8 @@
+/**
+ * Crédito Uiverse.io: slug `botao-primario`; elemento 3bdel3ziz-T_brown-earwig-37; autor 3bdel3ziz-T; licença MIT; link https://uiverse.io/3bdel3ziz-T/brown-earwig-37
+ * Crédito Uiverse.io: slug `botao-discreto-neumorfico`; elemento Kabak_unlucky-treefrog-77; autor Kabak; licença MIT; link https://uiverse.io/Kabak/unlucky-treefrog-77
+ * Texto completo da licença: docs/creditos-uiverse.md.
+ */
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";

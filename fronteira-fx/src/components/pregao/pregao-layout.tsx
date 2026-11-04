@@ -99,8 +99,9 @@ export function PregaoLayout({
         Abaixo de xl o bloco da direita é `contents` e cada filho é item da grade.
       */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem] lg:grid-rows-[auto_auto_1fr_auto_auto] lg:items-start xl:grid-cols-[minmax(0,1fr)_21rem_18rem] xl:grid-rows-[auto_auto_1fr]">
-        {/* Fica abaixo do cabeçalho fixo do app (h-14) ao rolar; z abaixo do cabeçalho (z-30). Vem antes dos controles:
-            no celular as abas ficam na primeira metade da tela, logo depois da fita e da sessão. */}
+        {/* Fica abaixo do cabeçalho fixo do app (h-14) ao rolar; z abaixo do cabeçalho (z-30). No celular as abas vêm logo
+            depois da fita, na primeira metade da tela, qualquer que seja o estado da sessão (o bloco da sessão tem altura
+            que muda com o relógio); a sessão vem em seguida (order -9998), antes dos controles. */}
         {/* Abas segmentadas (fx-segmented, Uiverse «abas-segmentadas»): tablist com setas, Home e End; as abas
             ficam abaixo do cabeçalho fixo ao rolar e somem em md+. Os painéis rotulam-se pelos ids `pregao-tab-*`. */}
         <FxSegmented
@@ -110,7 +111,7 @@ export function PregaoLayout({
           idPrefix="pregao-tab"
           aria-label="Seções do pregão"
           testId="pregao-tabs"
-          className="sticky top-14 z-20 md:hidden"
+          className="sticky top-14 z-20 order-first md:hidden"
         />
 
         <section aria-labelledby="pregao-h-controles" className="min-w-0 lg:col-start-1 lg:row-start-1 xl:col-end-3">
@@ -180,7 +181,7 @@ export function PregaoLayout({
         </div>
 
         <div data-testid="pregao-side" className="contents xl:col-start-3 xl:row-span-3 xl:row-start-1 xl:flex xl:min-w-0 xl:flex-col xl:gap-4 xl:self-stretch">
-          <section aria-labelledby="pregao-h-sessao" className="min-w-0 max-lg:order-first lg:col-start-2 lg:row-span-2 lg:row-start-1">
+          <section aria-labelledby="pregao-h-sessao" className="min-w-0 max-lg:order-[-9998] lg:col-start-2 lg:row-span-2 lg:row-start-1">
             <h3 id="pregao-h-sessao" className="text-sm font-medium">
               Sessão
             </h3>

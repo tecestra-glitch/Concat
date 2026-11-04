@@ -59,7 +59,23 @@ describe("sourceCountry", () => {
     expect(sourceCountry(base)).toBeNull();
   });
 
-  it("fonte sem cidade e só PYG é PY", () => {
-    expect(sourceCountry({ ...base, coverage: { cities: [], currencies: ["PYG"] } })).toBe("PY");
+  it("moeda PYG sozinha não é sinal de país (remessadora BRL/PYG sem cidade fica sem bandeira)", () => {
+    expect(sourceCountry({ ...base, id: "westernunion", coverage: { cities: [], currencies: ["BRL", "PYG"] } })).toBeNull();
+    expect(sourceCountry({ ...base, coverage: { cities: [], currencies: ["PYG"] } })).toBeNull();
+  });
+
+  it("fontes paraguaias pelo id, mesmo sem cidade na cobertura (BCP e banco demo PY)", () => {
+    expect(sourceCountry({ ...base, id: "bcp", coverage: { cities: [], currencies: ["USD", "BRL", "PYG"] } })).toBe("PY");
+    expect(sourceCountry({ ...base, id: "banco-demo-py", coverage: { cities: [], currencies: ["USD", "BRL", "PYG"] } })).toBe("PY");
+  });
+
+  it("fonte com cidade paraguaia mas sem coverage completa segue a regra da cidade", () => {
+    expect(sourceCountry({ ...base, id: "novo-banco", coverage: { cities: ["PJC"], currencies: ["PYG"] } })).toBe("PY");
+  });
+
+  it("nenhuma fonte de fora do Paraguai recebe bandeira PY", () => {
+    for (const id of ["nomad", "revolut", "westernunion"]) {
+      expect(sourceCountry({ ...base, id, coverage: { cities: [], currencies: ["BRL", "USD"] } })).toBeNull();
+    }
   });
 });

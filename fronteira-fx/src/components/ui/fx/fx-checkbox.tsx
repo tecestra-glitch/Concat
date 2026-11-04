@@ -1,5 +1,9 @@
 "use client";
 /**
+ * Crédito Uiverse.io: slug `checkbox-circular`; elemento faxriddin20_wicked-bobcat-36; autor faxriddin20; licença MIT; link https://uiverse.io/faxriddin20/wicked-bobcat-36
+ * Texto completo da licença: docs/creditos-uiverse.md.
+ */
+/**
  * Caixa circular. Elemento Uiverse «checkbox-circular» (faxriddin20), MIT, Uiverse.io. O `input` fica visualmente
  * oculto (sr-only), não `display: none`, para continuar acessível por teclado. Marcado: --gain.
  */

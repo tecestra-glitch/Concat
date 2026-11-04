@@ -1,6 +1,8 @@
 /**
  * Carregamento discreto. Elemento Uiverse «carregador-discreto» (Bodyhc), MIT, Uiverse.io. Anel em passos (steps 12).
  * Dentro do cartão, nunca em tela cheia. Com movimento reduzido o anel fica parado e o texto "Carregando…" informa.
+ * Crédito Uiverse.io: slug `carregador-discreto`; elemento Bodyhc_wonderful-panther-25; autor Bodyhc; licença MIT; link https://uiverse.io/Bodyhc/wonderful-panther-25
+ * Texto completo da licença: docs/creditos-uiverse.md.
  */
 import { cn } from "@/lib/utils";
 

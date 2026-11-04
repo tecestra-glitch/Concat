@@ -119,7 +119,7 @@ export function QuoteTable({ quotes, sources, onSelect, selectedId, compact = fa
           <TableRow key={hg.id} className="hover:bg-transparent">
             {hg.headers.map((h) => (
               <TableHead key={h.id} className={cn(RIGHT.has(h.id) && "text-right", h.id === "source" && "sticky left-0 z-10 bg-surface")} aria-sort={h.column.getIsSorted() === "asc" ? "ascending" : h.column.getIsSorted() === "desc" ? "descending" : "none"}>
-                <button type="button" className="inline-flex items-center gap-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring" onClick={h.column.getToggleSortingHandler()}>
+                <button type="button" className="inline-flex items-center gap-1 py-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring" onClick={h.column.getToggleSortingHandler()}>
                   {flexRender(h.column.columnDef.header, h.getContext())}
                   <ArrowUpDown className="size-3 opacity-50" aria-hidden />
                 </button>

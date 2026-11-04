@@ -2,6 +2,8 @@
  * Cartão com barra de progresso. Elemento Uiverse «cartao-progresso» (Cybercom682), MIT, Uiverse.io. A barra não
  * tem transição de largura (regra do app: número que muda não se move; só realce curto). Criado na fase 1; uso na
  * fase 2 (coleta por fonte em Fontes).
+ * Crédito Uiverse.io: slug `cartao-progresso`; elemento Cybercom682_ordinary-duck-36; autor Cybercom682; licença MIT; link https://uiverse.io/Cybercom682/ordinary-duck-36
+ * Texto completo da licença: docs/creditos-uiverse.md.
  */
 import { cn } from "@/lib/utils";
 import { FxCard } from "./fx-card";

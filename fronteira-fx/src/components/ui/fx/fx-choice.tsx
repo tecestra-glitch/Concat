@@ -1,5 +1,9 @@
 "use client";
 /**
+ * Crédito Uiverse.io: slug `seletor-lista`; elemento Na3ar-17_fast-turtle-85; autor Na3ar-17; licença MIT; link https://uiverse.io/Na3ar-17/fast-turtle-85
+ * Texto completo da licença: docs/creditos-uiverse.md.
+ */
+/**
  * Opção de lista com seleção (radio). Elemento Uiverse «seletor-lista» (Na3ar-17), MIT, Uiverse.io. Sem o overshoot
  * do original (easing --ease-out); o pulso ao marcar foi removido. Selecionado: fundo `accent-soft` e borda accent.
  */

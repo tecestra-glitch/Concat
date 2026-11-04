@@ -17,7 +17,7 @@ export function TopBar() {
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6">
       <Dialog>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Abrir menu">
+          <Button variant="ghost" size="icon" className="shrink-0 lg:hidden" aria-label="Abrir menu">
             <Menu />
           </Button>
         </DialogTrigger>

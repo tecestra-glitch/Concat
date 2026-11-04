@@ -1,4 +1,8 @@
 "use client";
+/**
+ * Crédito Uiverse.io: slug `tooltip-escuro`; elemento SouravBandyopadhyay_ugly-pug-52; autor SouravBandyopadhyay; licença MIT; link https://uiverse.io/SouravBandyopadhyay/ugly-pug-52
+ * Texto completo da licença: docs/creditos-uiverse.md.
+ */
 import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cn } from "@/lib/utils";

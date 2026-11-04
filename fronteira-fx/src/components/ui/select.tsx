@@ -1,4 +1,8 @@
 "use client";
+/**
+ * Crédito Uiverse.io: slug `campo-entrada`; elemento BurgiSimon_rotten-dolphin-78; autor BurgiSimon; licença MIT; link https://uiverse.io/BurgiSimon/rotten-dolphin-78
+ * Texto completo da licença: docs/creditos-uiverse.md.
+ */
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";

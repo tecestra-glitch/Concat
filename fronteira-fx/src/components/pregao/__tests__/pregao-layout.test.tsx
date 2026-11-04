@@ -183,7 +183,9 @@ describe("PregaoLayout — painéis", () => {
   it("em lg+ a sessão ocupa as linhas 1–2 da direita e o gráfico começa na linha 2: a esquerda não herda a altura da sessão", () => {
     const html = render();
     const sessao = classesOf(tagWith(html, 'aria-labelledby="pregao-h-sessao"'));
-    expect(sessao).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:row-span-2", "lg:col-start-2", "max-lg:order-first"]));
+    expect(sessao).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:row-span-2", "lg:col-start-2", "max-lg:order-[-9998]"]));
+    // Celular: abas primeiro (sempre na primeira metade da tela), depois a sessão, depois os controles.
+    expect(classesOf(tagWith(html, 'data-testid="pregao-tabs"'))).toContain("order-first");
     const controles = classesOf(tagWith(html, 'aria-labelledby="pregao-h-controles"'));
     expect(controles).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:col-start-1", "xl:col-end-3"]));
     const grafico = classesOf(tagWith(html, 'id="pregao-panel-grafico"'));
