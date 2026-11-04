@@ -645,6 +645,7 @@ dependencies = [
     { name = "selectolax" },
     { name = "sqlalchemy" },
     { name = "sse-starlette" },
+    { name = "websockets" },
 ]
 
 [package.optional-dependencies]
@@ -679,6 +680,7 @@ requires-dist = [
     { name = "selectolax", specifier = ">=1.0.2" },
     { name = "sqlalchemy", specifier = ">=2" },
     { name = "sse-starlette", specifier = ">=3.6.0" },
+    { name = "websockets", specifier = ">=17.4" },
 ]
 provides-extras = ["browser"]
 

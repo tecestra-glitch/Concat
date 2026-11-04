@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -493,6 +494,25 @@ class MarketCandle(Base):
     close: Mapped[Decimal] = mapped_column(Money)
     captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class MarketBookTop(Base):
+    """Último topo do livro (bookTicker da Binance) por par e modo de dados, gravado em lote pelo stream do worker.
+
+    Referência de mercado: nunca executável e nunca entra no grafo de ciclos.
+    """
+
+    __tablename__ = "market_book_top"
+
+    symbol: Mapped[str] = mapped_column(String(24), primary_key=True)  # ex.: BTCUSDT
+    data_mode: Mapped[str] = mapped_column(String(16), primary_key=True, default="real")
+    instrument: Mapped[str] = mapped_column(String(32))  # ex.: BTC/USDT
+    bid: Mapped[Decimal] = mapped_column(Money)
+    bid_qty: Mapped[Decimal] = mapped_column(Money)
+    ask: Mapped[Decimal] = mapped_column(Money)
+    ask_qty: Mapped[Decimal] = mapped_column(Money)
+    update_id: Mapped[int] = mapped_column(BigInteger)
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
 class ExecutionPlan(Base):

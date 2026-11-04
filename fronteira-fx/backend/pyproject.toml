@@ -21,6 +21,7 @@ dependencies = [
     "selectolax>=1.0.2",
     "sqlalchemy>=2",
     "sse-starlette>=3.6.0",
+    "websockets>=17.4",
 ]
 
 [project.scripts]

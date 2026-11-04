@@ -72,6 +72,20 @@ class Settings(BaseSettings):
     smtp_from: str | None = None
     smtp_starttls: bool = True
     alert_http_timeout_s: float = 10.0
+    # Stream público da Binance (klines fechadas e bookTicker) no worker. Desligado por padrão: só liga com
+    # FX_BINANCE_WS=1. Só leitura; HTTP 451 desliga a fonte (não há contorno). Ver market/binance_ws.py.
+    binance_ws: bool = Field(default=False, validation_alias=AliasChoices("FX_BINANCE_WS"))
+    binance_ws_url: str = Field(
+        default="wss://data-stream.binance.vision/stream", validation_alias=AliasChoices("FX_BINANCE_WS_URL")
+    )
+    binance_ws_symbols: str = Field(
+        default="BTCUSDT,ETHUSDT,USDTBRL", validation_alias=AliasChoices("FX_BINANCE_WS_SYMBOLS")
+    )
+    binance_ws_interval: str = "5m"
+    binance_ws_rotate_s: int = 23 * 3600  # a Binance encerra a conexão em 24 h; renova antes (sem perder velas)
+    binance_ws_overlap_s: float = 10.0  # tempo em que as duas conexões escutam ao mesmo tempo na renovação
+    binance_ws_flush_s: float = 5.0  # gravação em lote no banco
+    binance_ws_ping_s: float = 20.0  # ping do cliente; o pong de pings do servidor é automático
     quotes_lookback_s: int = 7 * 86400  # how far back "latest per context" looks
     # idade máxima da cotação mais velha de um plano antes de ele expirar (sem execução iniciada)
     plan_quote_max_age_s: int = 900
