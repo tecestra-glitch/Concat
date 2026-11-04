@@ -1,0 +1,480 @@
+[
+  {
+    "id": "wise",
+    "name": "Wise (conta Wise Brasil)",
+    "country": "BR",
+    "kind": "fintech",
+    "status": "active",
+    "currencies_held": ["BRL", "USD", "EUR"],
+    "opens_remotely": null,
+    "requires": "Documento de identidade; a Wise pode pedir prova do direito de residir. RG/CNH para brasileiro não confirmado em página oficial.",
+    "api": "pf",
+    "api_source_url": "https://docs.wise.com/guides/developer/auth-and-security/personal-api-token.md",
+    "source_url": "https://wise.com/help/articles/2897238/which-currencies-can-i-add-keep-and-receive-in-my-wise-account",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": "0.035", "source_url": "https://wise.com/help/articles/2932353/transfers-to-brl", "checked_at": "2026-11-04", "note": "Conversão de BRL com o mesmo titular; subiu de 1,1% para 3,5% em 17/07/2025." },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "nubank-conta-global",
+    "name": "Nubank Conta Global (cliente Ultravioleta)",
+    "country": "BR",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": null,
+    "opens_remotely": true,
+    "requires": "Cliente Ultravioleta com acesso pelo app. Mensalidade de R$ 89 se as condições de isenção não forem cumpridas. Saídas: 2 saques grátis por mês no exterior.",
+    "api": null,
+    "source_url": "https://nubank.com.br/ultravioleta/nu-viagens/conta-global",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null, "note": "Spread zero só para cliente Ultravioleta, nas conversões a partir do real (nubank.com.br/ultravioleta/nu-viagens/conta-global). Para quem não é Ultravioleta não confirmado." },
+      "iof_pct": { "value": "0.035", "source_url": "https://blog.nubank.com.br/conta-global-taxas/", "checked_at": "2026-11-04", "note": "Atualizado em 28/07/2026." },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "avenue",
+    "name": "Avenue (conta corrente e investimentos nos EUA)",
+    "country": "BR",
+    "kind": "fintech",
+    "status": "active",
+    "currencies_held": ["USD", "EUR"],
+    "opens_remotely": true,
+    "requires": "RG, CNH ou registro profissional com foto (emitido há menos de 20 anos); comprovante de residência dos últimos 6 meses; CPF ativo; selfie; 18 anos ou mais; residente no Brasil.",
+    "api": null,
+    "source_url": "https://avenue.us/conta-internacional/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": "0.035", "source_url": "https://avenue.us/duvidas/como-funcionam-o-iof-e-o-spread-nas-operacoes-de-cambio-na-avenue/", "checked_at": "2026-11-04", "note": "Conta corrente. 1,1% na conta de investimentos e 0,38% na volta; o spread aparece na simulação." },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "nomad",
+    "name": "Nomad (conta em dólar nos EUA)",
+    "country": "BR",
+    "kind": "fintech",
+    "status": "active",
+    "currencies_held": ["USD", "EUR"],
+    "opens_remotely": true,
+    "requires": null,
+    "api": null,
+    "source_url": "https://www.nomadglobal.com/conta-corrente-nomad",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null, "source_url": "https://www.nomadglobal.com/conteudos/nomad-ou-wise", "checked_at": "2026-11-04", "note": "Faixa de 1% a 2% conforme o nível do Nomad Pass (a conversão começa em 1%); 1% é só o piso, não confirmado. Custo total com IOF: 4,5% a 5,5%." },
+      "iof_pct": { "value": "0.035", "source_url": "https://benomad.zendesk.com/hc/en-us/articles/360052871234-Full-Table-Fees-limits", "checked_at": "2026-11-04", "note": "Aparece como 'Expenses' de 3,5%; 1,1% para investimento." },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "revolut-br",
+    "name": "Revolut (conta brasileira)",
+    "country": "BR",
+    "kind": "fintech",
+    "status": "active",
+    "currencies_held": ["BRL", "USD"],
+    "opens_remotely": null,
+    "requires": "RG ou CNH para brasileiro segundo artigo da Wise (não confirmado em página oficial). Paraguai e Palau não estão na lista de países aceitos.",
+    "api": null,
+    "source_url": "https://www.revolut.com/pt-BR/legal/standard-fees/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": "0.014", "source_url": "https://www.revolut.com/pt-BR/legal/standard-fees/", "checked_at": "2026-11-04", "note": "0% até R$ 1.000 por mês; acima disso 1,4% (BRL para moeda) e 1,0% (moeda para BRL)." },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "inter-global",
+    "name": "Banco Inter (Global Account)",
+    "country": "BR",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": ["USD"],
+    "opens_remotely": true,
+    "requires": "Abertura pelo Super App (ícone do globo), resposta em até 48 h. Artigo da Wise (18/11/2024) diz que é só para correntistas Inter; a página oficial não cita isso.",
+    "api": null,
+    "source_url": "https://inter.co/pra-voce/global-account/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null, "note": "Taxa de 1% a partir de 4/9 não verificada (post do Instagram não lido)." },
+      "iof_pct": { "value": null, "note": "Site diz 'sem IOF' no débito; afirmação de marketing não verificada." },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "c6-conta-global",
+    "name": "C6 Bank (Conta Global)",
+    "country": "BR",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": null,
+    "opens_remotely": null,
+    "requires": null,
+    "api": null,
+    "source_url": null,
+    "checked_at": null,
+    "fx_cost": {
+      "spread_pct": { "value": null, "note": "Tabela inconclusiva: a página oficial deu HTTP 403 na pesquisa." },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "btg",
+    "name": "BTG Pactual",
+    "country": "BR",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": null,
+    "opens_remotely": null,
+    "requires": null,
+    "api": null,
+    "source_url": null,
+    "checked_at": null,
+    "fx_cost": {
+      "spread_pct": { "value": null, "note": "Spread com valor não informado." },
+      "iof_pct": { "value": "0.035", "source_url": "https://wise.com/br/blog/transferencia-internacional-btg", "checked_at": "2026-11-04", "note": "1,1% para investimento e 3,5% para outras finalidades (Wise, 01/07/2025)." },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "itau-personnalite-conta-global",
+    "name": "Itaú Personnalité (Conta Global)",
+    "country": "BR",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": ["USD", "EUR"],
+    "opens_remotely": null,
+    "requires": "Público Uniclass (condição não verificada).",
+    "api": null,
+    "source_url": "https://www.itau.com.br/relacoes-com-investidores/noticias/itau-personnalite-lanca-conta-global-integrada-ao-superapp-com-cartao-de-debito-internacional-em-dolar-e-euro/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "bb-americas-gold-global",
+    "name": "BB Americas Gold Global",
+    "country": "BR",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": ["USD"],
+    "opens_remotely": true,
+    "requires": "Exclusiva para correntista PF do BB. Abertura pelo app do BB (Menu > Conta internacional). Depósito inicial mínimo de US$ 500.",
+    "api": null,
+    "source_url": "https://www.bbamericas.com/br/internacional/conta-corrente/gold-global/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "itau-py-cuenta-light",
+    "name": "Itaú Paraguay (Cuenta Light)",
+    "country": "PY",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": null,
+    "opens_remotely": true,
+    "requires": "Cédula paraguaia vigente e selfie, pelo app Itaú PY. Limite mensal de 3 salários mínimos. Transferências só para bancos e financeiras do país.",
+    "api": null,
+    "source_url": "https://www.itau.com.py/cuentadigital",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": "0", "currency": "PYG", "source_url": "https://www.itau.com.py/cuentadigital", "checked_at": "2026-11-04", "note": "Sem custo de abertura nem de manutenção." }
+    }
+  },
+  {
+    "id": "itau-py-cuenta-full",
+    "name": "Itaú Paraguay (Cuenta Full)",
+    "country": "PY",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": ["PYG", "USD"],
+    "opens_remotely": null,
+    "requires": "Exige comprovante de renda; aprovação em até 48 h úteis; sujeita a aprovação. Transferências só para bancos e financeiras do país.",
+    "api": null,
+    "source_url": "https://www.itau.com.py/cuentadigital",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "familiar",
+    "name": "Banco Familiar",
+    "country": "PY",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": ["PYG"],
+    "opens_remotely": null,
+    "requires": "Formulário online ('Abrí tu cuenta'); documentos não informados.",
+    "api": null,
+    "source_url": "https://www.familiar.com.py/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": "0.0484", "source_url": "https://www.familiar.com.py/", "checked_at": "2026-11-04", "note": "Dólar efetivo, balcão: compra ₲ 5.900 e venda ₲ 6.200, sem data na página. Spread = (venda - compra) / venda, arredondado." },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "eko",
+    "name": "Eko (carteira com respaldo do Banco Familiar)",
+    "country": "PY",
+    "kind": "wallet",
+    "status": "active",
+    "currencies_held": ["PYG"],
+    "opens_remotely": true,
+    "requires": "Cédula paraguaia e selfie, pelo app. Cartão Mastercard internacional de débito. Envio só para contas Eko e bancos do Paraguai.",
+    "api": null,
+    "source_url": "https://www.eko.com.py/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "basa",
+    "name": "Banco Basa",
+    "country": "PY",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": null,
+    "opens_remotely": null,
+    "requires": "Formulário online para Caja de Ahorro e Cuenta Corriente (CI RUC, número, contato, sucursal). Requisitos em página não lida.",
+    "api": null,
+    "source_url": "https://www.bancobasa.com.py/cuentas-personas",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": "0.0592", "source_url": "https://www.bancobasa.com.py/", "checked_at": "2026-11-04", "note": "Dólar, balcão: compra ₲ 5.880 e venda ₲ 6.250, sem data na página. Spread = (venda - compra) / venda." },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "atlas",
+    "name": "Banco Atlas",
+    "country": "PY",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": ["PYG"],
+    "opens_remotely": true,
+    "requires": "Conta digital 'em minutos', sem custo, pelo app.",
+    "api": "pj_contract",
+    "api_source_url": "https://www.bancoatlas.com.py/web",
+    "source_url": "https://www.bancoatlas.com.py/web/canales-digitales",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "continental",
+    "name": "Banco Continental",
+    "country": "PY",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": null,
+    "opens_remotely": null,
+    "requires": null,
+    "api": null,
+    "source_url": null,
+    "checked_at": null,
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "sudameris",
+    "name": "Banco Sudameris (Cuenta Digital)",
+    "country": "PY",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": ["PYG"],
+    "opens_remotely": true,
+    "requires": "18 anos ou mais; cédula paraguaia vigente e selfie; só pessoa física; só transações nacionais; depósito limitado a US$ 1.000 ou equivalente em guaraníes.",
+    "api": null,
+    "source_url": "https://www.sudameris.com.py/personas/cuentas/cuenta-digital",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "gnb",
+    "name": "Banco GNB (Cuenta Digital)",
+    "country": "PY",
+    "kind": "bank",
+    "status": "active",
+    "currencies_held": ["PYG"],
+    "opens_remotely": true,
+    "requires": "Pelo app, só com cédula. Poupança básica com depósito mensal de até 3 salários mínimos. Não residente: consultar executivos de contas.",
+    "api": null,
+    "source_url": "https://www.bancognb.com.py/cuenta-digital.jsp",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "personal-pay",
+    "name": "Personal Pay",
+    "country": "PY",
+    "kind": "wallet",
+    "status": "active",
+    "currencies_held": ["PYG"],
+    "opens_remotely": null,
+    "requires": "Requisito de maioridade e cédula no contrato de 2026 não confirmados (PDF ilegível).",
+    "api": null,
+    "source_url": "https://www.personalpay.com.py/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "zimple",
+    "name": "Zimple",
+    "country": "PY",
+    "kind": "wallet",
+    "status": "active",
+    "currencies_held": ["PYG"],
+    "opens_remotely": null,
+    "requires": null,
+    "api": null,
+    "source_url": "https://www.zimple.com.py/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "wally",
+    "name": "Wally",
+    "country": "PY",
+    "kind": "wallet",
+    "status": "active",
+    "currencies_held": ["PYG"],
+    "opens_remotely": null,
+    "requires": "A partir de 14 anos. Carga por Pago Express e Aquí Pago; cartão pré-pago.",
+    "api": null,
+    "source_url": "https://www.wally.com.py/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "tigo-money",
+    "name": "Tigo Money",
+    "country": "PY",
+    "kind": "wallet",
+    "status": "active",
+    "currencies_held": ["PYG"],
+    "opens_remotely": null,
+    "requires": null,
+    "api": null,
+    "source_url": "https://www.telesemana.com/blog/2020/10/27/paraguay-tigo-money-habilita-transferencias-directas-desde-y-hacia-otros-operadores/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "ueno",
+    "name": "ueno bank",
+    "country": "PY",
+    "kind": "bank",
+    "status": "discontinued",
+    "discontinued_note": "Resolução iniciada pelo Banco Central del Paraguay (decisão de 02/11/2026, anúncio de 03/11/2026). Não usar para nada novo.",
+    "currencies_held": null,
+    "opens_remotely": null,
+    "requires": null,
+    "api": null,
+    "source_url": "https://www.abc.com.py/economia/2026/11/03/ueno-bank-el-bcp-anuncia-procedimiento-de-resolucion/",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null },
+      "fee_fixed": { "value": null }
+    }
+  },
+  {
+    "id": "airtm",
+    "name": "Airtm (carteira em USDC)",
+    "country": "INT",
+    "kind": "wallet",
+    "status": "active",
+    "currencies_held": ["USDC"],
+    "opens_remotely": null,
+    "requires": "Verificação no primeiro uso. Limites: US$ 1.800 por saque, US$ 3.000 por mês para o Brasil.",
+    "api": null,
+    "source_url": "https://help.airtm.com/en/support/solutions/articles/47001198154-how-do-i-directly-non-p2p-withdraw-from-my-airtm-wallet-to-a-bank-",
+    "checked_at": "2026-11-04",
+    "fx_cost": {
+      "spread_pct": { "value": null },
+      "iof_pct": { "value": null },
+      "fee_pct": { "value": null, "note": "Candidato a 1% no saque bancário (help.airtm.com, texto de clientes Enterprise); não se sabe se vale para conta comum." },
+      "fee_fixed": { "value": null, "note": "Candidato a US$ 50 por saque bancário (help.airtm.com, texto de clientes Enterprise); não se sabe se vale para conta comum. Depósito por transferência é grátis." }
+    }
+  }
+]

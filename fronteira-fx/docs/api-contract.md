@@ -117,6 +117,7 @@ SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|
 | GET | `/v1/candles?key=&tf=15m\|1h\|4h\|1d&from=&to=&limit=300` | `CandleSeries` — velas OHLC do `mid` de uma série (ver "Pregão") |
 | GET | `/v1/pregao/stats?keys=a,b` | `SessionStats[]` — resumo do dia (00:00 Assunção) por chave, 1 a 20 chaves |
 | GET | `/v1/pregao/sessions` | `HouseSession[]` — status de funcionamento por fonte, inclui referências com `reference: true` |
+| GET | `/v1/institutions` | `Institution[]` — cadastro de instituições onde o titular abre conta, com a fonte de cada número (ver "Instituições") |
 | GET/POST **[chave]** | `/v1/accounts` | `Account[]` / cria `Account` (POST exige chave) |
 | PATCH **[chave]** | `/v1/accounts/{id}` | atualiza saldos informados manualmente |
 | POST **[chave]** | `/v1/simulations/routes` | body `{capital_brl, objective:"cycle|remittance|purchase", destination?:Position, valuation_currency:"BRL", channels:["digital","physical"], amounts?:["5000","10000","25000","50000"], persist?:false}` → `{opportunities: Opportunity[], search:{amounts_tested:[string], boundaries:[{low, high, low_winner, high_winner, low_roi_sign, high_roi_sign, reason, refined}]}, simulation_id:"uuid|null"}`. Com `persist`, as linhas são gravadas com `data_mode:"simulation"` (D3) |
@@ -348,6 +349,24 @@ Exemplo de `HouseSession` para `GET /v1/pregao/sessions` (segunda-feira, 12:00Z,
 ### Percentuais
 
 - A API devolve percentuais como string já multiplicada por 100: `"0.06816633"` representa 0,07 %. O cliente formata com `formatPercent(v / 100)`.
+
+## Instituições — `GET /v1/institutions`
+
+Cadastro versionado em `backend/src/fronteira_fx/data/institutions.json` (loader validado em `services/institutions.py`).
+Não depende de `data_mode`: é o mesmo em qualquer instância. Operação MCP: `list_institutions`.
+
+`Institution`: `id`, `name`, `country` (`BR` | `PY` | `INT`: país em que o titular abre a conta), `kind` (`bank` | `fintech` | `wallet` | `broker`),
+`status` (`active` | `discontinued`, com `discontinued_note`), `currencies_held` (lista ou `null`), `opens_remotely` (bool ou `null`),
+`requires` (texto ou `null`), `api` (`none` | `pf` | `pj_contract` ou `null`), `api_source_url`, `source_url`, `checked_at` (data `YYYY-MM-DD`),
+`fx_cost: {spread_pct, iof_pct, fee_pct, fee_fixed}`.
+
+Regras de proveniência:
+
+- Cada `Figure` tem `value` (string decimal ou `null`), `currency` (obrigatória em `fee_fixed` quando há valor), `source_url`, `checked_at` e `note`.
+  Percentuais são frações (`"0.035"` = 3,5 %). Valor `null` = não confirmado pela pesquisa, nunca zero.
+- Fato não nulo exige fonte: `currencies_held`, `opens_remotely` e `requires` usam `source_url` + `checked_at` da entrada; `api` usa `api_source_url`.
+- `checked_at` é a data da verificação registrada na pesquisa de 04/11/2026; não é uma nova consulta aos sites.
+- `ueno` está `discontinued` (resolução do BCP). Nenhuma instituição entra no cálculo de lucro sem a figura confirmada.
 
 ## Regras do ranking
 
