@@ -106,3 +106,21 @@ Se você mudou o contrato da API, regenere `docs/openapi.json`:
 - [ ] registrado em `registry.py` e aparece em `GET /v1/sources`
 - [ ] selo visível na tela Fontes
 - [ ] termos de uso lidos e anotados nas `limitations`
+
+## 8. Caso Western Union: a cotação não saiu do navegador
+
+Tentativa de achar um endpoint interno para a Western Union (`westernunion`, BR → PY) em `https://www.westernunion.com/br/pt/web/send-money/start`.
+Resultado: **não há endpoint sem navegador para a cotação.** A fonte continua `integration: navegador` e fica fora do modo serverless.
+
+O que a descoberta viu (duas visitas à página inicial, sem login, sem cookies, sem interação):
+
+- A página é um SPA Angular. A cotação só aparece depois do fluxo interativo (país, montante, recebimento, pagamento). A chamada que a traz, `POST wuconnect/prices/catalog`, **não apareceu**, porque só dispara depois dessa interação.
+- Dois candidatos GET responderam 200 sem navegador, mas nenhum traz cotação:
+  - `content/v2/content/web/wucom` (JSON de conteúdo do site, cerca de 1 MB): textos de marketing. A pontuação subiu por palavras como "compra" e "venda" dentro do texto, então o replay "funciona" é **falso positivo** da ferramenta.
+  - `wuconnect/rest/api/v1.0/price/corridors/BR/BRL`: lista de países e moedas, sem taxa.
+- O cabeçalho `cookie` foi omitido, como de costume; a documentação do adaptador já indicava que o preço depende de fingerprint do navegador.
+
+Decisão: não implementamos o caminho `endpoint_interno` para a Western Union. Não tentamos reproduzir o `prices/catalog` sem navegador, nem contornar fingerprint, cookie ou proteção anti-robô: isso ficaria fora da regra "não contornar bloqueio".
+Para a cotação, a fonte segue só pelo navegador (Playwright, extra `browser`), fora do modo serverless. Se a Western Union publicar uma API ou se um futuro teste autorizado mostrar a chamada `prices/catalog` com um replay limpo, reabrimos esta seção.
+
+Ajuste de ferramenta feito junto: o `fx-discover` quebrava com corpo de requisição binário (`UnicodeDecodeError` ao ler `post_data`); agora registra o corpo como ausente e continua.

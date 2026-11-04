@@ -50,6 +50,16 @@ def _proxy_from_env() -> dict[str, str] | None:
     return {"server": server} if server else None
 
 
+def _post_text(req: Any) -> str | None:
+    """Request body as text, truncated. Binary bodies (e.g. protobuf) are not UTF-8: playwright raises on
+    `.post_data`, so we record no body for them instead of aborting the whole capture."""
+    try:
+        raw = req.post_data
+    except UnicodeDecodeError:
+        return None
+    return (raw[:MAX_POST_CHARS] or None) if raw else None
+
+
 async def capture(url: str, *, seconds: float, user_agent: str, timeout_ms: int = 30_000) -> CaptureResult:
     try:
         from playwright.async_api import async_playwright
@@ -122,7 +132,7 @@ async def capture(url: str, *, seconds: float, user_agent: str, timeout_ms: int 
                     resource_type=req.resource_type,
                     request_headers=headers,
                     omitted_headers=omitted,
-                    post_data=(req.post_data or None) and (req.post_data or "")[:MAX_POST_CHARS],
+                    post_data=_post_text(req),
                     status=resp.status,
                     content_type=(resp.headers.get("content-type") or "").split(";")[0].strip().lower() or None,
                 )
