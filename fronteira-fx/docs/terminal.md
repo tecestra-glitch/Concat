@@ -19,6 +19,14 @@ As páginas em `src/app` são finas: importam um container de `src/components` e
 | `/diario` | `src/app/diario/page.tsx` | `Journal` | `src/components/journal.tsx` |
 | `/configuracoes` | `src/app/configuracoes/page.tsx` | `SettingsPage` | `src/components/settings-page.tsx` |
 | `/pregao` | `src/app/pregao/page.tsx` | `Pregao` | `src/components/pregao/pregao.tsx` |
+| `/triangulos` | `src/app/triangulos/page.tsx` | `Triangulos` | `src/components/triangulador/triangulos.tsx` |
+| `/global` | `src/app/global/page.tsx` | `MercadoGlobal` | `src/components/triangulador/mercado-global.tsx` |
+| `/indicadores` | `src/app/indicadores/page.tsx` | `Indicadores` | `src/components/triangulador/indicadores.tsx` |
+| `/noticias` | `src/app/noticias/page.tsx` | `Noticias` | `src/components/triangulador/noticias.tsx` |
+
+As quatro telas do triangulador leem `/v1/market/*` (triângulos, cripto, referências, macro, indicadores, sentimento e
+notícias) por `src/lib/api/triangulador.ts`. Todo número sai com «Executável» ou «Referência · não executável» e com
+fonte e data. Nenhuma delas tem controle de ordem: `src/components/triangulador/triangulador.test.ts` confere isso no código.
 
 A rota `/pregao` entra no menu (`nav.ts`) na integração, logo após "Mercados". Na página, o título é "Pregão" e os metadados usam `title: "Pregão"`.
 
