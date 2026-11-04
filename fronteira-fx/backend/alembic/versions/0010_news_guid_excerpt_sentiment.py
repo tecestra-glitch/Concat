@@ -1,7 +1,7 @@
 """market: guid e trecho curto em news_items (investinglive) e tabela sentiment_readings (Fear & Greed)
 
-Revision ID: 0009
-Revises: 0008
+Revision ID: 0010
+Revises: 0009
 Create Date: 2026-11-04 18:00:00.000000
 """
 
@@ -14,8 +14,8 @@ from alembic import op
 
 import fronteira_fx.models
 
-revision: str = "0009"
-down_revision: str | Sequence[str] | None = "0008"
+revision: str = "0010"
+down_revision: str | Sequence[str] | None = "0009"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

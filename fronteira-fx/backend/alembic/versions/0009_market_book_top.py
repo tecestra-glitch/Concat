@@ -1,7 +1,7 @@
 """market_book_top: último topo do livro (bookTicker) por par, gravado em lote pelo stream da Binance
 
-Revision ID: 0008
-Revises: 0007
+Revision ID: 0009
+Revises: 0008
 Create Date: 2026-11-04 18:00:00.000000
 """
 
@@ -14,8 +14,8 @@ from alembic import op
 
 import fronteira_fx.models
 
-revision: str = "0008"
-down_revision: str | Sequence[str] | None = "0007"
+revision: str = "0009"
+down_revision: str | Sequence[str] | None = "0008"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
