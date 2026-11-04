@@ -15,7 +15,7 @@ modo demonstração e descobre o modo da instância por `GET /v1/health` (que nu
 ## Enumerações
 
 - `Currency`: `BRL | USD | PYG`
-- `City`: `CDE` (Ciudad del Este) | `ASU` (Asunción) | `PJC` (Pedro Juan Caballero) | `null` (operação digital, sem cidade)
+- `City`: `CDE` (Ciudad del Este) | `ASU` (Asunción) | `PJC` (Pedro Juan Caballero) | `FOZ` (Foz do Iguaçu) | `null` (operação digital, sem cidade)
 - `Channel`: `digital | physical | aggregator` (`aggregator` = agregador de terceiros, ex. dolarPy; nunca executável)
 - `Modality`: `cash | transfer | account | card_debit | card_credit | card_virtual | reference` (`reference` = cotação de referência, só comparação: nunca vira aresta nem entra no ranking)
 - `QuoteKind`: `market_reference | indicative | executable`
