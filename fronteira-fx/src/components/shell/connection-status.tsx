@@ -37,7 +37,13 @@ export function ConnectionStatus() {
               state === "demo" && "bg-warn",
             )}
           />
-          <span className="font-medium">{LABEL[state]}</span>
+          {state === "scheduled" ? (
+            <span className="font-medium whitespace-nowrap">
+              Ao vivo<span className="hidden sm:inline"> · atualiza a cada 30 s</span><span className="sm:hidden"> · 30 s</span>
+            </span>
+          ) : (
+            <span className="font-medium whitespace-nowrap">{LABEL[state]}</span>
+          )}
         </output>
       </TooltipTrigger>
       <TooltipContent>

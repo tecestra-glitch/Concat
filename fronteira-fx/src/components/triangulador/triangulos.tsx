@@ -41,8 +41,8 @@ function Node({ node }: { node: string }) {
   const venue = venueOfNode(node);
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5 rounded-chip border border-border bg-background/60 px-2 py-1 text-xs">
-      {FLAGS.has(code as FlagCode) && <CurrencyFlag code={code as FlagCode} className="size-4" />}
-      <span className="font-medium tabular-nums">{code}</span>
+      {/* CurrencyFlag já escreve o código ao lado da bandeira: o texto não se repete */}
+      {FLAGS.has(code as FlagCode) ? <CurrencyFlag code={code as FlagCode} className="tabular-nums" /> : <span className="font-medium tabular-nums">{code}</span>}
       {venue && <span className="truncate text-muted">@{venue}</span>}
     </span>
   );
@@ -134,12 +134,12 @@ export function Triangulos() {
       </div>
       <Notice>{SIMULATION_NOTE}</Notice>
       {simulatedBalance && (
-        <p className="rounded-control border border-warn/40 bg-surface-2 px-3 py-2 text-xs" data-testid="no-balance-note">
-          {NO_BALANCE_NOTE}{" "}
-          <Link href="/contas" className="inline-flex min-h-11 items-center font-medium underline underline-offset-2 sm:min-h-8">
+        <div className="grid gap-1 rounded-control border border-warn/40 bg-surface-2 px-3 py-2 text-xs" data-testid="no-balance-note">
+          <p>{NO_BALANCE_NOTE}</p>
+          <Link href="/contas" className="inline-flex min-h-11 w-fit items-center font-medium underline underline-offset-2 sm:min-h-8">
             Abrir Contas e cartões
           </Link>
-        </p>
+        </div>
       )}
       {!q.isError && (
         <SourceLine source="grafo de posições (motor de triângulos, atualizado a cada 60 s)" at={q.dataUpdatedAt ? new Date(q.dataUpdatedAt).toISOString() : null} />
