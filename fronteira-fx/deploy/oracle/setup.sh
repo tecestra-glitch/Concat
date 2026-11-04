@@ -12,10 +12,21 @@ chown root:root "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
 export DEBIAN_FRONTEND=noninteractive
-log "instalando docker e git"
-apt-get update -q
-apt-get install -y -q docker.io docker-compose-v2 git unattended-upgrades
-systemctl enable --now docker
+# Máquina que já tem Docker (outro projeto): usa o que existe, não troca pacote nem reinicia nada.
+if command -v docker >/dev/null 2>&1; then
+  log "docker já instalado: mantendo"
+  if ! docker compose version >/dev/null 2>&1; then
+    log "instalando só o plugin compose"
+    apt-get update -q
+    apt-get install -y -q docker-compose-v2 || apt-get install -y -q docker-compose-plugin
+  fi
+  command -v git >/dev/null 2>&1 || { apt-get update -q; apt-get install -y -q git; }
+else
+  log "instalando docker e git"
+  apt-get update -q
+  apt-get install -y -q docker.io docker-compose-v2 git unattended-upgrades
+  systemctl enable --now docker
+fi
 
 # A forma E2.1.Micro tem 1 GB: o Chromium precisa de folga.
 mem_kb=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
