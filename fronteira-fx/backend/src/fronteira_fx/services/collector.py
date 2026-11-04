@@ -420,16 +420,20 @@ class Collector:
 
     # -- conditional GET (B8/B9) --------------------------------------------------------------
     @staticmethod
+    def _conditional_url(adapter: Adapter) -> str:
+        """The single document the collector polls conditionally: `conditional_url` when the adapter declares
+        one (e.g. a JSON endpoint behind a home page), otherwise `info.url`."""
+        return getattr(adapter, "conditional_url", None) or adapter.info.url
+
+    @staticmethod
     def _uses_conditional_get(adapter: Adapter, params: Mapping[str, Any] | None) -> bool:
-        """Scheduled polls of html adapters that opt in (`conditional_get = True`) are fetched by the
-        collector with If-None-Match / If-Modified-Since; the adapter only parses. On-demand requests
-        with parameters always go through the adapter's own `fetch` (forms, amounts, sessions)."""
-        info = adapter.info
+        """Scheduled polls of adapters that opt in (`conditional_get = True`) are fetched by the collector
+        with If-None-Match / If-Modified-Since; the adapter only parses. On-demand requests with parameters
+        always go through the adapter's own `fetch` (forms, amounts, sessions)."""
         return (
             bool(getattr(adapter, "conditional_get", False))
             and params is None
-            and info.method == "html"
-            and bool(info.url)
+            and bool(Collector._conditional_url(adapter))
         )
 
     def _store_raw(self, source_id: str, fetched: FetchOutcome, *, now: datetime, sha256: str) -> str | None:
@@ -524,7 +528,12 @@ class Collector:
             validators = (ws.etag, ws.last_modified)
         fetched: FetchOutcome | None = None
         if self._uses_conditional_get(adapter, params):
-            fetched = await conditional_get(info.url, etag=validators[0], last_modified=validators[1])
+            fetched = await conditional_get(
+                self._conditional_url(adapter),
+                etag=validators[0],
+                last_modified=validators[1],
+                headers=dict(getattr(adapter, "conditional_headers", None) or {}) or None,
+            )
             if fetched.not_modified:
                 return self._record_not_modified(info, fetched)
             result = self._parse_fetched(adapter, fetched, now=self.now_fn())

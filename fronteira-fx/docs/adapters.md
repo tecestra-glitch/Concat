@@ -220,3 +220,26 @@ Antes da primeira sondagem agendada de Basa e Familiar, ler os termos de uso com
 - Eko: não sondada; a discovery indica que não publica cotação própria (usa o Banco Familiar).
 - ueno bank: em resolução pelo BCP desde 03/11/2026; nada novo.
 - Banco GNB: adaptador criado e removido em 2026-11-04. O Aviso Legal (`/aviso-legal.jsp`) proíbe copiar ou redistribuir o conteúdo das páginas "ni aún citando fuentes" sem consentimento por escrito; a cópia automatizada das cotações e a fixture versionada ficam vedadas. Para retomar, pedir consentimento por escrito ao banco.
+
+## Extensão PJC/ENC (2026-11-04)
+
+- **Cidade `ENC` (Encarnación)** entrou em `City` (`adapters/base.py`, `schemas.py`, `schemas_candles.py`; `_common.city_from_text`
+  reconhece "Encarnación", "ENC" e "ENC." com ponto). Filiais com `city="ENC"`: `chaco-23` (Super 6), `chaco-24` (Mcal. Estigarribia),
+  `alberdi-encarnacion`. Salto del Guairá segue `city=None` (fora das seis cidades rastreadas). Chaco passou a sondar as filiais ENC
+  (`default_branch_ids`), o que adiciona 2 requisições por coleta.
+- **Cruzamentos USD•BRL** (`QuoteDraft` com `base="USD"`, `quote="BRL"`, `unit_note="BRL por 1 USD ..."`, `context={"board": ..., "pair": "USD x BRL"}`,
+  canal `physical`, cidade da filial). Compra = o que a casa paga por USD em BRL, venda = o que cobra:
+  - `alberdi`: linha `bcp == "USD -> BRL"` (cheques excluídos; zero = sem cotação).
+  - `chaco`: nos itens BRL com `arbitrage` truthy, `purchaseArbitrage`/`saleArbitrage` (BRL por 1 USD).
+  - `norte`: linha do quadro com rótulo `BRL•USD` (último `span`, versão mobile). Os demais cruzamentos (EUR, ARS) seguem ignorados.
+- **Norte Cambios**: a matriz em Pedro Juan Caballero já é `norte-1` com `city="PJC"`; nada a alterar.
+- **Ceteg Cambios (PJC)**: não criado. A página só renderiza as cotações via `GET /cotizacion/api?idsucursal=<id>`, e essa
+  chamada responde 403 "Acceso no autorizado" a um cliente não autenticado (uma única tentativa, sem retry, sem cookies de sessão).
+  Não há restrição explícita de automação nos termos (o link "Términos y Condiciones" é `#`; robots.txt retorna 404), mas o
+  acesso é negado pelo próprio site, então o adaptador não contorna esse controle. Revisitar se a Ceteg publicar uma fonte pública.
+
+## Requisições condicionais (2026-11-04)
+
+- `alberdi`: a sondagem agendada faz GET condicional de `ws/getTablero.json.php` (`conditional_get`, `conditional_url`); um 304 não é parseado.
+- `maxicambios` e `myd`: GET condicional de `info.url` (HTML renderizado no servidor).
+- `chaco` e `norte` **ainda não** têm requisição condicional. A Chaco faz uma requisição por filial (`/api/branch_office/{id}/exchange`) e a Norte troca de filial por `POST /livewire/update`; o watch guarda um único par ETag/Last-Modified por fonte, então um 304 não cobriria as demais requisições. Pendente: validadores por URL (migração de `watch_states`).

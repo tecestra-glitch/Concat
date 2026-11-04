@@ -19,7 +19,7 @@ def _by_branch(quotes, branch_id, base):
 def test_parse_json_all_branches(captured_at: datetime) -> None:
     res = alberdi.adapter.parse(load("alberdi.json"), captured_at=captured_at, url=URL)
     assert res.status == AdapterStatus.OK, res.message
-    assert len(res.quotes) == 8  # 4 branches x (USD, BRL); Salto del Guairá has no USD/BRL rows
+    assert len(res.quotes) == 12  # 4 branches x (USD, BRL) + 4 cruzamentos USD->BRL (Salto zerado)
 
     vm_usd = _by_branch(res.quotes, "alberdi-villamorra", "USD")
     assert (vm_usd.buy, vm_usd.sell) == (Decimal("5800"), Decimal("5920"))
@@ -36,12 +36,12 @@ def test_parse_json_all_branches(captured_at: datetime) -> None:
     km4_brl = _by_branch(res.quotes, "alberdi-km4", "BRL")
     assert (km4_brl.buy, km4_brl.sell) == (Decimal("1070"), Decimal("1120")) and km4_brl.city == "CDE"
     enc_brl = _by_branch(res.quotes, "alberdi-encarnacion", "BRL")
-    assert (enc_brl.buy, enc_brl.sell) == (Decimal("1075"), Decimal("1140")) and enc_brl.city is None
+    assert (enc_brl.buy, enc_brl.sell) == (Decimal("1075"), Decimal("1140")) and enc_brl.city == "ENC"
 
     # the "timer" row is the declared update time, local Paraguay time
     assert vm_usd.declared_updated_at == datetime(2026, 11, 2, 1, 33, 1, tzinfo=TZ_ASUNCION)
     # cross rates (USD -> BRL) and cheques never leak in
-    assert all(q.quote == "PYG" and q.base in ("USD", "BRL") for q in res.quotes)
+    assert all((q.quote == "PYG" and q.base in ("USD", "BRL")) or (q.base, q.quote) == ("USD", "BRL") for q in res.quotes)
     assert res.evidence is not None and res.evidence.kind == "json" and len(res.evidence.sha256) == 64
     assert "alberdi-villamorra" in res.evidence.excerpt
 
@@ -88,4 +88,4 @@ def test_info() -> None:
     info = alberdi.adapter.info
     assert info.id == "alberdi" and info.kind == "exchange_house"
     assert "www.cambiosalberdi.com" in info.allowed_domains
-    assert set(info.cities) == {"ASU", "CDE"}
+    assert set(info.cities) == {"ASU", "CDE", "ENC"}

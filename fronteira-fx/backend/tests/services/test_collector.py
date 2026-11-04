@@ -427,3 +427,32 @@ async def test_remote_flag_on_a_non_browser_adapter_is_ignored(session_factory):
     clock.t = NOW + timedelta(seconds=120)
     await collector.collect(html, force=True)
     assert html.calls == 2
+
+
+@respx.mock
+async def test_alberdi_scheduled_poll_is_conditional_on_its_json_document(session_factory, tmp_path):
+    """B8 / requisição condicional: o documento que a Alberdi serve é o JSON `ws/getTablero.json.php`
+    (não a home). A sondagem agendada envia If-None-Match, um 304 não é parseado e o ETag fica no watch."""
+    from fronteira_fx.adapters import alberdi
+
+    body = (Path(__file__).resolve().parents[1] / "fixtures" / "alberdi.json").read_bytes()
+    clock = Clock()
+    collector = Collector(
+        session_factory, make_settings(evidence_dir=str(tmp_path)), adapters={"alberdi": alberdi.adapter}, now_fn=clock
+    )
+    route = respx.get(alberdi.WS_URL).mock(
+        return_value=httpx.Response(200, content=body, headers={"ETag": '"a1"', "Content-Type": "application/json"})
+    )
+    out = (await collector.run_once())[0]
+    assert route.call_count == 1 and out.quotes_stored > 0
+    sent = route.calls.last.request.headers
+    assert "If-None-Match" not in sent and sent["Accept"].startswith("application/json")
+
+    clock.t = NOW + timedelta(hours=2)
+    route.mock(return_value=httpx.Response(304))
+    out = (await collector.run_once())[0]
+    assert route.call_count == 2
+    assert route.calls.last.request.headers["If-None-Match"] == '"a1"'
+    assert out.status == "not_modified" and out.new_capture is False and out.quotes_stored == 0
+    with session_factory() as s:
+        assert s.get(WatchState, "alberdi").etag == '"a1"'

@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
     alert_http_timeout_s: float = 10.0
     quotes_lookback_s: int = 7 * 86400  # how far back "latest per context" looks
+    # idade máxima da cotação mais velha de um plano antes de ele expirar (sem execução iniciada)
+    plan_quote_max_age_s: int = 900
 
     # Mini navegador (fronteira-fx/browser, função Vercel): runs the browser-only adapters without a local Chromium
     # when both values are set. Secret only via environment; the URL must be https (http only for localhost).

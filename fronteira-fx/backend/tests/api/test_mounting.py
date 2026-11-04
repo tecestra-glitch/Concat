@@ -10,8 +10,9 @@ from tests.conftest import make_settings
 
 # 36 operations when the plan was written + `memory_summary` (B10) + the pregão's `/v1/candles`,
 # `/v1/pregao/stats` and `/v1/pregao/sessions`, + `internal_collect` (POST /v1/internal/collect, agendador),
-# + the market module's `/v1/market/news`, `/quotes`, `/volatility`. Bump deliberately when adding an endpoint.
-EXPECTED_OPERATIONS = 44
+# + the market module's `/v1/market/news`, `/quotes`, `/volatility`, + the execution plans (`create_plan`, `list_plans`,
+# `get_plan`, `approve_plan`, `reject_plan`, `complete_plan_step`; fase A, sem movimentação). Bump deliberately when adding an endpoint.
+EXPECTED_OPERATIONS = 50
 MODULE_ONLY_OPERATIONS = {"rag_add_document", "rag_list_documents", "watch_update_source"}
 
 

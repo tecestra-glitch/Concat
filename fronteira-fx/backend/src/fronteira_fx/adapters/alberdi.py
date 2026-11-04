@@ -53,7 +53,7 @@ BRANCHES: dict[str, BranchInfo] = {
     "ciudaddeleste": BranchInfo("alberdi-ciudaddeleste", "Ciudad del Este", "CDE", "ciudaddeleste"),
     "km4": BranchInfo("alberdi-km4", "KM4 - Ciudad del Este", "CDE", "km4"),
     "saltodelguaira": BranchInfo("alberdi-saltodelguaira", "Salto del Guairá", None, "saltodelguaira"),
-    "encarnacion": BranchInfo("alberdi-encarnacion", "Encarnación", None, "encarnacion"),
+    "encarnacion": BranchInfo("alberdi-encarnacion", "Encarnación", "ENC", "encarnacion"),
 }
 # Branches whose missing USD/BRL rows are reported as an issue (the others are frontier towns
 # that legitimately publish a shorter board).
@@ -78,6 +78,12 @@ def _branch(key: str) -> BranchInfo:
 
 
 class AlberdiAdapter:
+    # The board is one JSON document (WS_URL), not the home page in `info.url`: scheduled polls GET it with
+    # If-None-Match / If-Modified-Since so an unchanged board is a 304 and is not parsed again.
+    conditional_get = True
+    conditional_url = WS_URL
+    conditional_headers = {"Accept": ACCEPT_JSON, "Referer": HOME_URL}
+
     info = AdapterInfo(
         id="alberdi",
         name="Cambios Alberdi",
@@ -89,9 +95,9 @@ class AlberdiAdapter:
         limitations=[
             "endpoint JSON não documentado (ws/getTablero.json.php); pode mudar sem aviso",
             "cotação de balcão indicativa; valor efetivo depende do montante e da filial",
-            "Salto del Guairá e Encarnación ficam sem cidade (city=None)",
+            "Salto del Guairá fica sem cidade (city=None)",
         ],
-        cities=["ASU", "CDE"],
+        cities=["ASU", "CDE", "ENC"],
         currencies=["USD", "BRL", "PYG"],
         poll_interval_s=300,
         allowed_domains=["www.cambiosalberdi.com"],
@@ -137,6 +143,24 @@ class AlberdiAdapter:
                     continue
                 bcp = str(row.get("bcp") or "").strip()
                 moneda = str(row.get("moneda") or "")
+                if bcp == "USD -> BRL" and "cheque" not in moneda.lower():
+                    # cruzamento publicado pela casa: BRL por 1 USD (compra = a casa paga, venda = cobra)
+                    x_buy = positive_or_none(try_parse_decimal(row.get("compra"), "es_PY"))
+                    x_sell = positive_or_none(try_parse_decimal(row.get("venta"), "es_PY"))
+                    if x_buy is None and x_sell is None:
+                        pass  # cruzamento zerado: a casa não opera esse par nesta filial
+                    elif x_buy is None or x_sell is None:
+                        issues.append(f"{key}: cruzamento USD->BRL incompleto")
+                    else:
+                        quotes.append(
+                            QuoteDraft(
+                                source_id=self.info.id, base="USD", quote="BRL", buy=x_buy, sell=x_sell,
+                                unit_note="BRL por 1 USD (cruzado Dólar x Real)", modality="cash",
+                                kind="indicative", channel="physical", city=binfo.city, branch_id=binfo.id,
+                                context={"board": "cruzado", "pair": "USD x BRL"}, declared_updated_at=declared,
+                            )
+                        )
+                    continue
                 if "->" in bcp or "cheque" in moneda.lower() or bcp not in CURRENCIES:
                     continue
                 buy = positive_or_none(try_parse_decimal(row.get("compra"), "es_PY"))

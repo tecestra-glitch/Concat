@@ -1,6 +1,6 @@
 /** Mirrors docs/api-contract.md. Money travels as decimal strings. */
 export type Currency = "BRL" | "USD" | "PYG";
-export type City = "CDE" | "ASU" | "PJC" | "FOZ" | null;
+export type City = "CDE" | "ASU" | "PJC" | "FOZ" | "ENC" | null;
 /** `aggregator` = agregador de terceiros (dolarPy): referência, nunca executável. */
 export type Channel = "digital" | "physical" | "aggregator";
 /** `reference` = cotação de referência (BCP, dolarPy): só comparação, nunca aresta nem ranking. */
@@ -362,6 +362,7 @@ export const CITY_LABEL: Record<Exclude<City, null> | "digital", string> = {
   ASU: "Asunción",
   PJC: "Pedro Juan Caballero",
   FOZ: "Foz do Iguaçu",
+  ENC: "Encarnación",
   digital: "Digital",
 };
 

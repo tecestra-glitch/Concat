@@ -44,7 +44,7 @@ KIND_EVENTS: dict[str, frozenset[str]] = {
     "opportunity_new": frozenset({"opportunity.updated"}),
 }
 BAD_HEALTH: frozenset[str] = frozenset({"blocked", "error"})
-CITIES: frozenset[str] = frozenset({"CDE", "ASU", "PJC", "FOZ"})
+CITIES: frozenset[str] = frozenset({"CDE", "ASU", "PJC", "FOZ", "ENC"})
 MAX_COOLDOWN_S = 30 * 86_400
 
 _PAIR_RE = re.compile(r"^[A-Za-z]{3}/[A-Za-z]{3}$")
@@ -134,14 +134,14 @@ def _normalize_params(kind: str, params: Mapping[str, Any] | None, threshold: De
         p["pair"] = pair.upper()
         city = p.get("city")
         if city is not None and city not in CITIES:
-            raise ValueError("params.city deve ser CDE, ASU, PJC, FOZ ou null")
+            raise ValueError("params.city deve ser CDE, ASU, PJC, FOZ, ENC ou null")
     if kind == "opportunity_new":
         channel = p.get("channel")
         if channel is not None and channel not in ("digital", "physical"):
             raise ValueError("params.channel deve ser digital ou physical")
         city = p.get("city")
         if city is not None and city not in CITIES:
-            raise ValueError("params.city deve ser CDE, ASU, PJC, FOZ ou null")
+            raise ValueError("params.city deve ser CDE, ASU, PJC, FOZ, ENC ou null")
     return p or None
 
 

@@ -73,6 +73,7 @@ CURRENCIES: frozenset[str] = frozenset({"USD", "BRL"})
 
 _TAB_RE = re.compile(r"setActiveBranch\((\d+)\)\"[^>]*>\s*([^<]+?)\s*<")
 _ISO_RE = re.compile(r"^[A-Z]{3}$")
+CROSS_LABEL = "BRL•USD"  # linha do quadro: BRL por 1 USD (cruzamento publicado pela casa)
 
 
 def tls_verify_setting() -> tuple[bool | str, str | None]:
@@ -114,8 +115,8 @@ def _parse_rows(tree: LexborHTMLParser) -> tuple[list[tuple[str, Any, Any]], lis
             continue
         spans = cells[0].css("span")
         iso = spans[-1].text(strip=True) if spans else cells[0].text(strip=True)
-        if not _ISO_RE.match(iso):
-            continue  # cross rates like "BRL•USD" or "USD CH"
+        if not _ISO_RE.match(iso) and iso != CROSS_LABEL:
+            continue  # other cross rates like "EUR•USD" or "USD CH" are not used
         buy_p, sell_p = cells[1].css_first("p"), cells[2].css_first("p")
         buy = positive_or_none(try_parse_decimal(buy_p.text(deep=False), "es_PY")) if buy_p else None
         sell = positive_or_none(try_parse_decimal(sell_p.text(deep=False), "es_PY")) if sell_p else None
@@ -252,6 +253,17 @@ class NorteAdapter:
         quotes: list[QuoteDraft] = []
         seen: set[str] = set()
         for iso, buy, sell in rows:
+            if iso == CROSS_LABEL:
+                if buy is not None and sell is not None:
+                    quotes.append(
+                        QuoteDraft(
+                            source_id=self.info.id, base="USD", quote="BRL", buy=buy, sell=sell,  # type: ignore[arg-type]
+                            unit_note="BRL por 1 USD (cruzado Real•Dólar)", modality="cash", kind="indicative",
+                            channel="physical", city=binfo.city, branch_id=binfo.id,
+                            context={"board": "cruzado", "pair": "USD x BRL"}, declared_updated_at=declared,
+                        )
+                    )
+                continue
             if iso not in CURRENCIES:
                 continue
             seen.add(iso)

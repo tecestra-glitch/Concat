@@ -88,6 +88,7 @@ uv run pytest -q
 | `AUTO_CREATE_SCHEMA` | `true` | `create_all` no boot (dev). Em produção use alembic e `false` |
 | `DATA_MODE` | `real` | `real`, `simulation` ou `demo` (`DataMode` em `config.py`); filtra todas as consultas. `simulation` é o `data_mode` gravado por `POST /v1/simulations/*` |
 | `FX_SEED_DEMO` | `0` | semeia demo se o banco estiver vazio |
+| `PLAN_QUOTE_MAX_AGE_S` | `900` | idade máxima (s) da cotação mais velha de um plano antes de ele expirar, enquanto a execução não começou |
 | `CORS_ORIGINS` | `http://localhost:3000,...` | lista separada por vírgula; só importa quando o navegador fala direto com a API (dev sem chave) |
 | `API_KEY` | vazio | se definido, exige `X-API-Key` (ou `Authorization: Bearer`) em todo `/mcp` e nos endpoints de escrita, inclusive `POST /v1/simulations/*` |
 | `POLL_INTERVAL_S` | `300` | intervalo padrão de coleta (piso efetivo de 60 s por fonte, mesmo com `force`) |
@@ -148,15 +149,19 @@ relativos à pior rota comparável (referência).
 
 ### Grafo de posições (`GET /v1/opportunities/cycles?max_len=4&min_roi=&start=&limit=`)
 
-Nós `<moeda>@<venue>` (venue = id da fonte digital, `fonte:cidade` para casas de câmbio, instituição da conta ou
-`cash:<cidade>`). Arestas: cotações (`buy`/`1/sell`, taxas fixas convertidas para a moeda de saída), depósitos/resgates
-conta↔venue digital, balcão `cash:<cidade>`↔casa de câmbio e saques/depósitos em ATM (custos não validados ⇒
-`incomplete`). Cada aresta carrega `fee_pct`, `fee_fixed`, `minutes`, `confidence`, `evidence_id` e a faixa
-`min_in`/`max_in` derivada do contexto da cotação (arestas fora da faixa são descartadas). Ciclos simples de
-2..`max_len` arestas (`max_len` 2..6, padrão 4; use 6 para ciclos entre contas) são avaliados com o saldo livre
-do nó inicial (`x = x·(1−fee_pct)·rate − fee_fixed`), melhor ROI primeiro; `limit` 1..500 (padrão 200);
-`min_roi` é string decimal. Como no contrato (D1), `Cycle`/`Edge` usam **snake_case e strings decimais**
-(`rate`, `fee_pct`, `fee_fixed`, `amount_in`, `amount_out`, `gain`, `roi`) e trazem `data_mode`.
+Nós `<moeda>@<venue>` (venue = id da fonte digital, `fonte:cidade` para casas de câmbio, instituição da conta,
+`cash:<cidade>` para dinheiro vivo nas seis cidades CDE, ASU, PJC, ENC, FOZ e PPO). Arestas: cotações (`buy`/`1/sell`,
+com `mid_rate` para medir o spread), transferências conta↔lugar digital e conta↔casa (priceadas por
+`data/rails.json`), balcão `cash:<cidade>`↔casa de câmbio, saques ATM (trilho `->cash`) e deslocamento entre cidades
+(`kind: travel`, `data/transport.json`, uma aresta por moeda e sentido). Trilho ou rota sem valor `null` ⇒
+`incomplete`, nunca zero. Cada aresta carrega `fee_pct`, `fee_fixed`, `iof_pct`, `transport_fixed`, `minutes`,
+`confidence`, `evidence_id`, `channel` e a faixa `min_in`/`max_in` do contexto da cotação ou do trilho. Ciclos simples
+de 2..`max_len` arestas (`max_len` 2..6, padrão 4) são avaliados com o saldo livre do nó inicial
+(`x = x·(1−fee_pct−iof_pct)·rate − fee_fixed − transport_fixed`), melhor ROI primeiro; `limit` 1..500 (padrão 200);
+`min_roi` é string decimal. Cada ciclo expõe `legs[]` (custos por perna na moeda de origem), `gain_by_currency`
+(BRL, USD, PYG), `costs` na moeda de partida e `requires_declaration`, calculados por `services.cycles.enrich_cycle`
+com as taxas de valoração BRL (`derive_valuation_rates`). Como no contrato (D1), `Cycle`/`Edge` usam **snake_case e
+strings decimais** e trazem `data_mode`. Ver `docs/arbitragem.md` para o modelo completo.
 
 ## Módulo `watch` (sondagem inteligente)
 
@@ -175,9 +180,23 @@ mudou.
 `/v1/alerts/rules` (CRUD) com `kind`: `cycle_roi` (melhor ciclo do ranking principal ≥ `threshold`; `params.capital`
 opcional), `quote_move` (variação relativa ≥ `threshold` numa `Change`, comparando `pair`/`city` estruturados de
 `Change.after`), `source_down` (fonte passou a blocked/error/needs_session), `opportunity_new` (nova oportunidade no
-ranking principal). Avaliadas após cada coleta, com `cooldown_s`. Canais: `ui` (só grava), `webhook` (POST JSON para
+ranking principal), `cycle_net_gain` (ganho líquido positivo ≥ `threshold` numa moeda de `params.currency`, só para
+ciclos `quoted`/`estimated`). Avaliadas após cada coleta, com `cooldown_s`. Canais: `ui` (só grava), `webhook` (POST JSON para
 qualquer URL — por isso as escritas exigem `API_KEY`), `telegram` (Bot API), `email` (SMTP). Eventos em
 `/v1/alerts/events` e no stream (`alert.fired`); `POST /v1/alerts/test/{id}` envia um teste.
+
+## Módulo `plans` (planos de execução, fase A)
+
+`services/plans.py`, rotas em `api/plans.py`, tabelas `execution_plans` e `execution_steps` (migração `0003`). Um plano
+nasce de um ciclo atual (`POST /v1/plans` com `start` e `path`) e guarda um snapshot: arestas, pernas, custos, cotações
+usadas e `data_mode`. A máquina de estados e os textos estão em `docs/api-contract.md`. **Nenhuma rota executa
+movimentação**: `approve` e `steps/{n}/done` só gravam o que o dono decidiu ou informou. A expiração olha a idade da
+cotação mais velha (`PLAN_QUOTE_MAX_AGE_S`) e só vale antes do primeiro passo. Ao concluir, o resultado (esperado ×
+realizado) vai para `journal_entries` com `kind: "result"`.
+
+Dados versionados do motor: `data/transport.json` (rotas entre cidades) e `data/rails.json` (trilhos de transferência),
+carregados por `services/logistics.py` com pydantic, `lru_cache` e erro com o id da linha. Campos `null` e
+`verified: false` são o estado inicial: a fase B preenche com fonte (`source_url`, `checked_at`). Ver `docs/arbitragem.md`.
 
 ## RAG e memória
 

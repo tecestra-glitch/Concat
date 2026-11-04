@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 
 from .decimal_utils import fmt
 
 DecStr = Annotated[Decimal, PlainSerializer(lambda v: fmt(v), return_type=str, when_used="json-unless-none")]
 
 Currency = Literal["BRL", "USD", "PYG"]
-City = Literal["CDE", "ASU", "PJC", "FOZ"]
+City = Literal["CDE", "ASU", "PJC", "FOZ", "ENC"]
 Channel = Literal["digital", "physical", "aggregator"]
 Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]
 QuoteKind = Literal["market_reference", "indicative", "executable"]
@@ -599,3 +599,72 @@ class MemorySummary(ApiModel):
     """One line per kind (`Preferências`, `Decisões`, `Fatos`, `Resultados`), newest first; `""` when empty."""
 
     summary: str
+
+
+# ---- planos de execução (fase A: sem execução) -----------------------------------------------------
+
+PlanStatus = Literal["proposed", "approved", "in_progress", "done", "rejected", "expired"]
+StepStatus = Literal["pending", "done"]
+
+
+class PlanCreateIn(ApiModel):
+    """Plano a partir de um ciclo: o `start` e o `path` (nós, o último igual ao primeiro) de `/opportunities/cycles`."""
+
+    start: str = Field(min_length=1, max_length=120)
+    path: list[str] = Field(min_length=2, max_length=7)
+
+
+class StepDoneIn(ApiModel):
+    """Passo concluído: valor realizado (string decimal, na moeda de saída do passo) e nota opcional."""
+
+    actual_out: str = Field(min_length=1, max_length=40)
+    note: str | None = Field(default=None, max_length=500)
+
+    @field_validator("actual_out")
+    @classmethod
+    def _decimal(cls, value: str) -> str:
+        try:
+            out = Decimal(value)
+        except (InvalidOperation, ValueError):
+            raise ValueError("actual_out deve ser uma string decimal") from None
+        if not out.is_finite() or out < 0:
+            raise ValueError("actual_out deve ser finito e não negativo")
+        return value
+
+
+class PlanStepOut(ApiModel):
+    n: int
+    kind: LegKind
+    channel: ChannelKind
+    text: str
+    from_: str = Field(alias="from", serialization_alias="from")
+    to: str
+    amount_in: DecStr
+    amount_out_expected: DecStr
+    minutes: int
+    status: StepStatus
+    actual_out: DecStr | None = None
+    note: str | None = None
+    done_at: datetime | None = None
+
+
+class PlanOut(ApiModel):
+    id: str
+    status: PlanStatus
+    start: str
+    path: list[str]
+    currency: Currency
+    amount_in: DecStr
+    amount_out_expected: DecStr
+    gain_expected: DecStr
+    gain_by_currency: dict[Currency, DecStr | None] | None = None
+    confidence: Confidence
+    minutes: int
+    requires_declaration: bool = False
+    quotes_as_of: datetime
+    quote_max_age_s: int
+    created_at: datetime
+    decided_at: datetime | None = None
+    completed_at: datetime | None = None
+    data_mode: DataMode
+    steps: list[PlanStepOut] = []
