@@ -59,7 +59,7 @@ def redact_text(text: str) -> str:
     return text
 
 
-def _register_secret(secret: str | None) -> None:
+def register_secret(secret: str | None) -> None:
     if secret:
         _registered_secrets.add(secret)
 
@@ -117,7 +117,7 @@ class TelegramChannel:
         timeout: float = 10.0,
     ) -> None:
         self._token = (bot_token or "").strip() or None
-        _register_secret(self._token)
+        register_secret(self._token)
         self._api_base = api_base.rstrip("/")
         self._client = client or httpx.Client(timeout=timeout)
 
@@ -198,7 +198,7 @@ class WebhookChannel:
         clock: Callable[[], float] = time.time,
     ) -> None:
         self._secret = (secret or "").strip() or None
-        _register_secret(self._secret)
+        register_secret(self._secret)
         self._client = client or httpx.Client(timeout=timeout)
         self._clock = clock
 
@@ -249,7 +249,7 @@ class EmailChannel:
         self._connect: _SmtpConnect = connect or _smtp_connect
         self._timeout = timeout
         if self._url is not None:
-            _register_secret(unquote(urlsplit(self._url).password or ""))
+            register_secret(unquote(urlsplit(self._url).password or ""))
 
     def __repr__(self) -> str:
         return f"EmailChannel(configured={self._url is not None and self._sender is not None})"

@@ -76,6 +76,9 @@ async def run_loop(settings: Settings | None = None, *, iterations: int | None =
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # o httpx registra a URL inteira em INFO: chaves de API vão na query string, então o log de rotina fica em WARNING
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)
     asyncio.run(run_loop())
 
 

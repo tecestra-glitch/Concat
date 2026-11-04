@@ -24,6 +24,7 @@ from ..config import Settings
 from ..crypto.guard import RegionalBlocked, RegionalGate
 from ..db import session_scope
 from ..models import MarketCandle, MarketQuote
+from ..notify.channels import register_secret
 from ..services import events as events_svc
 from ..watch.fetcher import DEFAULT_TIMEOUT_S, conditional_get, default_headers
 from ..watch.scheduler import Scheduler, SchedulerConfig
@@ -109,8 +110,12 @@ class MarketPoller:
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(tz=UTC))
         self._fred_key = settings.fred_api_key.get_secret_value() if settings.fred_api_key else None
+        self._oxr_key = settings.oxr_app_id.get_secret_value() if settings.oxr_app_id else None
+        # chaves só em query string: o log do httpx mostra a URL inteira, então entram na lista de mascaramento
+        register_secret(self._fred_key)
+        register_secret(self._oxr_key)
         self.scheduler = build_scheduler(
-            self.clock, oxr_enabled=bool(settings.oxr_app_id), fred_enabled=bool(self._fred_key)
+            self.clock, oxr_enabled=bool(self._oxr_key), fred_enabled=bool(self._fred_key)
         )
         self._fred_limiter = SlidingWindowLimiter(macro.FRED_MAX_PER_MINUTE)
         self._client = client
@@ -316,7 +321,7 @@ class MarketPoller:
 
     async def _poll_oxr(self, now: datetime) -> bool:
         """Open Exchange Rates (base USD). A chave vai só na query da requisição e nunca em mensagem de erro."""
-        key = self.settings.oxr_app_id
+        key = self._oxr_key
         if not key:
             raise RuntimeError("Open Exchange Rates sem OXR_APP_ID")
         ceiling = ref.effective_ceiling(ref.OXR_SOURCE, self.settings.oxr_monthly_cap)
