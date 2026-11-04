@@ -56,11 +56,24 @@ def resolve_cursor(
 CursorDep = Annotated[int, Depends(resolve_cursor)]
 
 
+def refuse_on_serverless(settings: SettingsDep) -> None:
+    """Na Vercel (4 h de CPU por mês) não há laço de stream: o cliente cai no polling de /v1/snapshot."""
+    if settings.serverless:
+        raise HTTPException(
+            status_code=404,
+            detail="stream desligado nesta instância (Vercel); use GET /v1/snapshot com polling",
+        )
+
+
 @router.get(
     "/stream",
     response_class=EventSourceResponse,
     operation_id="stream_events",
-    responses={410: {"description": "cursor expirado: refazer snapshot"}},
+    dependencies=[Depends(refuse_on_serverless)],
+    responses={
+        404: {"description": "stream desligado na instância serverless: usar polling de /v1/snapshot"},
+        410: {"description": "cursor expirado: refazer snapshot"},
+    },
 )
 async def stream_events(request: Request, settings: SettingsDep, cursor: CursorDep) -> AsyncIterable[ServerSentEvent]:
     factory = request.app.state.session_factory

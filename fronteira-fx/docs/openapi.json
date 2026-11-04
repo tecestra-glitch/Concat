@@ -3455,6 +3455,9 @@
               }
             }
           },
+          "404": {
+            "description": "stream desligado na instância serverless: usar polling de /v1/snapshot"
+          },
           "410": {
             "description": "cursor expirado: refazer snapshot"
           },

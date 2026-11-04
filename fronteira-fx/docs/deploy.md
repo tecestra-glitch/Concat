@@ -218,10 +218,10 @@ conhecer a API.
 Prévia sem login: `pnpm exec vercel deploy --temporary --yes` publica uma prévia anônima que expira em
 60 minutos e devolve uma `claimUrl`; abri-la logado transfere o deployment para a sua conta.
 
-Stream em tempo real: `/v1/stream` (SSE) é servido pelo backend e repassado pelo proxy. O servidor
-limita cada conexão (`STREAM_MAX_DURATION_S`, padrão 55 s) e o cliente reconecta por cursor
-(`Last-Event-ID`), com fallback de snapshot; confira que o limite de duração de funções do seu plano
-Vercel é maior que esse valor. Cursor expirado (HTTP 410) força novo snapshot.
+Stream em tempo real: `/v1/stream` (SSE) é servido pelo backend e repassado pelo proxy, em processo
+persistente. O servidor limita cada conexão (`STREAM_MAX_DURATION_S`, padrão 55 s) e o cliente reconecta por
+cursor (`Last-Event-ID`), com fallback de snapshot. Cursor expirado (HTTP 410) força novo snapshot. Na função
+serverless o stream está desligado (404, ver abaixo).
 
 ## Modo grátis: API na Vercel e coleta disparada pelo Supabase
 
@@ -243,10 +243,11 @@ Como fica a divisão:
 **mini navegador** (subseção abaixo). Sem ele, aparecem em `skipped` com o motivo "requer navegador". As
 demais fontes são HTML ou API oficial e rodam normalmente.
 
-**Como o SSE muda.** Em função, cada conexão de `/v1/stream` dura no máximo 4 s (`STREAM_MAX_DURATION_S=4`)
-e o `retry:` do servidor manda o navegador reconectar só depois de 30 s (`STREAM_RETRY_MS=30000`). Na
-prática o SSE vira uma consulta a cada ~30 s: barato em função, mas uma mudança de cotação chega à tela com
-até uns 35 s de atraso. Quem usa o app com a aba aberta gera uma invocação a cada ~30 s; ver os números abaixo.
+**Como o SSE muda.** Em função (`FX_SERVERLESS=1`), `/v1/stream` responde 404: não há laço de stream na
+Vercel (o orçamento de 4 h de CPU por mês não cabe nele). O front cai no snapshot com polling
+(`pollFallbackSeconds`, padrão 30 s). Cada aba aberta gera uma invocação de `/v1/snapshot` a cada intervalo
+escolhido, então o intervalo de polling é a alavanca de custo: use 60 s ou mais na Vercel. Os números abaixo
+supõem esse intervalo.
 
 ### Variáveis da função (Vercel → Settings → Environment Variables)
 
@@ -262,8 +263,8 @@ Sem o prefixo `NEXT_PUBLIC_`. Marque `DATABASE_URL`, `API_KEY` e `CRON_SECRET` c
 | `API_KEY` | `<API_KEY>` (`openssl rand -hex 32`) | protege `/mcp` e as rotas de escrita |
 | `CRON_SECRET` | `<CRON_SECRET>` (`openssl rand -hex 32`) | o Bearer que o Supabase manda; vazio = a rota responde 404 |
 | `CORS_ORIGINS` | `https://<frontend>.vercel.app` | origem do frontend; o proxy server-side já cobre o uso normal |
-| `STREAM_MAX_DURATION_S` | `4` | cada conexão SSE dura 4 s; ver acima |
-| `STREAM_RETRY_MS` | `30000` | o `retry:` do SSE: o cliente reconecta a cada 30 s |
+| `STREAM_MAX_DURATION_S` | `4` | sem efeito na função: `/v1/stream` responde 404 com `FX_SERVERLESS=1` |
+| `STREAM_RETRY_MS` | `30000` | sem efeito na função (mesmo motivo); fora da Vercel o `retry:` do SSE vale |
 | `COLLECT_BUDGET_S` | `45` (padrão) | nenhuma fonte nova começa depois de 45 s; a função tem 60 s |
 | `EVIDENCE_DIR` | `/tmp/evidence` (recomendado) | o disco da função é somente leitura, exceto `/tmp`; as capturas brutas são efêmeras e os dados ficam no banco |
 
