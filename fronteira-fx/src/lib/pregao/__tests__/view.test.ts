@@ -39,6 +39,7 @@ const src = (id: string, name: string, kind: Source["kind"] = "exchange_house"):
   name,
   kind,
   method: "html",
+  integration: "html",
   url: "",
   health: "ok",
   last_success_at: null,

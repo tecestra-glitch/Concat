@@ -87,6 +87,9 @@ export const StreamEventSchema = z.object({
 
 export const SourceHealthStateSchema = z.enum(["ok", "degraded", "blocked", "stale", "unknown"]);
 
+/** Como a fonte é alcançada (`integration` em GET /v1/sources): selo na tela de Fontes. */
+export const SourceIntegrationSchema = z.enum(["api_oficial", "endpoint_interno", "html", "navegador"]);
+
 /**
  * Payload of `source.health` (Q-02): a partial update keyed by `source_id`, never a full `Source`.
  * Emitted by services/collector.py (with `next_poll_at`) and services/demo.py (without it).
