@@ -9,7 +9,7 @@ from functools import lru_cache
 from typing import Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 log = logging.getLogger("fronteira_fx.config")
@@ -117,6 +117,10 @@ class Settings(BaseSettings):
     fx_reference_deviation_alert_pct: Decimal = Field(
         default=Decimal("1.0"), gt=0, validation_alias=AliasChoices("FX_REFERENCE_DEVIATION_ALERT_PCT")
     )
+    # Macro (módulo market). Só variáveis de ambiente, tipo SecretStr (não aparece em repr). Sem FRED_API_KEY a
+    # fonte FRED fica desligada. BRAPI_TOKEN só serve a testes e validação manual da B3 (nunca ao agendador).
+    fred_api_key: SecretStr | None = Field(default=None, validation_alias=AliasChoices("FRED_API_KEY"))
+    brapi_token: SecretStr | None = Field(default=None, validation_alias=AliasChoices("BRAPI_TOKEN"))
 
     # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
     # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -25,10 +26,11 @@ from ..models import MarketCandle, MarketQuote
 from ..services import events as events_svc
 from ..watch.fetcher import DEFAULT_TIMEOUT_S, conditional_get, default_headers
 from ..watch.scheduler import Scheduler, SchedulerConfig
+from . import macro, vol
 from . import news as news_mod
 from . import quotes as q
 from . import reference as ref
-from . import vol
+from .throttle import BlockedError, SlidingWindowLimiter
 
 log = logging.getLogger("fronteira_fx.market")
 
@@ -43,10 +45,6 @@ BINANCE_LIMIT_5M = 300  # 288 velas fechadas + a aberta (descartada pelo parser)
 BINANCE_LIMIT_1D = 21  # 20 fechadas + a aberta
 
 
-class BlockedError(RuntimeError):
-    """Provedor recusou (418/429 ou WAF): o agendador recua mais que num erro comum."""
-
-
 @dataclass(frozen=True, slots=True)
 class PollResult:
     source_id: str
@@ -55,10 +53,12 @@ class PollResult:
     error: str | None = None
 
 
-def build_scheduler(clock: Callable[[], datetime] | None = None, *, oxr_enabled: bool = False) -> Scheduler:
+def build_scheduler(clock: Callable[[], datetime] | None = None, *, oxr_enabled: bool = False,
+                    fred_enabled: bool = False) -> Scheduler:
     """Piso 60 s; mercado de cripto e de câmbio não têm horário comercial, então sem fator fora do expediente.
 
     Open Exchange Rates entra só com chave (`OXR_APP_ID`), de hora em hora (teto de 1.000 por mês no contador).
+    A fonte FRED só entra com `fred_enabled` (há `FRED_API_KEY`). brapi e yfinance nunca entram aqui.
     """
     config = SchedulerConfig(
         min_interval_s=60,
@@ -76,6 +76,8 @@ def build_scheduler(clock: Callable[[], datetime] | None = None, *, oxr_enabled:
     scheduler.add_source("binance-candles", 300)
     if oxr_enabled:
         scheduler.add_source(ref.OXR_SOURCE, ref.OXR_POLL_INTERVAL_S, max_interval_s=ref.OXR_POLL_INTERVAL_S)
+    if fred_enabled:
+        scheduler.add_source(macro.FRED_SOURCE, macro.FRED_POLL_INTERVAL_S, max_interval_s=21600)
     return scheduler
 
 
@@ -91,7 +93,10 @@ class MarketPoller:
         self.factory = session_factory
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(tz=UTC))
-        self.scheduler = build_scheduler(self.clock, oxr_enabled=bool(settings.oxr_app_id))
+        self._fred_key = settings.fred_api_key.get_secret_value() if settings.fred_api_key else None
+        self._fred_limiter = SlidingWindowLimiter(macro.FRED_MAX_PER_MINUTE)
+        self.scheduler = build_scheduler(self.clock, oxr_enabled=bool(settings.oxr_app_id),
+                                         fred_enabled=bool(self._fred_key))
         self._client = client
         self._owns_client = client is None
         self._validators: dict[str, tuple[str | None, str | None]] = {}
@@ -141,6 +146,8 @@ class MarketPoller:
             return await self._poll_feed(feed, now)
         if source_id == FX_SOURCE:
             return await self._poll_frankfurter(now)
+        if source_id == macro.FRED_SOURCE:
+            return await self._poll_fred(now)
         if source_id == BCB_SOURCE:
             return await self._poll_bcb(now)
         if source_id == "binance-ticker":
@@ -213,10 +220,12 @@ class MarketPoller:
             return changed
 
     async def _poll_bcb(self, now: datetime) -> bool:
+        today = now.astimezone(q.BRT).date()
         drafts: list[q.QuoteDraft] = []
-        start, end = q.bcb_window(now)
         for code, instrument, label in q.BCB_SERIES:
-            data = await self._get_json(q.BCB_SGS_URL.format(code=code, start=start, end=end))
+            start = today - timedelta(days=q.SGS_LOOKBACK_DAYS[code])
+            url, params = q.sgs_request(code, start, today)  # datas obrigatórias, janela ≤ 10 anos
+            data = await self._get_json(url, params)
             drafts.append(q.parse_bcb_series(data, instrument, label))
         with session_scope(self.factory) as session:
             changed = self._upsert_quotes(session, drafts, now)
@@ -275,6 +284,20 @@ class MarketPoller:
             added = ref.upsert_reference_quotes(session, quotes, data_mode=self.settings.data_mode)
             self._check_reference_deviations(session, now)
         return added > 0
+
+    async def _poll_fred(self, now: datetime) -> bool:
+        if not self._fred_key:  # sem chave a fonte fica desligada: nada é consultado
+            return False
+        data = await macro.fred_observations(
+            self.http(),
+            self._fred_key,
+            today=now.astimezone(q.BRT).date(),
+            limiter=self._fred_limiter,
+            clock=time.monotonic,
+        )
+        draft = macro.parse_fred_observations(data)
+        with session_scope(self.factory) as session:
+            return self._upsert_quotes(session, [draft], now)
 
     # ----------------------------------------------------------------- cripto
     async def _poll_binance_ticker(self, now: datetime) -> bool:
