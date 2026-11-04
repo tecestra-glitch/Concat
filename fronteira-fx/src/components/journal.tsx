@@ -16,7 +16,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MODE_LABEL, MODE_TONE } from "@/components/ui/labels";
 
-const KIND: Record<JournalEntry["kind"], { label: string; v: "default" | "accent" | "gain" }> = { note: { label: "Nota", v: "default" }, operation: { label: "Operação", v: "accent" }, reconciliation: { label: "Reconciliação", v: "gain" } };
+const KIND: Record<JournalEntry["kind"], { label: string; v: "default" | "accent" | "gain" }> = { note: { label: "Nota", v: "default" }, operation: { label: "Operação", v: "accent" }, reconciliation: { label: "Reconciliação", v: "gain" }, result: { label: "Resultado de plano", v: "accent" } };
 
 export function Journal() {
   const { mode } = useSettings();

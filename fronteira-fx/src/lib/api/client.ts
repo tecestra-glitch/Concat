@@ -30,6 +30,8 @@ import type {
   Mode,
   Opportunity,
   OpportunityFilters,
+  Plan,
+  PlanCreate,
   Quote,
   QuoteFilters,
   QuoteRequest,
@@ -38,14 +40,17 @@ import type {
   SimulationResponse,
   Snapshot,
   Source,
+  StepDone,
   Volatility,
 } from "./types";
 import type { AlertRule, AlertRuleInput } from "./watch";
 import { InstitutionSchema, type Institution } from "./institutions";
 import type { BackendStatus } from "./backend-status";
+import { ApiError } from "./errors";
 import { DEMO_SERVER_TIME, allDemoQuotes, demoAccounts, demoBranches, demoEvidence, demoHistory, demoJournal, demoOpportunities, demoSources } from "./demo-data";
 import { demoEdges, demoParkedBalances } from "./demo-graph";
 import { demoDeleteRule, demoUpdateRule } from "./demo-watch";
+import { approveDemoPlan, completeDemoStep, createDemoPlan, getDemoPlan, listDemoPlans, rejectDemoPlan, resetDemoPlans } from "./demo-plans";
 import { dec, findCycles } from "../graph";
 import { toNumber } from "../format";
 import { computeVolatility } from "../volatility";
@@ -86,15 +91,7 @@ export function modeConflict(mode: Mode, backendMode: Mode | null | undefined): 
   return mode !== "demo" && !!backendMode && backendMode !== mode;
 }
 
-export class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+export { ApiError } from "./errors";
 
 async function errorDetail(res: Response): Promise<string> {
   const text = await res.text().catch(() => "");
@@ -206,6 +203,7 @@ export function resetDemoClient(): void {
   demoAccountStore = null;
   demoJournalStore = null;
   localCounter = 0;
+  resetDemoPlans();
 }
 
 function demoVolatility(key: string, window: Volatility["window"]): Volatility {
@@ -316,6 +314,52 @@ export const api = {
   async institutions(mode: Mode): Promise<Institution[]> {
     if (mode === "demo") return [];
     return InstitutionSchema.array().parse(await http<unknown>("/v1/institutions"));
+  },
+  /** GET /v1/plans?limit= — planos deste modo, do mais recente. Nada aqui executa operação financeira. */
+  async plans(mode: Mode, limit = 50): Promise<Plan[]> {
+    if (mode !== "demo") return http<Plan[]>(`/v1/plans${qs({ limit, ...modeQuery(mode) })}`);
+    return listDemoPlans(Date.now()).slice(0, limit);
+  },
+  async plan(mode: Mode, id: string): Promise<Plan> {
+    if (mode !== "demo") return http<Plan>(`/v1/plans/${encodeURIComponent(id)}${qs(modeQuery(mode))}`);
+    return getDemoPlan(id, Date.now());
+  },
+  /** POST /v1/plans [chave]: só um caminho que é ciclo atual (`404` caso contrário). Não executa nada. */
+  async createPlan(mode: Mode, body: PlanCreate): Promise<Plan> {
+    if (mode !== "demo") return http<Plan>(`/v1/plans${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify(body) });
+    // mesmos limites do backend: até 21 nós (6 pernas com balcões) e a busca de até 6 pernas, sem corte
+    if (body.path.length > 21) throw new ApiError(422, "path: no máximo 21 nós");
+    const cycles = await api.cycles("demo", { maxLen: 6 });
+    const cycle = cycles.find((c) => c.start === body.start && c.path.length === body.path.length && c.path.every((n, i) => n === body.path[i]));
+    if (!cycle) throw new ApiError(404, "este ciclo não existe mais com as cotações e saldos atuais (demonstração)");
+    return createDemoPlan(cycle, Date.now());
+  },
+  async approvePlan(mode: Mode, id: string): Promise<Plan> {
+    if (mode !== "demo") return http<Plan>(`/v1/plans/${encodeURIComponent(id)}/approve${qs(modeQuery(mode))}`, { method: "POST" });
+    return approveDemoPlan(id, Date.now());
+  },
+  async rejectPlan(mode: Mode, id: string): Promise<Plan> {
+    if (mode !== "demo") return http<Plan>(`/v1/plans/${encodeURIComponent(id)}/reject${qs(modeQuery(mode))}`, { method: "POST" });
+    return rejectDemoPlan(id, Date.now());
+  },
+  /** POST /v1/plans/{id}/steps/{n}/done [chave]: passos em ordem; o último grava o resultado no diário. */
+  async completePlanStep(mode: Mode, id: string, n: number, body: StepDone): Promise<Plan> {
+    if (mode !== "demo") return http<Plan>(`/v1/plans/${encodeURIComponent(id)}/steps/${n}/done${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify(body) });
+    const { plan, journal } = completeDemoStep(id, n, body, Date.now());
+    if (journal) {
+      demoJournalList().unshift({
+        id: localId(),
+        ts: nowIso(),
+        kind: "result",
+        text: journal.text,
+        amounts: [
+          { label: "esperado", amount: journal.expected, currency: journal.currency },
+          { label: "realizado", amount: journal.realized, currency: journal.currency },
+        ],
+        account_ids: [],
+      });
+    }
+    return plan;
   },
   async accounts(mode: Mode): Promise<Account[]> {
     if (mode !== "demo") return http<Account[]>(`/v1/accounts${qs(modeQuery(mode))}`);

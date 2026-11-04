@@ -34,7 +34,7 @@ Cada perna mostra quatro custos, sempre na moeda em que a perna começou:
 
 - **spread**: a diferença entre a taxa que você recebe e a taxa de referência (o meio do mercado).
 - **fees**: tarifas, fixas ou percentuais.
-- **iof**: IOF de conversão, quando um banco brasileiro converte BRL para moeda estrangeira.
+- **iof**: IOF de conversão quando BRL é convertido fora do Paraguai (banco brasileiro, fintech, Western Union). Sem alíquota conhecida, o IOF fica desconhecido, nunca zero.
 - **transport**: custo do deslocamento entre cidades.
 
 Os trilhos (`data/rails.json`) dizem quanto custa cada transferência. As rotas entre cidades (`data/transport.json`)
@@ -43,7 +43,7 @@ não verificados, até a fase B preencher com fonte.
 
 ## Custo desconhecido nunca vira zero
 
-Se faltar um valor (trilho sem tarifa, rota sem custo, taxa de conversão que não existe), a aresta fica `incomplete`
+Se faltar um valor (trilho sem tarifa, rota sem custo, IOF sem alíquota, taxa de conversão que não existe), a aresta fica `incomplete`
 e o ciclo inteiro também. Um ciclo `incomplete` **não** é "lucro confirmado" e **não** dispara alerta de ganho.
 
 ## Ganho em cada moeda

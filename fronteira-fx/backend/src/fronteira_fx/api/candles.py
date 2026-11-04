@@ -12,6 +12,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 
+from fronteira_fx.adapters.registry import discontinued_ids
 from fronteira_fx.api.deps import DataModeDep, DbDep
 from fronteira_fx.models import Source
 from fronteira_fx.schemas_candles import CandleSeries, HouseSession, SessionStats, Timeframe
@@ -49,6 +50,12 @@ def _bounded_utc(value: datetime, name: str) -> datetime:
 
 
 REFERENCE_CAPABILITIES = frozenset({"reference_only", "market_reference"})
+
+
+def _house_discontinued(hours: dict, source_id: str) -> bool:
+    """Casa marcada como descontinuada em `market_hours.json` (ueno, desde 03/11/2026)."""
+    house = hours.get(strip_demo_prefix(source_id))
+    return bool(house is not None and house.discontinued)
 
 
 def _is_reference_source(source: Source) -> bool:
@@ -125,6 +132,8 @@ def get_pregao_sessions(session: DbDep, mode: DataModeDep) -> list[HouseSession]
         return demo_house_sessions(now)
     sources = session.scalars(select(Source).where(Source.data_mode == mode).order_by(Source.id)).all()
     hours = load_market_hours()
-    table = {s.id: hours.get(strip_demo_prefix(s.id)) for s in sources}
+    gone = discontinued_ids()  # fora do monitor: descontinuadas (ueno) não aparecem como "aberta"
+    live = [s for s in sources if s.id not in gone and not _house_discontinued(hours, s.id)]
+    table = {s.id: hours.get(strip_demo_prefix(s.id)) for s in live}
     reference_ids = {s.id for s in sources if _is_reference_source(s)}
     return _with_source_names(house_sessions(now, table, mode, reference_ids), sources)

@@ -48,7 +48,8 @@ def cycle_dict() -> dict:
     return {
         "start": "PYG@cash:CDE",
         "path": ["PYG@cash:CDE", "PYG@chaco:CDE", "USD@chaco:CDE", "USD@cash:CDE"],
-        "edges": [],
+        "edges": [{"evidence_id": None, "quoted_at": NOW.isoformat(), "via": "chaco cash @CDE (venda 7300)",
+                   "rate": "0.00013"}],
         "legs": legs,
         "amount_in": "7300000",
         "amount_out": "7400000",
@@ -67,10 +68,52 @@ def test_steps_are_written_in_portuguese_and_name_the_place():
     steps = plans_svc.build_steps(cycle_dict())
     texts = [s["text"] for s in steps]
     assert texts[0] == "Leve o dinheiro de FOZ para CDE (≈ 40 min)"
-    assert texts[1] == "Compre 1.000 USD na Cambios Chaco (CDE) a 7.300 PYG"
+    assert texts[1] == "Compre 1.000 USD na Cambios Chaco (CDE) pagando 7.300.000 PYG (cotação: 1 USD = 7.300 PYG)"
     assert texts[2] == "Retire 1.000 USD de Cambios Chaco (CDE)"
     assert [s["n"] for s in steps] == [1, 2, 3]
     assert steps[0]["status"] == "pending" and steps[0]["channel"] == "presencial"
+
+
+def test_price_is_written_in_the_house_convention_and_never_rounds_to_zero():
+    # comprar PYG com BRL: o preço é 1 BRL = 1.300 PYG (antes saía "a 0,00 BRL")
+    buy_pyg = plans_svc.leg_text(
+        leg(**{"from": "BRL@chaco:CDE", "to": "PYG@chaco:CDE", "amount_in": "1000", "amount_out": "1300000"})
+    )
+    assert "a 0,00" not in buy_pyg and "(cotação: 1 BRL = 1.300 PYG)" in buy_pyg
+    # vender USD por BRL: o preço é 1 USD = 5,40 BRL (antes saía "a 0,19 USD", que dá a entender 5,26)
+    sell_usd = plans_svc.leg_text(
+        leg(**{"from": "USD@chaco:CDE", "to": "BRL@chaco:CDE", "amount_in": "1000", "amount_out": "5400"})
+    )
+    assert sell_usd == "Compre 5.400 BRL na Cambios Chaco (CDE) pagando 1.000 USD (cotação: 1 USD = 5,40 BRL)"
+
+
+def test_converting_transfer_says_what_leaves_and_what_arrives():
+    text = plans_svc.leg_text(
+        leg(
+            kind="transfer",
+            channel="assistida",
+            **{"from": "BRL@brbank", "to": "USD@nomad"},
+            via="conversão brbank→nomad",
+            minutes=60,
+            amount_in="5000",
+            amount_out="920",
+        )
+    )
+    assert text == "Envie 5.000 BRL de banco brasileiro e receba ≈ 920 USD em Nomad (≈ 60 min)"
+
+
+def test_same_currency_transfer_keeps_the_simple_wording():
+    text = plans_svc.leg_text(
+        leg(kind="transfer", channel="assistida", **{"from": "USD@nomad", "to": "USD@revolut"}, minutes=60,
+            amount_in="1000", amount_out="1000")
+    )
+    assert text == "Transfira 1.000 USD de Nomad para Revolut (≈ 60 min)"
+
+
+def test_bank_ids_have_readable_names():
+    assert plans_svc.place_name("nubank") == "Nubank"
+    assert plans_svc.place_name("banco_py") == "banco paraguaio"
+    assert plans_svc.place_name("itau") == "Itaú"
 
 
 def test_money_in_steps_is_a_decimal_string_pt_br_without_float_noise():
@@ -88,6 +131,23 @@ def test_create_plan_snapshots_the_cycle_and_starts_proposed(db):
     assert plan.snapshot["legs"][1]["from"] == "PYG@chaco:CDE"
     assert plan.quotes_as_of == NOW  # sem evidência de cotação: a idade parte do momento do plano
     assert len(plan.steps) == 3 and all(s.status == "pending" for s in plan.steps)
+
+
+def test_create_plan_refuses_a_cycle_that_loses_money(db):
+    losing = {**cycle_dict(), "gain": "-4.26", "amount_out": "6.74", "gain_by_currency": {"BRL": "-1", "USD": "-1", "PYG": "-1"}}
+    with pytest.raises(PlanError) as exc:
+        plans_svc.create_plan(
+            db, cycles=[losing], start="PYG@cash:CDE", path=cycle_dict()["path"], data_mode="real", now=NOW, max_age_s=900
+        )
+    assert exc.value.status == 422
+    assert db.scalar(select(ExecutionPlan.id).limit(1)) is None
+
+
+def test_create_plan_refuses_a_cycle_without_positive_gain(db):
+    zero = {**cycle_dict(), "gain": "0"}
+    with pytest.raises(PlanError) as exc:
+        plans_svc.create_plan(db, cycles=[zero], start="PYG@cash:CDE", path=cycle_dict()["path"], data_mode="real", now=NOW, max_age_s=900)
+    assert exc.value.status == 422
 
 
 def test_create_plan_refuses_a_cycle_that_is_not_there(db):
@@ -177,3 +237,27 @@ def test_done_step_keeps_the_realized_amount_and_note(db):
     step = plan.steps[0]
     assert step.status == "done" and step.actual_out == D("40") and step.note == "trânsito rápido"
     assert step.done_at == NOW
+
+
+# --- SC-1: a validade do plano sai da cotação mais velha, com ou sem evidência ----------------------------------------
+
+
+def test_expiry_uses_the_oldest_quote_date_even_without_evidence(db):
+    c = cycle_dict()
+    c["edges"] = [
+        {"evidence_id": None, "via": "casa", "rate": "0.00013", "quoted_at": "2026-11-01T12:00:00+00:00"},
+        {"evidence_id": None, "via": "outra", "rate": "1", "quoted_at": "2026-11-04T11:59:00+00:00"},
+    ]
+    plan = plans_svc.create_plan(
+        db, cycles=[c], start=c["start"], path=c["path"], data_mode="real", now=NOW, max_age_s=900
+    )
+    assert plan.quotes_as_of == datetime(2026, 11, 1, 12, tzinfo=UTC)  # não "agora"
+    assert plans_svc.refresh_status(plan, now=NOW) == "expired"
+
+
+def test_a_cycle_with_no_quote_date_is_refused_instead_of_using_now(db):
+    c = cycle_dict()
+    c["edges"] = []  # nenhuma aresta datada: não há como provar que a cotação é recente
+    with pytest.raises(PlanError) as err:
+        plans_svc.create_plan(db, cycles=[c], start=c["start"], path=c["path"], data_mode="real", now=NOW, max_age_s=900)
+    assert err.value.status == 422

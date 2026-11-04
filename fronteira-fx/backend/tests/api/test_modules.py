@@ -93,11 +93,18 @@ def test_cycles_from_parked_balances(client, db):
         "rate",
         "fee_pct",
         "fee_fixed",
+        "iof_pct",
+        "transport_fixed",
         "minutes",
         "via",
         "confidence",
         "evidence_id",
+        "quoted_at",
         "channel",
+        "border",
+        "counter",
+        "ref_rate",
+        "unknown_costs",
     }
     assert isinstance(e0["rate"], str) and isinstance(e0["fee_pct"], str) and isinstance(e0["fee_fixed"], str)
     assert e0["from"] == c0["path"][0] and c0["edges"][-1]["to"] == c0["start"]

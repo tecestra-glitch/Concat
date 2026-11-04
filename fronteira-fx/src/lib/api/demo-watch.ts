@@ -56,7 +56,6 @@ const WATCH_OVERRIDES: Record<string, WatchOverride> = {
   norte: { status: "degraded", enabled: true, interval: 600, min: 60, max: 900, lastRunAgo: 420, lastChangeAgo: 3600, changes24h: 1, errors: 2 },
   bonanza: { status: "ok", enabled: true, interval: 300, min: 120, max: 1800, lastRunAgo: 200, lastChangeAgo: 2700, changes24h: 3, errors: 0 },
   bcp: { status: "stale", enabled: true, interval: 3600, min: 900, max: 7200, lastRunAgo: 900, lastChangeAgo: 79200, changes24h: 1, errors: 0 },
-  ueno: { status: "ok", enabled: true, interval: 240, min: 60, max: 900, lastRunAgo: 60, lastChangeAgo: 900, changes24h: 4, errors: 0 },
   westernunion: { status: "needs_session", enabled: true, interval: 900, min: 300, max: 3600, lastRunAgo: 500, lastChangeAgo: 5400, changes24h: 1, errors: 3 },
   nomad: { status: "ok", enabled: true, interval: 300, min: 60, max: 900, lastRunAgo: 230, lastChangeAgo: 4200, changes24h: 2, errors: 0 },
   revolut: { status: "blocked", enabled: false, interval: 900, min: 300, max: 3600, lastRunAgo: 7200, lastChangeAgo: null, changes24h: 0, errors: 6 },
@@ -81,7 +80,6 @@ const PRICE_SPECS: Record<string, PriceSpec> = {
   norte: { pair: "USD/PYG", city: "ASU", side: "venda", value: 7365, step: 5, decimals: 0 },
   bonanza: { pair: "BRL/PYG", city: "ASU", side: "compra", value: 1345, step: 2, decimals: 0 },
   bcp: { pair: "USD/PYG", city: null, side: "referência", value: 7318.14, step: 3.2, decimals: 2 },
-  ueno: { pair: "USD/PYG", city: null, side: "venda", value: 7330, step: 10, decimals: 0 },
   westernunion: { pair: "BRL/PYG", city: null, side: "venda", value: 1360.8, step: 1.5, decimals: 1 },
   nomad: { pair: "USD/BRL", city: null, side: "venda", value: 5.4187, step: 0.0042, decimals: 4 },
   revolut: { pair: "USD/BRL", city: null, side: "venda", value: 5.41, step: 0.01, decimals: 2 },
@@ -326,12 +324,12 @@ interface EventSpec {
 
 const EVENT_SPECS: EventSpec[] = [
   { rule: "demo-rule-2", ago: 480, message: "USD/PYG CDE (Cambios Chaco) venda 7.350 → 7.360 (+0,14 %) — abaixo do limite acumulado 0,5 % em 1 h: 0,54 %", channel: "ui", delivered: true, error: null, payload: { pair: "USD/PYG", city: "CDE", move: "0.0054" } },
-  { rule: "demo-rule-1", ago: 1900, message: "Ciclo BRL@itau → ueno PYG → USD → BRL: ROI 0,23 % sobre R$ 5.000 (ganho líquido R$ 11,50)", channel: "telegram", delivered: true, error: null, payload: { roi: "0.0023", capital_brl: "5000" } },
+  { rule: "demo-rule-1", ago: 1900, message: "Ciclo BRL@itau → Banco PY PYG → USD → BRL: ROI 0,23 % sobre R$ 5.000 (ganho líquido R$ 11,50)", channel: "telegram", delivered: true, error: null, payload: { roi: "0.0023", capital_brl: "5000" } },
   { rule: "demo-rule-3", ago: 3600, message: "Cambios Norte sem coleta bem-sucedida há 17 min (cadeia TLS inválida)", channel: "webhook", delivered: true, error: null, payload: { source_id: "norte", down_s: 1020 } },
-  { rule: "demo-rule-1", ago: 7300, message: "Ciclo BRL@itau → WU → ueno PYG → USD → BRL: ROI 0,21 % sobre R$ 10.000", channel: "telegram", delivered: false, error: "Telegram: 429 Too Many Requests (retry em 35 s)", payload: { roi: "0.0021", capital_brl: "10000" } },
+  { rule: "demo-rule-1", ago: 7300, message: "Ciclo BRL@itau → WU → Banco PY PYG → USD → BRL: ROI 0,21 % sobre R$ 10.000", channel: "telegram", delivered: false, error: "Telegram: 429 Too Many Requests (retry em 35 s)", payload: { roi: "0.0021", capital_brl: "10000" } },
   { rule: "demo-rule-3", ago: 20_000, message: "Western Union exigiu nova sessão; 3 falhas seguidas, recuo para 15 min", channel: "webhook", delivered: true, error: null, payload: { source_id: "westernunion", errors_in_row: 3 } },
   { rule: "demo-rule-2", ago: 41_000, message: "USD/PYG CDE (Cambios Alberdi) venda 7.330 → 7.350 (+0,27 %) acumulado 0,52 % em 1 h", channel: "ui", delivered: true, error: null, payload: { pair: "USD/PYG", city: "CDE", move: "0.0052" } },
-  { rule: "demo-rule-4", ago: 70_000, message: "Nova oportunidade digital: Nomad USD → ueno, ROI 0,12 % (regra desativada; registrado sem envio)", channel: "email", delivered: false, error: "regra desativada", payload: { roi: "0.0012" } },
+  { rule: "demo-rule-4", ago: 70_000, message: "Nova oportunidade digital: Nomad USD → Revolut USD, ROI 0,12 % (regra desativada; registrado sem envio)", channel: "email", delivered: false, error: "regra desativada", payload: { roi: "0.0012" } },
 ];
 
 let ruleCounter = 0;

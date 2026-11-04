@@ -310,15 +310,15 @@ def test_get_pregao_sessions_lists_sources_in_order_with_reference_flag(app, cli
     assert r.status_code == 200, r.text
     body = r.json()
     ids = [s["source_id"] for s in body]
-    assert ids == sorted(ids) == ["bcp", "chaco", "nomad", "ueno", "wu"]
+    assert ids == sorted(ids) == ["bcp", "chaco", "nomad", "wu"]  # ueno descontinuado: fora do monitor
     by_id = {s["source_id"]: HouseSession.model_validate(s) for s in body}
     assert by_id["bcp"].reference is True
     assert all(not s.reference for sid, s in by_id.items() if sid != "bcp")
     assert all(s.data_mode == "real" for s in by_id.values())
-    # B6: chaco tem horário verificado em market_hours.json; ueno e nomad não têm, então são unknown (nunca "open")
+    # B6: chaco tem horário verificado em market_hours.json; ueno está descontinuado (fora do monitor); nomad não tem horário verificado: unknown
     assert by_id["chaco"].status in {"open", "closed", "pre"} and by_id["chaco"].tz == "America/Asuncion"
-    assert by_id["ueno"].status == "unknown" and by_id["nomad"].status == "unknown"
-    assert by_id["ueno"].opens_at is None and by_id["ueno"].closes_at is None
+    assert "ueno" not in by_id
+    assert by_id["nomad"].status == "unknown"
     # `wu` não existe em market_hours.json: sem horário, nome vem de `Source.name`, campos de horário nulos
     wu = by_id["wu"]
     assert wu.status == "unknown" and wu.name == "Wu"
@@ -368,7 +368,7 @@ def test_demo_mode_uses_generators_not_the_database():
 
         sessions = c.get("/v1/pregao/sessions")
         assert sessions.status_code == 200, sessions.text
-        assert len(sessions.json()) == 7  # gerador demo (B3): uma sessão por casa demo
+        assert len(sessions.json()) == 6  # gerador demo (B3): uma sessão por casa demo (sem ueno)
         assert [s["source_id"] for s in sessions.json() if s["reference"]] == ["demo-bcp"]
         assert all(s["data_mode"] == "demo" for s in sessions.json())
 

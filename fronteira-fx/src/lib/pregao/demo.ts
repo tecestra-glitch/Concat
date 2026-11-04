@@ -31,7 +31,6 @@ export const DEMO_HOUSES: readonly DemoHouse[] = [
   { id: "alberdi", name: "Cambios Alberdi", city: "CDE", channel: "physical", reference: false, pairs: ["USD/PYG", "BRL/PYG"] },
   { id: "norte", name: "Cambios Norte", city: "ASU", channel: "physical", reference: false, pairs: ["USD/PYG"] },
   { id: "bonanza", name: "Bonanza Cambios", city: "ASU", channel: "physical", reference: false, pairs: ["USD/PYG", "BRL/PYG"] },
-  { id: "ueno", name: "ueno", city: null, channel: "digital", reference: false, pairs: ["USD/PYG", "BRL/PYG"] },
   { id: "nomad", name: "Nomad", city: null, channel: "digital", reference: false, pairs: ["USD/BRL"] },
   { id: "bcp", name: "BCP (referência)", city: null, channel: "digital", reference: true, pairs: ["USD/PYG", "BRL/PYG"] },
 ];

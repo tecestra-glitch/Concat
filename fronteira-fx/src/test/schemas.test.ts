@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CycleSchema, EdgeSchema, FeeSchema, HealthSchema, ModeSchema, QuoteSchema, StreamEventSchema } from "@/lib/api/schemas";
+import { CycleSchema, EdgeSchema, FeeSchema, HealthSchema, ModeSchema, PlanSchema, QuoteSchema, StreamEventSchema } from "@/lib/api/schemas";
 
-const edge = { from: "BRL@brbank", to: "PYG@ueno", kind: "transfer", rate: "1360.8", fee_pct: "0", fee_fixed: "0", minutes: 2880, via: "Western Union", confidence: "estimated", evidence_id: null };
-const cycle = { start: "BRL@brbank", path: ["BRL@brbank", "PYG@ueno", "BRL@brbank"], edges: [edge, { ...edge, from: "PYG@ueno", to: "BRL@brbank" }], amount_in: "25000", amount_out: "25041.20", gain: "41.20", roi: "0.001648", minutes: 4320, confidence: "estimated", data_mode: "real" };
+const edge = { from: "BRL@brbank", to: "PYG@banco_py", kind: "transfer", rate: "1360.8", fee_pct: "0", fee_fixed: "0", minutes: 2880, via: "Western Union", confidence: "estimated", evidence_id: null, channel: "assistida" };
+const leg = { kind: "transfer", channel: "assistida", from: "BRL@brbank", to: "PYG@banco_py", via: "Western Union", minutes: 2880, border: false, amount_in: "25000", amount_out: "34000000", costs: { currency: "BRL", spread: null, fees: "0", iof: null, transport: null } };
+const cycle = { start: "BRL@brbank", path: ["BRL@brbank", "PYG@banco_py", "BRL@brbank"], edges: [edge, { ...edge, from: "PYG@banco_py", to: "BRL@brbank" }], legs: [leg], amount_in: "25000", amount_out: "25041.20", gain: "41.20", roi: "0.001648", gain_by_currency: { BRL: "41.20", USD: "7.60", PYG: "55000" }, costs: { spread: null, fees: "0", iof: null, transport: null }, requires_declaration: false, minutes: 4320, confidence: "estimated", data_mode: "real" };
 
 describe("zod schemas mirror the contract", () => {
   it("Fee is fixed and/or percentage: amount may be null, pct optional (Q-03/MED-03)", () => {
@@ -42,6 +43,8 @@ describe("zod schemas mirror the contract", () => {
       expect(EdgeSchema.parse({ ...edge, kind }).kind).toBe(kind);
     }
     expect(EdgeSchema.safeParse({ ...edge, kind: "teleport" }).success).toBe(false);
+    expect(EdgeSchema.safeParse({ ...edge, kind: "travel", channel: "presencial" }).success).toBe(true);
+    expect(EdgeSchema.safeParse({ ...edge, channel: "de-carro" }).success).toBe(false);
   });
   it("StreamEvent knows source.change and alert.fired", () => {
     for (const type of ["quote.updated", "source.health", "opportunity.updated", "heartbeat", "source.change", "alert.fired"]) {
@@ -52,5 +55,25 @@ describe("zod schemas mirror the contract", () => {
   it("Health carries data_mode", () => {
     expect(HealthSchema.parse({ status: "ok", data_mode: "simulation", db: "ok", version: "0.1.0" }).data_mode).toBe("simulation");
     expect(HealthSchema.safeParse({ status: "ok" }).success).toBe(false);
+  });
+});
+
+describe("contrato v2: pernas, ganho por moeda e planos", () => {
+  it("CycleSchema aceita legs, gain_by_currency com null e costs com null", () => {
+    expect(CycleSchema.parse({ ...cycle, gain_by_currency: { BRL: "41.20", USD: null, PYG: null } }).gain_by_currency?.USD).toBeNull();
+    expect(CycleSchema.safeParse({ ...cycle, legs: [{ ...leg, channel: "robô" }] }).success).toBe(false);
+    expect(CycleSchema.safeParse({ ...cycle, legs: [{ ...leg, costs: { ...leg.costs, fees: 0 } }] }).success).toBe(false);
+  });
+  it("PlanSchema aceita só os seis estados e passos com valores em string decimal", () => {
+    const plan = {
+      id: "p1", status: "proposed", start: "BRL@brbank", path: ["BRL@brbank", "BRL@brbank"], currency: "BRL",
+      amount_in: "5000", amount_out_expected: "5042.1", gain_expected: "42.1", gain_by_currency: { BRL: "42.1", USD: "7.8", PYG: "46000" },
+      confidence: "quoted", minutes: 60, requires_declaration: false, quotes_as_of: "2026-11-04T12:00:00Z", quote_max_age_s: 900,
+      created_at: "2026-11-04T12:00:00Z", decided_at: null, completed_at: null, data_mode: "demo",
+      steps: [{ n: 1, kind: "travel", channel: "presencial", text: "Leve o dinheiro", from: "BRL@cash:CDE", to: "BRL@cash:ASU", amount_in: "5000", amount_out_expected: "5000", minutes: 240, status: "pending", actual_out: null, note: null, done_at: null }],
+    };
+    expect(PlanSchema.parse(plan).steps[0].status).toBe("pending");
+    expect(PlanSchema.safeParse({ ...plan, status: "concluido" }).success).toBe(false);
+    expect(PlanSchema.safeParse({ ...plan, steps: [{ ...plan.steps[0], actual_out: 5000 }] }).success).toBe(false);
   });
 });

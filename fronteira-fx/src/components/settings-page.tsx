@@ -11,6 +11,8 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { MODE_LABEL, MODE_TONE } from "@/components/ui/labels";
 import { useLive } from "@/lib/live";
 import { formatMoney } from "@/lib/format";
+import { NetGainAlertCard } from "./settings/net-gain-card";
+import { PremissasCard } from "./settings/premissas-card";
 
 const MODE_HELP: Record<string, string> = {
   auto: "Segue o modo do backend quando ele responde; demonstração enquanto não houver API.",
@@ -89,7 +91,9 @@ export function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        <NetGainAlertCard />
       </div>
+      <PremissasCard />
     </div>
   );
 }

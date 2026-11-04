@@ -35,7 +35,7 @@ def get_cycles(
     db: DbDep,
     data_mode: DataModeDep,
     settings: SettingsDep,
-    max_len: Annotated[int, Query(ge=2, le=6, description="máximo de arestas por ciclo")] = 4,
+    max_len: Annotated[int, Query(ge=2, le=6, description="máximo de pernas por ciclo (balcão não conta)")] = 4,
     min_roi: Annotated[Decimal | None, Query(description="ROI mínimo como string decimal, ex. 0.001")] = None,
     start: Annotated[str | None, Query(description="nó de partida, ex. BRL@nubank", max_length=120)] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,

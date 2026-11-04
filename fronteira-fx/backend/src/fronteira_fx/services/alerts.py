@@ -160,7 +160,8 @@ def cycles_for_rules(session: Session, *, data_mode: str) -> list[dict[str, Any]
         return []
     from .cycles import find_cycles_for  # import tardio: o motor não depende de alertas
 
-    return find_cycles_for(session, data_mode=data_mode, max_len=4, limit=200)
+    # sem corte: o matcher filtra confiança depois, e um corte por ROI deixaria de fora o ciclo confirmável
+    return find_cycles_for(session, data_mode=data_mode, max_len=4, limit=None)
 
 
 def _match_cycle_net_gain(rule: AlertRule, ctx: AlertContext) -> tuple[str, dict[str, Any]] | None:

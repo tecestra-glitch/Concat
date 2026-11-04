@@ -95,8 +95,8 @@ describe("demoCandles", () => {
     expect(chaco).toHaveLength(7);
     expect(chaco.some((c) => c.t.startsWith("2026-11-01"))).toBe(false);
     expect(chaco.some((c) => c.t.startsWith("2026-10-25"))).toBe(false);
-    const ueno = demoCandles("ueno:digital:USD/PYG:transfer", "1d", monday, 7);
-    expect(ueno.some((c) => c.t.startsWith("2026-11-01"))).toBe(true);
+    const nomad = demoCandles("nomad:digital:USD/BRL:account", "1d", monday, 7);
+    expect(nomad.some((c) => c.t.startsWith("2026-11-01"))).toBe(true);
   });
   it("returns [] for count 0", () => {
     expect(demoCandles(DEFAULT_SERIES_KEY, "15m", NOW, 0)).toEqual([]);
@@ -114,7 +114,7 @@ describe("demoStats", () => {
   const stats = demoStats(DEFAULT_SERIES_KEY, NOW);
   it("summarises the local day", () => {
     expect(stats.n_quotes).toBeGreaterThan(0);
-    expect(stats.houses).toBe(5);
+    expect(stats.houses).toBe(4);
     expect(stats.day_start.startsWith("2026-11-02T00:00:00")).toBe(true);
     expect(stats.day_start).toBe("2026-11-02T00:00:00-03:00");
     expect(stats).toMatchObject({ key: DEFAULT_SERIES_KEY, data_mode: "demo" });
@@ -149,19 +149,19 @@ describe("demoSessions", () => {
   });
   it("uses the house hours for the status", () => {
     expect(sessions.find((s) => s.source_id === "demo-chaco")).toMatchObject({ status: "open", name: "Cambios Chaco", city: "CDE", tz: "America/Asuncion", channel: "physical", closes_at: "2026-11-02T19:00:00.000Z" });
-    expect(sessions.find((s) => s.source_id === "demo-ueno")).toMatchObject({ status: "unknown", city: null, channel: "digital", opens_at: null });
+    expect(sessions.find((s) => s.source_id === "demo-ueno")).toBeUndefined();
     expect(sessions.find((s) => s.source_id === "demo-nomad")).toMatchObject({ status: "unknown", opens_at: null });
   });
   it("DEMO_HOURS só tem horários verificados; casa sem horário verificado fica de fora (unknown)", () => {
     expect(Object.keys(DEMO_HOURS).sort()).toEqual(["bcp", "chaco"]);
-    expect([...DEMO_HOUSE_IDS].filter((id) => !(id in DEMO_HOURS)).sort()).toEqual(["alberdi", "bonanza", "nomad", "norte", "ueno"]);
+    expect([...DEMO_HOUSE_IDS].filter((id) => !(id in DEMO_HOURS)).sort()).toEqual(["alberdi", "bonanza", "nomad", "norte"]);
   });
 });
 
 describe("demoQuotesAt", () => {
   const quotes = demoQuotesAt(NOW);
-  it("re-stamps the 15 house/reference quotes with deterministic ages between 30 s and 9.5 min", () => {
-    expect(quotes).toHaveLength(15);
+  it("re-stamps the 13 house/reference quotes with deterministic ages between 30 s and 9.5 min", () => {
+    expect(quotes).toHaveLength(13);
     expect(quotes.every((q) => q.data_mode === "demo")).toBe(true);
     expect(quotes.some((q) => q.source_id === "westernunion" || q.source_id === "revolut")).toBe(false);
     for (const q of quotes) {
@@ -174,7 +174,6 @@ describe("demoQuotesAt", () => {
   it("demoSeriesKeys lists the house keys of a pair without references", () => {
     const keys = demoSeriesKeys("USD/PYG");
     expect(keys).toContain(DEFAULT_SERIES_KEY);
-    expect(keys).toContain("ueno:digital:USD/PYG:account");
     expect(keys.some((k) => k.startsWith("bcp:"))).toBe(false);
     expect(new Set(keys).size).toBe(keys.length);
     expect(demoSeriesKeys("USD/BRL")).toEqual(["nomad:digital:USD/BRL:account"]);
@@ -193,8 +192,8 @@ describe("visões demo", () => {
   });
   it("demoTicker covers every key once with change_pct from demoStats", () => {
     const items = demoTicker(NOW);
-    expect(items).toHaveLength(15);
-    expect(new Set(items.map((i) => i.key)).size).toBe(15);
+    expect(items).toHaveLength(13);
+    expect(new Set(items.map((i) => i.key)).size).toBe(13);
     expect(items[0].pair).toBe("USD/PYG");
     expect(items.find((i) => i.key === DEFAULT_SERIES_KEY)?.change_pct).toBe(toNumber(demoStats(DEFAULT_SERIES_KEY, NOW).change_pct));
   });
