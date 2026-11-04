@@ -33,3 +33,8 @@ def get_adapter(adapter_id: str) -> Adapter:
 
 def list_adapters() -> list[Adapter]:
     return list(ADAPTERS.values())
+
+
+def active_adapters() -> dict[str, Adapter]:
+    """Adaptadores que o coletor e o monitor sondam: sem as fontes descontinuadas (o histórico fica no banco)."""
+    return {aid: a for aid, a in ADAPTERS.items() if not a.info.discontinued}

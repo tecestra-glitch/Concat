@@ -37,6 +37,7 @@
   },
   "ueno": {
     "name": "ueno",
+    "discontinued": true,
     "city": null,
     "channel": "digital",
     "tz": "America/Asuncion",

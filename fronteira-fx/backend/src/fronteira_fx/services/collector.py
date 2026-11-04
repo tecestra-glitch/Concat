@@ -72,11 +72,11 @@ class RateLimited(CollectorError):
 
 def load_registry() -> dict[str, Adapter]:
     try:
-        from ..adapters.registry import ADAPTERS  # type: ignore[import-not-found]
+        from ..adapters.registry import active_adapters  # type: ignore[import-not-found]
     except Exception as exc:  # registry not ready yet or broken: run with no adapters
         log.warning("adapter registry unavailable: %s", exc)
         return {}
-    return dict(ADAPTERS)
+    return active_adapters()
 
 
 @dataclass(slots=True)

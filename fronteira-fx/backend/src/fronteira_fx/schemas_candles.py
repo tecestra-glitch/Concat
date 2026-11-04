@@ -60,6 +60,8 @@ class HouseHours(ApiModel):
     days: list[int]
     opens: str
     closes: str
+    # fonte fora do monitor (histórico apenas); o horário fica para consulta, sem nova sondagem
+    discontinued: bool = False
 
 
 class HouseSession(ApiModel):

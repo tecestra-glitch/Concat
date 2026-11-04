@@ -79,6 +79,7 @@ class UenoAdapter:
         currencies=["USD", "BRL", "PYG"],
         poll_interval_s=300,
         allowed_domains=["www.ueno.com.py"],
+        discontinued=True,  # resolução pelo Banco Central del Paraguay em 03/11/2026: só histórico
     )
     stale_after = timedelta(hours=36)
 

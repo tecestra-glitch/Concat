@@ -90,6 +90,8 @@ class AdapterInfo:
     currencies: list[str]
     poll_interval_s: int = 300
     allowed_domains: list[str] = field(default_factory=list)  # navigation restricted to these
+    # fonte fora do monitor (ex.: ueno, em resolução pelo BCP em 03/11/2026): não é sondada nem entra em ciclos novos
+    discontinued: bool = False
 
 
 class Adapter(Protocol):
