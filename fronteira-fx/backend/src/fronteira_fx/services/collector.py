@@ -364,11 +364,22 @@ class Collector:
         return outcome
 
     # -- collection --------------------------------------------------------------------------
-    def _floor_remaining_s(self, ws: Any, now: datetime) -> int | None:
-        """Seconds left in the per-source floor (D6), or None when a fetch is allowed."""
+    def _uses_remote_browser(self, adapter: Adapter) -> bool:
+        """A browser adapter that opted in runs on the mini navegador when it is configured (no local Chromium)."""
+        return (
+            adapter.info.method == "browser"
+            and bool(getattr(adapter, "remote_browser", False))
+            and self.settings.remote_browser_enabled
+        )
+
+    def _floor_remaining_s(self, ws: Any, now: datetime, extra_floor_s: int = 0) -> int | None:
+        """Seconds left in the per-source floor (D6), or None when a fetch is allowed.
+
+        `extra_floor_s` raises the floor for sources that cost a remote browser run (remote_browser_min_interval_s).
+        """
         if ws.last_run_at is None:
             return None
-        floor = max(FORCE_FLOOR_S, int(ws.min_interval_s or 0))
+        floor = max(FORCE_FLOOR_S, int(ws.min_interval_s or 0), int(extra_floor_s))
         remaining = (ws.last_run_at + timedelta(seconds=floor) - now).total_seconds()
         if remaining <= 0:
             return None
@@ -474,7 +485,10 @@ class Collector:
                 return CollectOutcome(
                     source_id=info.id, status="skipped", health=source.health, skipped=True, message=reason
                 )
-            remaining = self._floor_remaining_s(ws, now)
+            remote = self._uses_remote_browser(adapter)
+            remaining = self._floor_remaining_s(
+                ws, now, self.settings.remote_browser_min_interval_s if remote else 0
+            )
             if remaining is not None:  # D6: never hammer a source, even on demand; hand back the last result
                 return self._rate_limited_outcome(info.id, ws, source.health, remaining)
             # SEC-03: reserve the slot in the same transaction as the check, before any await, so callers that
@@ -562,7 +576,8 @@ class Collector:
             source = self.ensure_source(session, adapter.info)
             if source.health == "blocked" and source.next_poll_at is not None and now < source.next_poll_at:
                 return {"status": "blocked", "reason": source.last_error or "fonte bloqueada (backoff ativo)"}
-            if adapter.info.method == "browser" and not self.inline_browser:
+            # the worker queue is only for a local Chromium; with the mini navegador the request runs here
+            if adapter.info.method == "browser" and not self.inline_browser and not self._uses_remote_browser(adapter):
                 task = Task(
                     source_id=source_id,
                     kind="fetch_quote",

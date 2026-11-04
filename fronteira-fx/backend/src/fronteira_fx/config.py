@@ -6,6 +6,7 @@ import logging
 import os
 from functools import lru_cache
 from typing import Literal, Self
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -64,6 +65,12 @@ class Settings(BaseSettings):
     alert_http_timeout_s: float = 10.0
     quotes_lookback_s: int = 7 * 86400  # how far back "latest per context" looks
 
+    # Mini navegador (fronteira-fx/browser, função Vercel): runs the browser-only adapters without a local Chromium
+    # when both values are set. Secret only via environment; the URL must be https (http only for localhost).
+    browser_url: str | None = Field(default=None, validation_alias=AliasChoices("FX_BROWSER_URL"))
+    browser_secret: str | None = Field(default=None, validation_alias=AliasChoices("FX_BROWSER_SECRET"))
+    remote_browser_min_interval_s: int = 7200  # Western Union at most every 2 h (Vercel free-plan CPU budget)
+
     # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
     # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).
     # One-off alternative: `python -m fronteira_fx.cli seed-knowledge`.
@@ -80,7 +87,26 @@ class Settings(BaseSettings):
                 "POSTGRES_PASSWORD (DATABASE_URL) ainda é o placeholder do .env.example; "
                 "gere com `openssl rand -hex 32`"
             )
+        if self.browser_secret and self.browser_secret.strip().upper().startswith(PLACEHOLDER_PREFIX):
+            raise ValueError("FX_BROWSER_SECRET ainda é o placeholder do .env.example; gere com `openssl rand -hex 32`")
         return self
+
+    @model_validator(mode="after")
+    def _check_browser_remote(self) -> Self:
+        """Empty values count as unset; the mini navegador URL must not expose the Bearer secret in clear text."""
+        self.browser_secret = (self.browser_secret or "").strip() or None
+        url = (self.browser_url or "").strip().rstrip("/")
+        self.browser_url = url or None
+        if url:
+            parts = urlsplit(url)
+            local = parts.hostname in ("localhost", "127.0.0.1", "::1")
+            if parts.scheme != "https" and not (parts.scheme == "http" and local):
+                raise ValueError("FX_BROWSER_URL precisa ser https:// (http só é aceito para localhost)")
+        return self
+
+    @property
+    def remote_browser_enabled(self) -> bool:
+        return bool(self.browser_url and self.browser_secret)
 
     @model_validator(mode="after")
     def _warn_deprecated_env_names(self) -> Self:

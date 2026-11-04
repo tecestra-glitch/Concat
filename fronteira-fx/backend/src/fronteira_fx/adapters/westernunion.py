@@ -28,6 +28,8 @@ flagged ``historical`` are never reported as OK: they come back STALE.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import os
 import re
@@ -36,8 +38,10 @@ from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
 from typing import Any, Literal
 
+import httpx
 from dateutil import parser as dtparser
 
+from ..config import Settings, get_settings
 from ._common import as_text, error_result, finalize, payload_kind, quotes_excerpt
 from ._http import USER_AGENT, build_evidence, sha256_hex, try_parse_decimal, utcnow
 from .base import AdapterInfo, AdapterResult, AdapterStatus, Fee, QuoteDraft
@@ -92,6 +96,10 @@ _PROMO_RE = re.compile(
     r"(\d+\s?%\s+(?:de\s+)?desconto(?:\s+(?:na\s+)?tarifa)?(?:\s+[0-9][0-9.,]*\s*BRL)?|tarifa\s+zero[^|]{0,40})", re.I
 )
 _BLOCK_WORDS = ("access denied", "captcha", "unusual traffic", "pardon our interruption", "request blocked")
+# The mini navegador (fronteira-fx/browser) runs the same flow in a Vercel function; the call is bounded by the
+# function's 120 s maxDuration, so the client waits a little longer than that.
+REMOTE_PATH = "/api/westernunion"
+REMOTE_TIMEOUT_S = 130.0
 
 
 def evidence_dir() -> Path:
@@ -131,6 +139,9 @@ def extract_summary(body_text: str) -> dict[str, Any]:
 
 
 class WesternUnionAdapter:
+    # With FX_BROWSER_URL and FX_BROWSER_SECRET set, fetch() calls the mini navegador instead of a local Chromium,
+    # and the collector may run this source outside the worker (rate-limited by remote_browser_min_interval_s).
+    remote_browser = True
     info = AdapterInfo(
         id="westernunion",
         name="Western Union (BR → PY)",
@@ -269,6 +280,10 @@ class WesternUnionAdapter:
             return error_result(f"invalid amount_brl {amount_brl!r}")
         if receive not in RECEIVE_TILES or payment not in PAYMENT_TILES:
             return error_result(f"unsupported receive={receive!r} / payment={payment!r}")
+        settings = get_settings()
+        if settings.remote_browser_enabled:
+            return await self._fetch_remote(settings, amount=amount, payment=payment, receive=receive, bank=bank,
+                                            promo=promo, captured_at=captured_at)
         try:
             from playwright.async_api import TimeoutError as PWTimeout
             from playwright.async_api import async_playwright
@@ -445,12 +460,89 @@ class WesternUnionAdapter:
             finally:
                 await browser.close()
 
+        return self._result_from_scenario(scenario, shot_path=shot_path, shot_bytes=shot_bytes,
+                                          captured_at=captured_at, note=f"steps: {' > '.join(trail)}")
+
+    # ------------------------------------------------------------------ shared tail + remote (mini navegador)
+    def _result_from_scenario(self, scenario: dict[str, Any], *, shot_path: Path | None, shot_bytes: bytes | None,
+                              captured_at: datetime, note: str) -> AdapterResult:
         result = self.parse(json.dumps(scenario, ensure_ascii=False), captured_at=captured_at, url=START_URL,
-                            screenshot_path=str(shot_path), screenshot_bytes=shot_bytes)
-        if result.evidence is not None:
+                            screenshot_path=str(shot_path) if shot_path else None, screenshot_bytes=shot_bytes)
+        if result.evidence is not None and shot_bytes is not None:
             result.evidence.sha256 = sha256_hex(shot_bytes)
-        result.message = "; ".join(filter(None, [result.message, f"steps: {' > '.join(trail)}"]))
+        result.message = "; ".join(filter(None, [result.message, note]))
         return result
+
+    async def _fetch_remote(self, settings: Settings, *, amount: Decimal, payment: Payment, receive: Receive,
+                            bank: str | None, promo: str | None, captured_at: datetime) -> AdapterResult:
+        """POST the same parameters to the mini navegador and turn its answer into an AdapterResult.
+
+        Transport and HTTP failures never raise: they come back as ERROR (network, 401/404/400, bad JSON), and the
+        remote's own blocked/degraded/error statuses map straight to the adapter statuses.
+        """
+        body: dict[str, Any] = {"amount_brl": str(amount), "payment": payment, "receive": receive, "screenshot": True}
+        if bank:
+            body["bank"] = bank
+        headers = {"Authorization": f"Bearer {settings.browser_secret}", "Accept": "application/json"}
+        url = f"{settings.browser_url}{REMOTE_PATH}"
+        try:
+            async with httpx.AsyncClient(timeout=REMOTE_TIMEOUT_S, follow_redirects=False) as client:
+                resp = await client.post(url, json=body, headers=headers)
+        except httpx.TimeoutException:
+            return error_result("mini navegador: tempo esgotado")
+        except httpx.HTTPError as exc:
+            return error_result(f"mini navegador inacessível ({type(exc).__name__})")
+        if resp.status_code == 401:
+            return error_result("mini navegador recusou FX_BROWSER_SECRET (401)")
+        if resp.status_code == 404:
+            return error_result("mini navegador sem BROWSER_SECRET configurado (404)")
+        if resp.status_code != 200:
+            return error_result(f"mini navegador respondeu HTTP {resp.status_code}")
+        try:
+            data = resp.json()
+        except ValueError:
+            return error_result("mini navegador: resposta não é JSON")
+        if not isinstance(data, dict):
+            return error_result("mini navegador: resposta inesperada")
+
+        steps = data.get("trail")
+        steps_text = " > ".join(str(s) for s in steps) if isinstance(steps, list) else ""
+        message = str(data.get("message") or "")[:300]
+        note = f"remoto: {message}; steps: {steps_text}"
+        status = data.get("status")
+        if status == "blocked":
+            return AdapterResult(status=AdapterStatus.BLOCKED, quotes=[], evidence=None, message=note)
+        if status == "degraded":
+            return AdapterResult(status=AdapterStatus.DEGRADED, quotes=[], evidence=None, message=note)
+        if status == "error":
+            return error_result(note)
+        if status != "ok":
+            return error_result("mini navegador: status desconhecido")
+
+        scenario = data.get("scenario")
+        if not isinstance(scenario, dict):
+            return error_result("mini navegador: ok sem scenario")
+        # the request context is ours: the remote may not change it (contexts never mix)
+        scenario.update({"amount_brl": str(amount), "payment": payment, "receive": receive, "bank": bank})
+        if promo:
+            scenario["promo"] = promo
+
+        shot_bytes: bytes | None = None
+        shot_path: Path | None = None
+        encoded = data.get("screenshot_png_b64")
+        if isinstance(encoded, str):
+            try:
+                shot_bytes = base64.b64decode(encoded, validate=True) or None
+            except (binascii.Error, ValueError):
+                shot_bytes = None
+        if shot_bytes is not None:
+            out_dir = evidence_dir()
+            out_dir.mkdir(parents=True, exist_ok=True)
+            stamp = captured_at.strftime("%Y%m%dT%H%M%SZ")
+            shot_path = out_dir / f"wu_{stamp}_{amount}_{payment}_{receive}_remote.png"
+            shot_path.write_bytes(shot_bytes)
+        return self._result_from_scenario(scenario, shot_path=shot_path, shot_bytes=shot_bytes,
+                                          captured_at=captured_at, note=note)
 
 
 adapter = WesternUnionAdapter()
