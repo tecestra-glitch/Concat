@@ -8,6 +8,7 @@ export const ROUTES = [
   ["/contas", "Contas e cartões"],
   ["/fontes", "Fontes"],
   ["/monitor", "Monitor ao vivo"],
+  ["/economia", "Economia e cripto"],
   ["/alertas", "Alertas"],
   ["/diario", "Diário de operações"],
   ["/conhecimento", "Conhecimento"],

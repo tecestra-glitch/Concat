@@ -48,6 +48,16 @@ import { demoDeleteRule, demoUpdateRule } from "./demo-watch";
 import { dec, findCycles } from "../graph";
 import { toNumber } from "../format";
 import { computeVolatility } from "../volatility";
+import {
+  MarketQuoteListSchema,
+  MarketVolatilityListSchema,
+  NewsListSchema,
+  type MarketQuote,
+  type MarketVolatility,
+  type NewsFilters,
+  type NewsItem,
+} from "./market";
+import { demoNewsList, demoQuotes as demoMarketQuotes, demoVolatility as demoMarketVolatility } from "./demo-market";
 
 export type { Mode, QuoteFilters } from "./types";
 export type { BackendStatus } from "./backend-status";
@@ -372,6 +382,24 @@ export const api = {
   async memorySummary(mode: Mode, limit?: number): Promise<MemorySummary> {
     if (mode !== "demo") return http<MemorySummary>(`/v1/memory/summary${qs({ limit, ...modeQuery(mode) })}`);
     return { summary: "Demonstração — memória ilustrativa: nenhuma operação real registrada. Os dados desta tela não vêm do backend." };
+  },
+  /** GET /v1/market/news (manchetes; `source` = "all" é ignorado por `qs`). Referência de notícia, nunca cotação. */
+  async marketNews(mode: Mode, f: NewsFilters = {}): Promise<NewsItem[]> {
+    if (mode !== "demo") {
+      const body = await http<unknown>(`/v1/market/news${qs({ source: f.source, limit: f.limit ?? 50, ...modeQuery(mode) })}`);
+      return NewsListSchema.parse(body);
+    }
+    return demoNewsList(f);
+  },
+  /** GET /v1/market/quotes: referências de mercado (`executable` é sempre false). */
+  async marketQuotes(mode: Mode): Promise<MarketQuote[]> {
+    if (mode !== "demo") return MarketQuoteListSchema.parse(await http<unknown>(`/v1/market/quotes${qs(modeQuery(mode))}`));
+    return demoMarketQuotes;
+  },
+  /** GET /v1/market/volatility: EWMA, Parkinson, ATR e o selo normal / alta / muito alta. */
+  async marketVolatility(mode: Mode): Promise<MarketVolatility[]> {
+    if (mode !== "demo") return MarketVolatilityListSchema.parse(await http<unknown>(`/v1/market/volatility${qs(modeQuery(mode))}`));
+    return demoMarketVolatility;
   },
   async snapshot(mode: Mode): Promise<Snapshot> {
     if (mode !== "demo") return http<Snapshot>(`/v1/snapshot${qs(modeQuery(mode))}`);

@@ -90,13 +90,15 @@ StepSpec {                                  // entrada de POST /v1/simulations/c
 }
 Evidence { "id": "uuid", "source_id": "chaco", "kind": "html|screenshot|json|manual", "url": "...", "captured_at": "...", "sha256": "...", "excerpt": "string", "rules": ["parser chaco v1"] }
 JournalEntry { "id": "uuid", "ts": "...", "kind": "note|operation|reconciliation", "text": "...", "amounts": [Fee], "account_ids": [] }
-StreamEvent { "id": "123", "type": "quote.updated|source.health|opportunity.updated|source.change|alert.fired|heartbeat", "ts": "...", "payload": {} }
+StreamEvent { "id": "123", "type": "quote.updated|source.health|opportunity.updated|source.change|alert.fired|market.news|market.volatility_alert|heartbeat", "ts": "...", "payload": {} }
 // payload por tipo (o stream já vem filtrado pelo data_mode da instância):
 //   quote.updated       → Quote
 //   source.health       → SourceHealth (atualização parcial por source_id; NÃO é um Source completo)
 //   opportunity.updated → { "count": 3, "main_ranking": 1, "capitals": ["5000"] } (resumo; o cliente recarrega a lista)
 //   source.change       → Change
 //   alert.fired         → AlertEvent
+//   market.news         → NewsItem (título, link, fonte, horários; nunca texto da matéria)
+//   market.volatility_alert → MarketVolatility (só na transição para alerta, uma vez por episódio)
 //   heartbeat           → {}
 SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|null", "consecutive_failures": 2, "next_poll_at": "...|null (opcional)" }
 ```
@@ -347,6 +349,34 @@ AlertEvent { "id": "uuid", "rule_id": "uuid", "ts": "...", "message": "...", "pa
   "delivered": true, "error": "string|null" }
 ```
 Segredos (token do bot, SMTP) só por variáveis de ambiente do backend. MCP: `list_alert_rules`, `create_alert_rule`.
+
+## Mercado: notícias, referências e volatilidade — módulo `market`
+
+Notícias de feeds públicos, referências de mercado (cripto, câmbio de referência, séries do BCB) e volatilidade.
+**Tudo aqui é referência de mercado: `executable` é sempre `false`, nunca é preço de casa de câmbio e nunca entra
+no grafo de posições nem no motor de ciclos.** Só o worker consulta provedores (piso de 60 s por fonte); a API só lê.
+Em `demo` os dados são semeados e marcados `demo` (manchetes ilustrativas, links `.invalid`); em `simulation` não há dados.
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/v1/market/news?source=&since=&limit=50` | `NewsItem[]`, mais recente primeiro (1..200). `source`: `infomoney`, `agencia-brasil`, `bcb`, `mercopress`, `demo` |
+| GET | `/v1/market/quotes` | `MarketQuote[]`, uma linha por instrumento (última referência) |
+| GET | `/v1/market/volatility` | `MarketVolatility[]`, um por instrumento cripto (BTC/USDT, ETH/USDT, USDT/BRL) |
+
+```jsonc
+NewsItem { "id": "uuid", "source": "infomoney", "feed": "infomoney-economia", "title": "string (≤300)", "link": "https://...",
+  "published_at": "...|null", "captured_at": "...", "data_mode": "real" }
+MarketQuote { "instrument": "USD/PYG", "label": "USD/PYG (guarani, via Frankfurter)", "kind": "crypto|fx_reference|bcb_series",
+  "source": "binance|frankfurter|bcb", "price": "5958", "change_pct": "0.12|null", "observed_at": "...", "captured_at": "...",
+  "executable": false, "note": "Referência de mercado. Não é preço executável nem cotação de casa de câmbio.", "data_mode": "real" }
+MarketVolatility { "instrument": "USDT/BRL", "status": "ok|insufficient_data|stale_input", "as_of": "...|null",
+  "last_close": "5.5179|null", "last_move_pct": "0.12|null", "ewma_pct_5m": "0.08|null", "parkinson_1d_pct": "...|null",
+  "parkinson_20d_pct": "...|null", "ratio_1d_20d": "...|null", "atr_14_5m": "...|null (em preço)",
+  "regime": "normal|alta|muito_alta|null", "alert": false, "reasons": ["movimento_acima_de_3x_ewma"], "data_mode": "real" }
+```
+Percentuais em `%`, valores em string decimal. `status` diferente de `ok` → `regime` e `alert` nulos/falsos (nunca um número inventado).
+Eventos no stream: `market.news` (uma por manchete nova) e `market.volatility_alert` (na transição para alerta).
+MCP: `list_market_news`, `get_market_quotes`, `get_market_volatility`.
 
 ## RAG (documentação, tarifas, horários, evidências) — módulo `rag`
 

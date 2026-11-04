@@ -76,7 +76,7 @@ export const QuoteSchema = z.object({
   data_mode: ModeSchema,
 });
 
-export const StreamEventTypeSchema = z.enum(["quote.updated", "source.health", "opportunity.updated", "heartbeat", "source.change", "alert.fired"]);
+export const StreamEventTypeSchema = z.enum(["quote.updated", "source.health", "opportunity.updated", "heartbeat", "source.change", "alert.fired", "market.news", "market.volatility_alert"]);
 
 export const StreamEventSchema = z.object({
   id: z.string(),
