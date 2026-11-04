@@ -78,6 +78,12 @@ def _branch(key: str) -> BranchInfo:
 
 
 class AlberdiAdapter:
+    # The board is one JSON document (WS_URL), not the home page in `info.url`: scheduled polls GET it with
+    # If-None-Match / If-Modified-Since so an unchanged board is a 304 and is not parsed again.
+    conditional_get = True
+    conditional_url = WS_URL
+    conditional_headers = {"Accept": ACCEPT_JSON, "Referer": HOME_URL}
+
     info = AdapterInfo(
         id="alberdi",
         name="Cambios Alberdi",

@@ -177,3 +177,9 @@ na 1.x) já constam em `pyproject.toml`.
   chamada responde 403 "Acceso no autorizado" a um cliente não autenticado (uma única tentativa, sem retry, sem cookies de sessão).
   Não há restrição explícita de automação nos termos (o link "Términos y Condiciones" é `#`; robots.txt retorna 404), mas o
   acesso é negado pelo próprio site, então o adaptador não contorna esse controle. Revisitar se a Ceteg publicar uma fonte pública.
+
+## Requisições condicionais (2026-11-04)
+
+- `alberdi`: a sondagem agendada faz GET condicional de `ws/getTablero.json.php` (`conditional_get`, `conditional_url`); um 304 não é parseado.
+- `maxicambios` e `myd`: GET condicional de `info.url` (HTML renderizado no servidor).
+- `chaco` e `norte` **ainda não** têm requisição condicional. A Chaco faz uma requisição por filial (`/api/branch_office/{id}/exchange`) e a Norte troca de filial por `POST /livewire/update`; o watch guarda um único par ETag/Last-Modified por fonte, então um 304 não cobriria as demais requisições. Pendente: validadores por URL (migração de `watch_states`).
