@@ -1165,6 +1165,66 @@
         }
       }
     },
+    "/v1/institutions": {
+      "get": {
+        "tags": [
+          "institutions"
+        ],
+        "summary": "Institutions where accounts can be opened, with the source of each figure",
+        "operationId": "list_institutions",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Institution"
+                  },
+                  "title": "Response List Institutions"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/simulations/routes": {
       "post": {
         "tags": [
@@ -5075,6 +5135,88 @@
         ],
         "title": "FeeOut"
       },
+      "FixedFee": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FixedFee"
+      },
+      "FxCost": {
+        "properties": {
+          "spread_pct": {
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "iof_pct": {
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "fee_pct": {
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "fee_fixed": {
+            "$ref": "#/components/schemas/FixedFee"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FxCost"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -5310,6 +5452,156 @@
           "data_mode"
         ],
         "title": "HouseSession"
+      },
+      "Institution": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "title": "Name"
+          },
+          "country": {
+            "type": "string",
+            "enum": [
+              "BR",
+              "PY",
+              "INT"
+            ],
+            "title": "Country"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bank",
+              "fintech",
+              "wallet",
+              "broker"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "discontinued"
+            ],
+            "title": "Status",
+            "default": "active"
+          },
+          "discontinued_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discontinued Note"
+          },
+          "currencies_held": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currencies Held"
+          },
+          "opens_remotely": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens Remotely"
+          },
+          "requires": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires"
+          },
+          "api": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "pf",
+                  "pj_contract"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api"
+          },
+          "api_source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Source Url"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "fx_cost": {
+            "$ref": "#/components/schemas/FxCost"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "country",
+          "kind"
+        ],
+        "title": "Institution"
       },
       "JournalEntryCreate": {
         "properties": {
@@ -5773,6 +6065,69 @@
           "computed_at"
         ],
         "title": "OpportunityOut"
+      },
+      "Percentage": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Percentage"
       },
       "PositionIn": {
         "properties": {

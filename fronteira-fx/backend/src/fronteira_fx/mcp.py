@@ -15,6 +15,7 @@ MCP_OPERATIONS: list[str] = [
     "simulate_cycle",
     "find_cycles",
     "search_evidence",
+    "list_institutions",
     # watch
     "watch_status",
     "list_changes",

@@ -57,6 +57,7 @@ def test_openapi_title_and_mcp_operations(client, app):
         "recall",
         "forget",
         "memory_summary",
+        "list_institutions",
     }
     assert set(tools) == contract_tools and len(tools) == len(contract_tools)
     assert any(getattr(r, "path", "") == "/mcp" for r in app.routes)
