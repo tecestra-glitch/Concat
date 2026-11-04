@@ -220,6 +220,27 @@ insert into public.fx_watch_targets (source_id, url, method, headers, min_interv
   ('maxicambios', 'https://www.maxicambios.com.py/', 'GET',
    '{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "es-PY,es;q=0.9,pt-BR;q=0.8,en;q=0.7"}',
    60, false),
+  -- Atlas e Cataratas (Foz do Iguaçu): widget iCâmbio, JSON por tenant (9 e 10), o mesmo do adaptador icambio
+  ('atlas', 'https://icambio.com.br/Cliente/api/cotacoes.php?tenant=9', 'GET',
+   '{"Accept": "application/json, text/plain, */*", "Accept-Language": "pt-BR,pt;q=0.9,es;q=0.8,en;q=0.7", "Referer": "https://www.atlascambio.com.br/"}',
+   60, false),
+  ('cataratas', 'https://icambio.com.br/Cliente/api/cotacoes.php?tenant=10', 'GET',
+   '{"Accept": "application/json, text/plain, */*", "Accept-Language": "pt-BR,pt;q=0.9,es;q=0.8,en;q=0.7", "Referer": "https://cataratascambio.com.br/"}',
+   60, false),
+  -- Iguassu e Scappini (Foz do Iguaçu): HTML da home com a tabela de cotações
+  ('iguassu', 'https://www.iguassucambio.com.br/', 'GET',
+   '{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "pt-BR,pt;q=0.9,es;q=0.8,en;q=0.7"}',
+   60, false),
+  ('scappini', 'https://scappinicambio.com.br/', 'GET',
+   '{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "pt-BR,pt;q=0.9,es;q=0.8,en;q=0.7"}',
+   60, false),
+  -- Bancos do Paraguai: Basa (bloco "Cotización de monedas" da home) e Familiar (página de câmbios)
+  ('basa', 'https://www.bancobasa.com.py/', 'GET',
+   '{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "es-PY,es;q=0.9,pt-BR;q=0.8,en;q=0.7"}',
+   60, false),
+  ('familiar', 'https://www.familiar.com.py/cambios', 'GET',
+   '{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "es-PY,es;q=0.9,pt-BR;q=0.8,en;q=0.7"}',
+   60, false),
   -- MyD: HTML da home (banners de cotação, CDE/ASU/PJC)
   ('myd', 'https://www.mydcambios.com.py/', 'GET',
    '{"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "es-PY,es;q=0.9,pt-BR;q=0.8,en;q=0.7"}',
