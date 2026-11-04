@@ -178,3 +178,32 @@ def test_fingerprint_stable_and_connection_scoped():
     assert fingerprint("c1", tx, 0) == fingerprint("c1", tx, 0)
     assert fingerprint("c1", tx, 0) != fingerprint("c2", tx, 0)
     assert len(fingerprint("c1", tx, 0)) == 64
+
+
+def test_ofx_many_unclosed_openers_is_linear_and_fast():
+    # 50 mil aberturas <STMTTRN> sem fechamento: a versão antiga (regex com .*? e DOTALL) era quadrática.
+    import time
+
+    content = "<OFX><CURDEF>BRL<BANKTRANLIST>" + "<STMTTRN>" * 50_000 + "</OFX>"
+    started = time.perf_counter()
+    with pytest.raises(StatementError, match="mais de"):
+        parse_ofx(content)
+    assert time.perf_counter() - started < 2.0
+
+
+def test_ofx_unclosed_openers_below_limit_are_ignored():
+    content = (
+        "<OFX><CURDEF>BRL<STMTTRN><DTPOSTED>20261103<TRNAMT>1<NAME>a</STMTTRN><STMTTRN><DTPOSTED>20261104</OFX>"
+    )
+    rows = parse_ofx(content)
+    assert len(rows) == 1 and rows[0].description == "a"
+
+
+def test_statement_over_512kb_refused():
+    from fronteira_fx.connections.statement import MAX_STATEMENT_CHARS
+
+    big = "<OFX><CURDEF>BRL>" + " " * MAX_STATEMENT_CHARS
+    with pytest.raises(StatementError, match="acima de"):
+        parse_ofx(big)
+    with pytest.raises(StatementError, match="acima de"):
+        parse_csv("x" * (MAX_STATEMENT_CHARS + 1), MAP, "BRL")

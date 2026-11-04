@@ -19,7 +19,8 @@ MAX_ABS_AMOUNT = Decimal(10) ** 12
 SUPPORTED_CURRENCIES = frozenset({"BRL", "USD", "PYG"})
 ALLOWED_DATE_FORMATS = frozenset({"%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d", "%d.%m.%Y"})
 _AMOUNT_RE = re.compile(r"^[+-]?\d+(\.\d+)?$")
-_TRN_RE = re.compile(r"<STMTTRN>(.*?)</STMTTRN>", re.DOTALL | re.IGNORECASE)
+_TRN_OPEN_RE = re.compile(r"<STMTTRN>", re.IGNORECASE)
+_TRN_TAG_RE = re.compile(r"<STMTTRN>|</STMTTRN>", re.IGNORECASE)
 
 
 class StatementError(ValueError):
@@ -83,7 +84,13 @@ def _currency(raw: str | None, default: str | None) -> str:
     return code
 
 
+def _check_size(content: str) -> None:
+    if len(content) > MAX_STATEMENT_CHARS:
+        raise StatementError([f"arquivo acima de {MAX_STATEMENT_CHARS} caracteres"])
+
+
 def parse_csv(content: str, mapping: CsvMapping, default_currency: str | None = None) -> list[Transaction]:
+    _check_size(content)
     if mapping.date_format not in ALLOWED_DATE_FORMATS:
         raise StatementError(["date_format não permitido"])
     if mapping.delimiter not in (",", ";", "\t"):
@@ -135,10 +142,30 @@ def _tag(block: str, name: str) -> str | None:
     return match.group(1).strip() if match else None
 
 
+def _trn_blocks(content: str) -> list[str]:
+    """Blocos <STMTTRN>…</STMTTRN> numa única passada linear. Abertura sem fechamento é ignorada (não há busca
+    repetida até o fim do texto, então um arquivo com muitas aberturas não custa tempo quadrático)."""
+    blocks: list[str] = []
+    start: int | None = None
+    for match in _TRN_TAG_RE.finditer(content):
+        is_close = match.group(0)[1] == "/"
+        if start is None:
+            if not is_close:
+                start = match.end()
+        elif is_close:
+            blocks.append(content[start : match.start()])
+            start = None
+    return blocks
+
+
 def parse_ofx(content: str, default_currency: str | None = None) -> list[Transaction]:
     """OFX 1.x (SGML) e 2.x (XML) por texto: pega o CURDEF e cada bloco STMTTRN. Não resolve entidades nem URLs."""
+    _check_size(content)
     if "<OFX>" not in content.upper():
         raise StatementError(["arquivo não é OFX (falta <OFX>)"])
+    openings = len(_TRN_OPEN_RE.findall(content))
+    if openings > MAX_STATEMENT_ROWS:
+        raise StatementError([f"mais de {MAX_STATEMENT_ROWS} transações"])
     currency_tag = _tag(content, "CURDEF")
     try:
         currency = _currency(currency_tag, default_currency)
@@ -147,7 +174,7 @@ def parse_ofx(content: str, default_currency: str | None = None) -> list[Transac
 
     rows: list[Transaction] = []
     errors: list[str] = []
-    for n, block in enumerate(_TRN_RE.findall(content), start=1):
+    for n, block in enumerate(_trn_blocks(content), start=1):
         if n > MAX_STATEMENT_ROWS:
             raise StatementError([f"mais de {MAX_STATEMENT_ROWS} transações"])
         posted = _tag(block, "DTPOSTED") or ""
