@@ -31,8 +31,16 @@ function topOf(page: Page, selector: string): Promise<number> {
  * Tela de pregão em modo demo (sem backend), nos 3 projetos (1440 / 1024 / 390).
  * Espera sempre por elementos (`data-testid`, `data-state`); nunca por rede ociosa nem por tempo fixo.
  */
+/**
+ * O estado do pregão depende do relógio: de madrugada só as digitais estão abertas ("só digitais").
+ * Quarta 2026-11-04 às 14:00Z = 11:00 em Assunção (físicas abertas); às 03:45Z = 00:45 (só digitais).
+ */
+const HORARIO_ABERTO = new Date("2026-11-04T14:00:00Z");
+const MADRUGADA = new Date("2026-11-04T03:45:00Z");
+
 test.describe("Pregão", () => {
   test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(HORARIO_ABERTO);
     await page.goto("/pregao");
     await expect(page.getByRole("heading", { level: 2, name: "Pregão" })).toBeVisible();
   });
@@ -355,6 +363,36 @@ test.describe("Pregão", () => {
     await row.click();
     if (mobile) await page.getByRole("tab", { name: "Gráfico" }).click();
     await expect(page.getByTestId("pregao-chart")).toHaveAttribute("data-key", key ?? "");
+  });
+});
+
+test.describe("Pregão de madrugada (só digitais)", () => {
+  test("blocos essenciais e sem rolagem horizontal às 03:45Z", async ({ page }, info) => {
+    await page.clock.setFixedTime(MADRUGADA);
+    await page.goto("/pregao");
+    await expect(page.getByRole("heading", { level: 2, name: "Pregão" })).toBeVisible();
+    const mobile = info.project.name === "mobile-390";
+    await expect(page.getByTestId("pregao-ticker")).toHaveAttribute("data-state", "ready");
+    await expect(page.getByTestId("pregao-clock")).toBeVisible();
+    await expect(page.getByTestId("pregao-market-status")).toBeVisible();
+    await expect(page.getByTestId("pregao-stats")).toHaveAttribute("data-state", "ready");
+    await expect(page.getByTestId("pregao-chart")).toHaveAttribute("data-state", "ready");
+    await expect(page.getByTestId("pregao-chart").locator("canvas").first()).toBeVisible();
+    if (mobile) {
+      for (const [tab, id] of [["Livro", "pregao-book"], ["Lista", "pregao-watchlist"], ["Últimas", "pregao-prints"]] as const) {
+        await page.getByRole("tab", { name: tab }).click();
+        await expect(page.getByTestId(id)).toBeVisible();
+        await expectTablesFit(page, id);
+      }
+    } else {
+      await expect(page.getByTestId("pregao-book")).toBeVisible();
+      await expect(page.getByTestId("pregao-prints")).toBeVisible();
+      await expect(page.getByTestId("pregao-watchlist")).toBeVisible();
+      for (const id of ["pregao-book", "pregao-prints", "pregao-watchlist"]) await expectTablesFit(page, id);
+    }
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+    expect(scrollWidth, "rolagem horizontal da página às 03:45Z").toBeLessThanOrEqual(clientWidth + 1);
+    await page.screenshot({ path: `dev/screenshots/pregao-madrugada-${info.project.name}.png`, fullPage: true });
   });
 });
 
