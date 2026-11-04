@@ -16,6 +16,15 @@ describe("NAV", () => {
   });
 });
 
+describe("Economia e cripto (módulo market)", () => {
+  it("tem rota própria, distinta de /mercados (que é a tela das casas), sem casar por prefixo", () => {
+    const item = NAV.find((n) => n.href === "/economia");
+    expect(item).toMatchObject({ label: "Economia e cripto" });
+    expect(isActive("/economia", "/mercados")).toBe(false);
+    expect(isActive("/mercados", "/economia")).toBe(false);
+  });
+});
+
 describe("splitNav (barra inferior + menu Mais)", () => {
   it("4 itens principais e o resto no menu Mais, sem perder rota", () => {
     const { primary, more } = splitNav(NAV);

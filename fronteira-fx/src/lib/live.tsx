@@ -89,6 +89,11 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
         case "source.change":
           void qc.invalidateQueries({ queryKey: ["watch"] });
           break;
+        case "market.news":
+        case "market.volatility_alert":
+          // módulo market: só a leitura da tela Economia é recarregada (referência, nunca cotação executável)
+          void qc.invalidateQueries({ queryKey: ["market", mode] });
+          break;
         case "alert.fired":
           void qc.invalidateQueries({ queryKey: ["alerts"] });
           if (isAlertEvent(ev.payload) && (!ev.payload.data_mode || ev.payload.data_mode === mode)) alertToasts.push(ev.payload);

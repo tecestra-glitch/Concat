@@ -265,7 +265,7 @@ export interface JournalEntry {
 /** POST /v1/journal */
 export type JournalInput = Omit<JournalEntry, "id" | "ts">;
 
-export type StreamEventType = "quote.updated" | "source.health" | "opportunity.updated" | "heartbeat" | "source.change" | "alert.fired";
+export type StreamEventType = "quote.updated" | "source.health" | "opportunity.updated" | "heartbeat" | "source.change" | "alert.fired" | "market.news" | "market.volatility_alert";
 
 export interface StreamEvent {
   id: string;

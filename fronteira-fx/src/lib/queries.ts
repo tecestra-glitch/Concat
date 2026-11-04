@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "./api/client";
 import { setBackendStatus } from "./api/backend-status";
 import type { CycleFilters, EvidenceFilters, OpportunityFilters, QuoteFilters, SimulationRequest } from "./api/types";
+import type { NewsFilters } from "./api/market";
 import { useSettings } from "./settings";
 
 export type { CycleFilters, EvidenceFilters, OpportunityFilters, QuoteFilters };
@@ -62,6 +63,23 @@ export function useMemorySummary(limit?: number) {
   const { mode } = useSettings();
   return useQuery({ queryKey: ["memory-summary", mode, limit], queryFn: () => api.memorySummary(mode, limit), staleTime: 60_000 });
 }
+/**
+ * Módulo market (Economia e cripto). Chave `["market", mode, …]`: o stream invalida `["market", mode]` quando chega
+ * manchete nova ou alerta de volatilidade; o intervalo de 60 s é só a rede de segurança (o backend sonda no piso de 60 s).
+ */
+export function useMarketNews(f: NewsFilters = {}) {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["market", mode, "news", f], queryFn: () => api.marketNews(mode, f), refetchInterval: 60_000, staleTime: 30_000 });
+}
+export function useMarketQuotes() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["market", mode, "quotes"], queryFn: () => api.marketQuotes(mode), refetchInterval: 60_000, staleTime: 30_000 });
+}
+export function useMarketVolatility() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["market", mode, "volatility"], queryFn: () => api.marketVolatility(mode), refetchInterval: 60_000, staleTime: 30_000 });
+}
+
 /** Backend health for the current mode; in demo it is synthetic (`data_mode: "demo"`) and never hits the network. */
 export function useBackendHealth() {
   const { mode } = useSettings();
