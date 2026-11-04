@@ -1,4 +1,4 @@
-import { Activity, BellRing, BookOpenText, Brain, Building2, Calculator, CandlestickChart, ClipboardList, Database, LayoutDashboard, Library, Newspaper, Settings, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
+import { Activity, BellRing, BookOpenText, Brain, Building2, Calculator, Plug, CandlestickChart, ClipboardList, Database, LayoutDashboard, Library, Newspaper, Settings, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -15,6 +15,7 @@ export const NAV: NavItem[] = [
   { href: "/planos", label: "Planos", short: "Planos", icon: ClipboardList },
   { href: "/simulador", label: "Simulador", short: "Simular", icon: Calculator },
   { href: "/contas", label: "Contas e cartões", short: "Contas", icon: Building2 },
+  { href: "/conexoes", label: "Conexões", short: "Conexões", icon: Plug },
   { href: "/fontes", label: "Fontes", short: "Fontes", icon: Database },
   { href: "/monitor", label: "Monitor ao vivo", short: "Monitor", icon: Activity },
   { href: "/economia", label: "Economia e cripto", short: "Economia", icon: Newspaper },

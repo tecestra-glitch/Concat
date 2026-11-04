@@ -418,3 +418,9 @@
     animation: none !important;
   }
 }
+
+/* Segredo de API: aparece mascarado sem usar type="password" (a tela de login é o único campo de senha do app). */
+.fx-mask {
+  -webkit-text-security: disc;
+  text-security: disc;
+}
