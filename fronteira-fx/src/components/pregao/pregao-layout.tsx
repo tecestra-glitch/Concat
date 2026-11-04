@@ -131,13 +131,13 @@ export function PregaoLayout({
             Controles
           </h3>
           {/* Intervalo e indicadores só valem para o gráfico: no celular aparecem só na aba Gráfico. O par vale para
-              todas as abas e, no celular, vem primeiro, logo abaixo das abas. Em md+ a ordem é intervalo, par,
-              indicadores numa linha só (`contents` não cria caixa: os três ficam na mesma linha flexível). */}
+              todas as abas. A ordem visual é a do DOM em todas as larguras (intervalo, par, indicadores), para o foco
+              por Tab seguir a tela (WCAG 2.4.3); `contents` não cria caixa: os três ficam na mesma linha flexível. */}
           <div className="flex flex-wrap items-center gap-2">
             <div data-testid="pregao-controls-tf" className={cn("contents", tab !== "grafico" && "max-md:hidden")}>
               {timeframe}
             </div>
-            <div data-testid="pregao-controls-pair" className="max-md:order-first">
+            <div data-testid="pregao-controls-pair">
               {controls}
             </div>
             <div data-testid="pregao-controls-ind" className={cn("contents", tab !== "grafico" && "max-md:hidden")}>

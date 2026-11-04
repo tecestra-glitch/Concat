@@ -130,10 +130,17 @@ describe("PregaoLayout — controles do gráfico", () => {
     }
   });
 
-  it("abas antes dos controles (no celular sobem para a primeira metade da tela); par primeiro no celular", () => {
+  it("abas antes dos controles (no celular sobem para a primeira metade da tela)", () => {
     const html = render();
     expect(html.indexOf('data-testid="pregao-tabs"')).toBeLessThan(html.indexOf('aria-labelledby="pregao-h-controles"'));
-    expect(classesOf(tagWith(html, 'data-testid="pregao-controls-pair"'))).toContain("max-md:order-first");
+  });
+
+  it("ordem de foco no celular = ordem visual: nenhum controle do gráfico é reordenado por CSS (sem order-*)", () => {
+    const html = render();
+    for (const id of ["pregao-controls-tf", "pregao-controls-pair", "pregao-controls-ind"]) {
+      const classes = classesOf(tagWith(html, `data-testid="${id}"`));
+      expect(classes.filter((c) => /(^|:)order-/.test(c)), id).toEqual([]);
+    }
   });
 
   it("ordem no md+: intervalo, par, indicadores numa linha só", () => {

@@ -229,7 +229,7 @@ Regras:
 - **Contraste**: texto com pelo menos 4,5:1 e marcas gráficas com pelo menos 3:1, nos dois temas.
 - **Estrutura**: cada bloco é uma `section` com `aria-labelledby`. A página tem um só `h2` ("Pregão").
 - **Seleção única** (intervalo e par) é um `radiogroup`, com setas, Home e End. Os indicadores são uma `toolbar` de botões `aria-pressed`.
-- **Abas no celular**: `tablist` com setas, Home e End. Cada painel é `role="tabpanel"` com `aria-labelledby` apontando para a sua aba (o livro tem dois painéis, o livro e o mapa + cruzado, ambos ligados à aba Livro). Em md+ o `tablist` some e os painéis ficam visíveis, com o nome da aba oculta.
+- **Abas no celular**: `tablist` com setas, Home e End. Cada painel é `role="tabpanel"` com `aria-labelledby` apontando para a sua aba (o livro tem dois painéis, o livro e o mapa + cruzado, ambos ligados à aba Livro). Em md+ o `tablist` some, mas os painéis continuam visíveis e o nome que eles usam é o da aba oculta (o nome segue válido).
 - **Tabelas** têm `th scope="col"`. A ordenação é um botão com `aria-sort` dentro do cabeçalho. Linhas selecionáveis respondem a Enter e Espaço.
 - **Gráfico** é uma `figure` com `figcaption` em `sr-only` (resumo textual), sem papel de imagem: a biblioteca põe um link de atribuição dentro do gráfico e o estado de erro tem o botão "Tentar de novo", e controles dentro de uma imagem ficariam inacessíveis. A legenda é uma lista rotulada.
 - **Casa fechada** leva o rótulo "fechada" (e `data-status="closed"`); no mapa de spread, a célula ganha contorno tracejado. Nada é esmaecido com opacidade, que derrubaria o contraste do texto abaixo de 4,5:1.
