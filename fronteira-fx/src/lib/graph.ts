@@ -1,7 +1,7 @@
 /**
  * Cruzamento de posições ("grafo de posições") — espelho TS do motor do backend (D1).
  *
- * Nó  = moeda em um local/conta (ex.: USD@ueno, PYG@chaco:CDE, BRL@brbank).
+ * Nó  = moeda em um local/conta (ex.: USD@banco-demo-py, PYG@chaco:CDE, BRL@brbank).
  * Aresta = uma forma de mover valor entre dois nós: uma cotação (compra/venda de uma fonte),
  *          uma transferência (mesma moeda, entre contas) ou um depósito/saque (dinheiro ↔ conta).
  *          Cada aresta carrega taxa, custos fixos/percentuais, prazo e confiança.

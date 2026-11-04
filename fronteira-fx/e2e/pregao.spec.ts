@@ -34,7 +34,7 @@ function topOf(page: Page, selector: string): Promise<number> {
 test.describe("Pregão", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/pregao");
-    await expect(page.getByRole("heading", { level: 2, name: "Pregão" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Pregão" })).toBeVisible();
   });
 
   test("blocos essenciais e sem rolagem horizontal", async ({ page }, info) => {
@@ -224,35 +224,13 @@ test.describe("Pregão", () => {
     expect(checked, "linhas do livro percorridas com Shift+Tab").toBeGreaterThan(2);
   });
 
-  test("botão visível pausa e retoma a fita, e a escolha sobrevive ao recarregar", async ({ page }, info) => {
+  test("fita estática: sem animação, sem botão de pausa, rolagem horizontal manual", async ({ page }) => {
     const tape = page.getByTestId("pregao-ticker");
     await expect(tape).toHaveAttribute("data-state", "ready");
-    const button = tape.getByRole("button", { name: "Pausar fita" });
-    await expect(button).toBeVisible();
-    await expect(button).toHaveAttribute("aria-pressed", "false");
-    // Ordem de Tab = ordem visual: o botão é o primeiro foco da fita, antes dos itens.
-    await expect(tape.locator("button").first()).toHaveAccessibleName("Pausar fita");
-    const list = tape.locator("ul.pregao-marquee");
-    await expect.poll(() => list.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("running");
-    // No celular não há hover nem foco para pausar: o toque no botão tem que bastar.
-    if (info.project.name === "mobile-390") await button.tap();
-    else await button.click();
-    // Rótulo constante: o estado vai só no aria-pressed.
-    await expect(button).toHaveAttribute("aria-pressed", "true");
-    await expect.poll(() => list.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("paused");
-    // Parada de fato: o deslocamento não muda entre quadros.
-    const still = await list.evaluate(async (el) => {
-      const before = getComputedStyle(el).transform;
-      for (let i = 0; i < 10; i++) await new Promise((r) => requestAnimationFrame(r));
-      return before === getComputedStyle(el).transform;
-    });
-    expect(still).toBe(true);
-    await page.reload();
-    await expect(page.getByTestId("pregao-ticker").getByRole("button", { name: "Pausar fita" })).toHaveAttribute("aria-pressed", "true");
-    await expect.poll(() => page.locator("ul.pregao-marquee").evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("paused");
-    await page.getByTestId("pregao-ticker").getByRole("button", { name: "Pausar fita" }).click();
-    await expect(page.getByTestId("pregao-ticker").getByRole("button", { name: "Pausar fita" })).toHaveAttribute("aria-pressed", "false");
-    await expect.poll(() => page.locator("ul.pregao-marquee").evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("running");
+    await expect(tape.getByRole("button", { name: "Pausar fita" })).toHaveCount(0);
+    await expect(page.getByTestId("pregao-ticker-scroll")).toHaveCSS("overflow-x", "auto");
+    const name = await tape.locator("ul").evaluate((el) => getComputedStyle(el).animationName);
+    expect(name).toBe("none");
   });
 
   test("referência nunca entra nos lados do livro", async ({ page }) => {
@@ -339,7 +317,7 @@ test.describe("Pregão", () => {
       });
     await expect.poll(paintedSurface).toBe("igual");
     const wasDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
-    await page.getByRole("button", { name: /Ativar tema (claro|escuro)/ }).first().click();
+    await page.getByRole("button", { name: "Alternar tema" }).first().click();
     await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(!wasDark);
     await expect.poll(paintedSurface).toBe("igual");
   });
@@ -362,30 +340,16 @@ test.describe("Pregão", () => {
 test.describe("Pregão com movimento reduzido", () => {
   test.use({ reducedMotion: "reduce" });
 
-  test("fita parada, sem translate, com todos os itens dentro da caixa", async ({ page }) => {
+  test("fita sem movimento: sem animação, sem transform, rolagem manual", async ({ page }) => {
     await page.goto("/pregao");
     const tape = page.getByTestId("pregao-ticker");
     await expect(tape).toHaveAttribute("data-state", "ready");
-    const list = tape.locator("ul");
-    const motion = await list.evaluate((el) => {
+    const motion = await tape.locator("ul").evaluate((el) => {
       const cs = getComputedStyle(el);
       return { name: cs.animationName, transform: cs.transform };
     });
     expect(motion.name).toBe("none");
     expect(motion.transform).toBe("none");
-    const box = await tape.boundingBox();
-    expect(box).not.toBeNull();
-    const items = tape.locator('[data-testid="pregao-ticker-item"]:not([data-dup])');
-    const count = await items.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      const b = await items.nth(i).boundingBox();
-      expect(b, `item ${i}`).not.toBeNull();
-      expect(b!.x, `item ${i} começa dentro da fita`).toBeGreaterThanOrEqual(box!.x - 0.5);
-      expect(b!.x + b!.width, `item ${i} termina dentro da fita`).toBeLessThanOrEqual(box!.x + box!.width + 0.5);
-    }
-    await expect(tape.locator('[data-testid="pregao-ticker-item"][data-dup="true"]').first()).toBeHidden();
-    // Fita já estática: o botão de pausa não tem o que pausar.
-    await expect(tape.getByTestId("pregao-ticker-pause")).toBeHidden();
+    await expect(page.getByTestId("pregao-ticker-scroll")).toHaveCSS("overflow-x", "auto");
   });
 });

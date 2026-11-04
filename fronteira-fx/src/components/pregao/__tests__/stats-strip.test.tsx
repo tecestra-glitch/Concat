@@ -159,7 +159,8 @@ describe("StatsStrip (SSR)", () => {
     const html = renderToStaticMarkup(<StatsStrip stats={null} quote="PYG" now={now} loading />);
     expect(html).toContain('data-state="loading"');
     expect(html).toContain('aria-busy="true"');
-    expect(count(html, "animate-pulse")).toBe(8);
+    // Esqueleto com brilho do fx (globals.css), no lugar do animate-pulse (spec §4, item 11).
+    expect(count(html, "fx-skeleton")).toBe(8);
     expect(html).toContain("Carregando…");
   });
 

@@ -1,10 +1,11 @@
 "use client";
-import type { CSSProperties, ReactElement } from "react";
-import { Pause, Play, TriangleAlert } from "lucide-react";
+import type { ReactElement } from "react";
 import { Delta } from "@/components/pregao/delta";
 import { ReferenceBadge } from "@/components/pregao/reference-badge";
+import { CurrencyFlag, type FlagCode } from "@/components/ui/currency-flag";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TriangleAlert } from "lucide-react";
 import { formatRate } from "@/lib/format";
 import { quoteOfPair } from "@/lib/pregao/candles";
 import { PAIR_LABEL, type TickerItem } from "@/lib/pregao/types";
@@ -14,13 +15,7 @@ export interface TickerTapeProps {
   items: TickerItem[];
   selectedKey?: string | null;
   onSelect?: (key: string) => void;
-  /** Segundos por volta do laço; padrão 40. */
-  durationS?: number;
   loading?: boolean;
-  /** Fita parada pelo botão "Pausar fita" (preferência `tapePaused`). */
-  paused?: boolean;
-  /** Sem handler, o botão não aparece (a fita só pausa com hover/foco). */
-  onPausedChange?: (paused: boolean) => void;
   className?: string;
 }
 
@@ -29,21 +24,18 @@ export function tickerLabel(item: TickerItem): string {
   return `${PAIR_LABEL[item.pair]} ${item.house} ${formatRate(item.mid, quoteOfPair(item.pair))}`;
 }
 
-interface TickerTapeItemProps {
-  item: TickerItem;
-  selected: boolean;
-  onSelect?: (key: string) => void;
-  /** Cópia de laço: escondida de leitores de tela e fora da ordem de tabulação. */
-  dup: boolean;
-}
-
-function TickerTapeItem({ item, selected, onSelect, dup }: TickerTapeItemProps): ReactElement {
+function TickerTapeItem({ item, selected, onSelect }: { item: TickerItem; selected: boolean; onSelect?: (key: string) => void }): ReactElement {
   const isReference = item.kind === "market_reference";
+  const [base, quote] = item.pair.split("/") as [FlagCode, FlagCode];
   const value = (
     <>
-      <span className={cn("font-medium", selected && "text-accent")}>{PAIR_LABEL[item.pair]}</span>
+      <span className={cn("inline-flex items-center gap-1.5 font-medium", selected && "text-accent")}>
+        <CurrencyFlag code={base} />
+        <span aria-hidden="true" className="text-muted">/</span>
+        <CurrencyFlag code={quote} />
+      </span>
       <span className="text-muted">{item.house}</span>
-      <span className="tnum">
+      <span className="fx-num">
         {isReference ? "≈ " : null}
         {formatRate(item.mid, quoteOfPair(item.pair))}
         {isReference ? <ReferenceBadge compact source={item.source_id} className="ml-1" /> : null}
@@ -52,14 +44,7 @@ function TickerTapeItem({ item, selected, onSelect, dup }: TickerTapeItemProps):
   );
 
   return (
-    <li
-      data-testid="pregao-ticker-item"
-      data-key={item.key}
-      data-kind={item.kind}
-      aria-hidden={dup ? "true" : undefined}
-      data-dup={dup ? "true" : undefined}
-      className={cn("flex items-center gap-2 whitespace-nowrap", dup && "motion-reduce:hidden")}
-    >
+    <li data-testid="pregao-ticker-item" data-key={item.key} data-kind={item.kind} className="flex items-center gap-2 whitespace-nowrap">
       {isReference || !onSelect ? (
         <span className="inline-flex items-center gap-2">{value}</span>
       ) : (
@@ -67,9 +52,8 @@ function TickerTapeItem({ item, selected, onSelect, dup }: TickerTapeItemProps):
           type="button"
           aria-label={tickerLabel(item)}
           aria-current={selected ? "true" : undefined}
-          tabIndex={dup ? -1 : undefined}
           onClick={() => onSelect(item.key)}
-          className="inline-flex min-h-10 items-center gap-2 rounded-sm md:min-h-8 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+          className="inline-flex min-h-11 items-center gap-2 rounded-chip px-1 md:min-h-8 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
         >
           {value}
         </button>
@@ -85,49 +69,11 @@ function TickerTapeItem({ item, selected, onSelect, dup }: TickerTapeItemProps):
   );
 }
 
-export interface TapePauseButtonProps {
-  paused: boolean;
-  onPausedChange: (paused: boolean) => void;
-}
-
 /**
- * Botão visível de pausa (WCAG 2.2.2): no toque não existe hover nem foco para parar a fita. Botão de alternância:
- * o rótulo é constante ("Pausar fita") e o estado vai no `aria-pressed` e no visual (fundo e ícone). Com movimento
- * reduzido a fita já é estática e o botão some.
+ * Fita de cotações estática (dev/ui/spec-reforma-ui.md, PR1): sem laço, sem animação e sem botão de pausa. As cotações
+ * ficam em linha e a rolagem é horizontal e manual (`overflow-x-auto`), então nada se move sozinho sobre um número.
  */
-export function TapePauseButton({ paused, onPausedChange }: TapePauseButtonProps): ReactElement {
-  const Icon = paused ? Play : Pause;
-  return (
-    <button
-      type="button"
-      data-testid="pregao-ticker-pause"
-      aria-pressed={paused}
-      onClick={() => onPausedChange(!paused)}
-      className={cn(
-        "inline-flex min-h-10 shrink-0 items-center gap-1 border-r border-border px-2 text-xs text-muted hover:text-foreground motion-reduce:hidden md:min-h-8 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
-        paused ? "bg-surface-2 text-foreground" : "bg-surface",
-      )}
-    >
-      <Icon size={12} aria-hidden />
-      Pausar fita
-    </button>
-  );
-}
-
-/**
- * Fita rolante com a última cotação de cada série. O conteúdo é repetido para o laço contínuo;
- * a cópia é escondida de leitores de tela. Sem `aria-live`: a fita muda a cada minuto (§0.14).
- */
-export function TickerTape({
-  items,
-  selectedKey = null,
-  onSelect,
-  durationS = 40,
-  loading = false,
-  paused = false,
-  onPausedChange,
-  className,
-}: TickerTapeProps): ReactElement {
+export function TickerTape({ items, selectedKey = null, onSelect, loading = false, className }: TickerTapeProps): ReactElement {
   const state = loading ? "loading" : items.length === 0 ? "empty" : "ready";
   const demo = items.some((i) => i.data_mode === "demo");
 
@@ -139,7 +85,7 @@ export function TickerTape({
       data-state={state}
       data-mode={demo ? "demo" : undefined}
       aria-busy={loading ? "true" : undefined}
-      className={cn("flex items-stretch overflow-hidden border-y border-border bg-surface", className)}
+      className={cn("flex min-w-0 items-stretch overflow-hidden border-y border-border bg-surface", className)}
     >
       {state === "loading" ? (
         <>
@@ -147,29 +93,16 @@ export function TickerTape({
           <span className="sr-only">Carregando…</span>
         </>
       ) : state === "empty" ? (
-        <p className="text-sm text-muted">Sem cotações na fita.</p>
+        <p className="p-2 text-body text-muted">Sem cotações na fita.</p>
       ) : (
-        <>
-          {/* Antes da lista no DOM e à esquerda na tela: a ordem de Tab segue a ordem visual (WCAG 2.4.3). */}
-          {onPausedChange ? <TapePauseButton paused={paused} onPausedChange={onPausedChange} /> : null}
-          <div className="min-w-0 flex-1 overflow-hidden">
-            <ul
-              data-paused={paused ? "true" : undefined}
-              className={cn(
-                "pregao-marquee flex w-max gap-6 py-1.5 text-[13px] motion-reduce:w-full motion-reduce:flex-wrap motion-reduce:animate-none",
-                paused && "[animation-play-state:paused]",
-              )}
-              style={{ "--tape-duration": `${durationS}s` } as CSSProperties}
-            >
-              {items.map((item) => (
-                <TickerTapeItem key={item.key} item={item} selected={item.key === selectedKey} onSelect={onSelect} dup={false} />
-              ))}
-              {items.map((item) => (
-                <TickerTapeItem key={`dup:${item.key}`} item={item} selected={item.key === selectedKey} onSelect={onSelect} dup />
-              ))}
-            </ul>
-          </div>
-        </>
+        // `contain: paint` (classe abaixo) impede que a lista larga (w-max) entre na largura da página.
+        <div role="group" data-testid="pregao-ticker-scroll" tabIndex={0} aria-label="Cotações, role para o lado" className="min-w-0 flex-1 overflow-x-auto [contain:paint] focus-visible:outline-2 focus-visible:outline-ring">
+          <ul className="flex w-max gap-6 px-3 py-1.5 text-body">
+            {items.map((item) => (
+              <TickerTapeItem key={item.key} item={item} selected={item.key === selectedKey} onSelect={onSelect} />
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

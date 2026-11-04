@@ -194,8 +194,8 @@ describe("BookLadder", () => {
     const chacoCde = mkLevel({ key: "chaco:CDE", house: "Cambios Chaco", source_id: "chaco", city: "CDE", buy: "7320", sell: "7380" });
     const chacoAsu = mkLevel({ key: "chaco:ASU", house: "Cambios Chaco", source_id: "chaco", city: "ASU", buy: "7310", sell: "7390" });
     const alberdiPjc = mkLevel({ key: "alberdi:PJC", house: "Cambios Alberdi", source_id: "alberdi", city: "PJC", buy: "7300", sell: "7400" });
-    const ueno = mkLevel({ key: "ueno", house: "ueno", source_id: "ueno", city: null, channel: "digital", buy: "7290", sell: "7410" });
-    const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={[chacoCde, chacoAsu, alberdiPjc, ueno]} />);
+    const bancoDemo = mkLevel({ key: "banco-demo-py", house: "banco-demo-py", source_id: "banco-demo-py", city: null, channel: "digital", buy: "7290", sell: "7410" });
+    const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={[chacoCde, chacoAsu, alberdiPjc, bancoDemo]} />);
     const rows = rowsOf(between(html, "pregao-book-side-buy", "pregao-book-side-sell"), "pregao-book-row");
     const cityOf = (key: string) => {
       const row = rows.find((r) => r.open.includes(`data-key="${key}"`));
@@ -205,7 +205,7 @@ describe("BookLadder", () => {
     expect(cityOf("chaco:CDE")).toEqual(["Ciudad del Este", "CDE"]);
     expect(cityOf("chaco:ASU")).toEqual(["Asunción", "ASU"]);
     expect(cityOf("alberdi:PJC")).toEqual(["Pedro Juan Caballero", "PJC"]);
-    expect(rows.find((r) => r.open.includes('data-key="ueno"'))?.body).not.toContain("pregao-book-city");
+    expect(rows.find((r) => r.open.includes('data-key="banco-demo-py"'))?.body).not.toContain("pregao-book-city");
     // Leitor de tela: um nó só com o nome da cidade (sigla aria-hidden), sem "CDE , Ciudad del Este".
     const cde = rows.find((r) => r.open.includes('data-key="chaco:CDE"'))!.body;
     expect(cde).toContain('<span aria-hidden="true">CDE</span><span class="sr-only">Ciudad del Este</span>');
@@ -260,12 +260,12 @@ describe("BookLadder", () => {
     expect(html).toContain('data-mode="demo"');
   });
 
-  it("com demoBook: alberdi é a melhor compra, ueno a melhor venda, bcp é a referência", () => {
+  it("com demoBook: alberdi é a melhor compra, banco demo PY a melhor venda, bcp é a referência", () => {
     const now = new Date(NOW);
     const levelsDemo = demoBook("USD/PYG", now);
     const { bids, asks, refs } = splitBook(levelsDemo);
     expect(bids[0].source_id).toBe("alberdi");
-    expect(asks[0].source_id).toBe("ueno");
+    expect(asks[0].source_id).toBe("banco-demo-py");
     expect(refs[0].source_id).toBe("bcp");
     const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={levelsDemo} />);
     expect(html).toContain('data-mode="demo"');

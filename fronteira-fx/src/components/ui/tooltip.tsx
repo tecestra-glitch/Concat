@@ -6,12 +6,14 @@ import { cn } from "@/lib/utils";
 export const TooltipProvider = TooltipPrimitive.Provider;
 export const Tooltip = TooltipPrimitive.Root;
 export const TooltipTrigger = TooltipPrimitive.Trigger;
+
+/** Balão do tooltip: entrada em --motion-fast (`fx-pop`), sombra de nível 2. Ver `fx/fx-tooltip.tsx` para as siglas. */
 export function TooltipContent({ className, sideOffset = 4, ...props }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
         sideOffset={sideOffset}
-        className={cn("z-50 max-w-xs rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground shadow-md", className)}
+        className={cn("fx-pop z-(--z-overlay) max-w-xs rounded-control border border-border bg-surface px-3 py-1.5 text-caption text-foreground shadow-[var(--shadow-2)]", className)}
         {...props}
       />
     </TooltipPrimitive.Portal>

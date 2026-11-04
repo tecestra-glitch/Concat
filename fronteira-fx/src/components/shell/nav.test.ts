@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { NAV, isActive, splitNav } from "./nav";
 
 describe("NAV", () => {
+  it("a home é Início (candles + oportunidades) e não existe mais Visão geral", () => {
+    expect(NAV[0]).toMatchObject({ href: "/", label: "Início" });
+    expect(NAV.map((n) => n.label)).not.toContain("Visão geral");
+  });
+
   it("inclui as telas de conhecimento e memória", () => {
     const hrefs = NAV.map((n) => n.href);
     expect(hrefs).toContain("/conhecimento");

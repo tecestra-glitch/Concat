@@ -69,7 +69,7 @@ async function setupRealMode(page: Page, overrides: Overrides = {}, preference =
       case "/v1/alerts/events": return json(route, []);
       case "/v1/memory/summary": return json(route, { summary: "Prefere ciclos digitais; evitar presencial em PJC." });
       case "/v1/memory": return json(route, [{ id: "m1", kind: "decision", text: "Não operar com cotação acima de 30 min.", tags: ["regra"], created_at: iso(3600), expires_at: null, source: "user" }]);
-      case "/v1/rag/search": log.rag.push(url); return json(route, [{ id: "h1", document_id: "d1", title: "Tarifas ueno", snippet: "Saque em caixa: 0,5 %…", score: 0.82, source: "ueno", tags: ["tarifa"] }]);
+      case "/v1/rag/search": log.rag.push(url); return json(route, [{ id: "h1", document_id: "d1", title: "Tarifas do banco demo PY", snippet: "Saque em caixa: 0,5 %…", score: 0.82, source: "banco-demo-py", tags: ["tarifa"] }]);
       default: return json(route, { detail: `sem rota simulada para ${path}` }, 404);
     }
   });
@@ -79,8 +79,9 @@ async function setupRealMode(page: Page, overrides: Overrides = {}, preference =
 test.describe("Modo real (API simulada)", () => {
   test("hides the demo banner, shows real health and quotes from the backend", async ({ page }) => {
     await setupRealMode(page);
-    await page.goto("/");
-    await expect(page.getByRole("heading", { level: 2, name: "Visão geral" })).toBeVisible();
+    // As cotações por par saíram da home: a faixa de preços fica no topo de Mercados.
+    await page.goto("/mercados");
+    await expect(page.getByRole("heading", { level: 1, name: "Mercados" })).toBeVisible();
     await expect(page.getByTestId("price-card-USDPYG")).toContainText("Cambios Chaco");
     await expect(page.getByTestId("price-card-USDPYG")).toContainText("7.320");
     await expect(page.getByTestId("demo-banner")).toHaveCount(0);
@@ -171,10 +172,10 @@ test.describe("Modo real (API simulada)", () => {
   test("knowledge search calls /v1/rag/search and lists hits", async ({ page }) => {
     const log = await setupRealMode(page);
     await page.goto("/conhecimento");
-    await page.getByLabel("Pergunta ou termo").fill("tarifa ueno");
+    await page.getByLabel("Pergunta ou termo").fill("tarifa banco demo");
     await page.getByRole("button", { name: "Buscar" }).click();
-    await expect(page.getByTestId("knowledge-results")).toContainText("Tarifas ueno");
-    expect(log.rag[0].searchParams.get("q")).toBe("tarifa ueno");
+    await expect(page.getByTestId("knowledge-results")).toContainText("Tarifas do banco demo PY");
+    expect(log.rag[0].searchParams.get("q")).toBe("tarifa banco demo");
     expect(log.rag[0].searchParams.get("k")).toBe("5");
   });
 

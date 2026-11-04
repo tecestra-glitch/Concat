@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { CycleSchema, EdgeSchema, FeeSchema, HealthSchema, ModeSchema, QuoteSchema, StreamEventSchema } from "@/lib/api/schemas";
 
-const edge = { from: "BRL@brbank", to: "PYG@ueno", kind: "transfer", rate: "1360.8", fee_pct: "0", fee_fixed: "0", minutes: 2880, via: "Western Union", confidence: "estimated", evidence_id: null };
-const cycle = { start: "BRL@brbank", path: ["BRL@brbank", "PYG@ueno", "BRL@brbank"], edges: [edge, { ...edge, from: "PYG@ueno", to: "BRL@brbank" }], amount_in: "25000", amount_out: "25041.20", gain: "41.20", roi: "0.001648", minutes: 4320, confidence: "estimated", data_mode: "real" };
+const edge = { from: "BRL@brbank", to: "PYG@banco-demo-py", kind: "transfer", rate: "1360.8", fee_pct: "0", fee_fixed: "0", minutes: 2880, via: "Western Union", confidence: "estimated", evidence_id: null };
+const cycle = { start: "BRL@brbank", path: ["BRL@brbank", "PYG@banco-demo-py", "BRL@brbank"], edges: [edge, { ...edge, from: "PYG@banco-demo-py", to: "BRL@brbank" }], amount_in: "25000", amount_out: "25041.20", gain: "41.20", roi: "0.001648", minutes: 4320, confidence: "estimated", data_mode: "real" };
 
 describe("zod schemas mirror the contract", () => {
   it("Fee is fixed and/or percentage: amount may be null, pct optional (Q-03/MED-03)", () => {

@@ -1,5 +1,6 @@
 "use client";
-import { useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
+import { FxSegmented } from "@/components/ui/fx/fx-segmented";
 import { cn } from "@/lib/utils";
 
 export type PregaoMobileTab = "grafico" | "livro" | "lista" | "ultimas";
@@ -70,14 +71,6 @@ export function PregaoLayout({
 }: PregaoLayoutProps): ReactElement {
   const [tab, setTab] = useState<PregaoMobileTab>(defaultTab ?? "grafico");
 
-  function onTablistKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    const next = nextTab(tab, e.key);
-    if (next === null) return;
-    e.preventDefault();
-    setTab(next);
-    e.currentTarget.querySelector<HTMLButtonElement>(`#pregao-tab-${next}`)?.focus();
-  }
-
   return (
     <div data-testid="pregao-layout" data-mobile-tab={tab} className={cn("grid grid-cols-1 gap-4", className)}>
       {/* No celular a nota repetiria a faixa global de demonstração e empurraria as abas para baixo. */}
@@ -87,7 +80,7 @@ export function PregaoLayout({
         </div>
       )}
 
-      <section aria-labelledby="pregao-h-fita">
+      <section aria-labelledby="pregao-h-fita" className="min-w-0">
         <h3 id="pregao-h-fita" className="sr-only">
           Fita
         </h3>
@@ -108,23 +101,17 @@ export function PregaoLayout({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem] lg:grid-rows-[auto_auto_1fr_auto_auto] lg:items-start xl:grid-cols-[minmax(0,1fr)_21rem_18rem] xl:grid-rows-[auto_auto_1fr]">
         {/* Fica abaixo do cabeçalho fixo do app (h-14) ao rolar; z abaixo do cabeçalho (z-30). Vem antes dos controles:
             no celular as abas ficam na primeira metade da tela, logo depois da fita e da sessão. */}
-        <div role="tablist" aria-label="Seções do pregão" data-testid="pregao-tabs" onKeyDown={onTablistKeyDown} className="sticky top-14 z-20 flex gap-1 bg-background py-1 md:hidden">
-          {MOBILE_TABS.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              id={`pregao-tab-${id}`}
-              aria-selected={id === tab}
-              aria-controls={id === "livro" ? "pregao-panel-livro pregao-panel-livro-extra" : `pregao-panel-${id}`}
-              tabIndex={id === tab ? 0 : -1}
-              className={cn("h-10 flex-1 rounded-md text-sm", id === tab ? "bg-surface-2 text-foreground" : "text-muted")}
-              onClick={() => setTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Abas segmentadas (fx-segmented, Uiverse «abas-segmentadas»): tablist com setas, Home e End; as abas
+            ficam abaixo do cabeçalho fixo ao rolar e somem em md+. Os painéis rotulam-se pelos ids `pregao-tab-*`. */}
+        <FxSegmented
+          items={MOBILE_TABS}
+          value={tab}
+          onValueChange={setTab}
+          idPrefix="pregao-tab"
+          aria-label="Seções do pregão"
+          testId="pregao-tabs"
+          className="sticky top-14 z-20 md:hidden"
+        />
 
         <section aria-labelledby="pregao-h-controles" className="min-w-0 lg:col-start-1 lg:row-start-1 xl:col-end-3">
           <h3 id="pregao-h-controles" className="sr-only">
@@ -165,7 +152,7 @@ export function PregaoLayout({
             <h3 id="pregao-h-grafico" className="text-sm font-medium">
               Gráfico
             </h3>
-            <div className="h-[280px] md:h-[360px] xl:h-[420px]">{chart}</div>
+            <div className="h-(--panel-h-sm) md:h-(--panel-h-md) xl:h-(--panel-h-lg)">{chart}</div>
           </section>
         </div>
 

@@ -45,7 +45,7 @@ export function Journal() {
       <Card>
         <CardContent className="pt-4">
           <form onSubmit={add} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <div className="grid flex-1 gap-1"><Label htmlFor="nota">Nova nota</Label><Input id="nota" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ex.: conferi saldo ueno no app" disabled={create.isPending} /></div>
+            <div className="grid flex-1 gap-1"><Label htmlFor="nota">Nova nota</Label><Input id="nota" value={text} onChange={(e) => setText(e.target.value)} placeholder="Ex.: conferi saldo no app do banco" disabled={create.isPending} /></div>
             <Button type="submit" disabled={!text.trim() || create.isPending}>{create.isPending ? "Registrando…" : "Registrar"}</Button>
           </form>
           {create.isError && <p role="alert" className="mt-2 text-xs text-loss" data-testid="journal-error">Não foi possível registrar a nota: {(create.error as Error).message}</p>}

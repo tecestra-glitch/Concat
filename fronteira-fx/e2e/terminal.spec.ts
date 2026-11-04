@@ -9,28 +9,59 @@ async function expectNoHorizontalScroll(page: Page) {
 }
 
 test.describe("Fronteira FX terminal", () => {
-  test("home renders prices, ranking and demo banner without horizontal scroll", async ({ page }, info) => {
+  test("home shows candles and the top opportunities, without horizontal scroll", async ({ page }, info) => {
     await page.goto("/");
     await expect(page.getByTestId("demo-banner")).toBeVisible();
-    await expect(page.getByTestId("price-card-USDPYG")).toBeVisible();
-    await expect(page.getByTestId("price-card-BRLPYG")).toContainText("por 1 BRL");
-    await expect(page.getByRole("heading", { level: 2, name: "Visão geral" })).toBeVisible();
-    await expect(page.getByTestId("sources-status")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Início" })).toBeVisible();
+    await expect(page.getByTestId("home-chart")).toHaveAttribute("data-state", "ready", { timeout: 15_000 });
+    await expect(page.getByTestId("home-opportunities")).toBeVisible();
+    // A home não repete as cotações por par nem o estado das fontes (saíram da home; vivem em Mercados e Fontes).
+    await expect(page.getByTestId("price-card-USDPYG")).toHaveCount(0);
+    await expect(page.getByTestId("sources-status")).toHaveCount(0);
+    const rows = page.locator('[data-testid="home-opportunity-featured"], [data-testid="home-opportunity"]');
+    expect(await rows.count()).toBeGreaterThanOrEqual(3);
     await expectNoHorizontalScroll(page);
+    if (info.project.name === "mobile-390") {
+      // No celular o gráfico vem antes da lista (ordem da tela, spec §5a).
+      const chart = await page.getByTestId("home-chart").boundingBox();
+      const opps = await page.getByTestId("home-opportunities").boundingBox();
+      expect(chart && opps && chart.y < opps.y).toBe(true);
+    }
+    if (info.project.name === "desktop-1440") {
+      // Acima da dobra em 1440 × 900: gráfico com ao menos 360 px e as três primeiras oportunidades.
+      const chart = await page.getByTestId("home-chart").boundingBox();
+      expect(chart && chart.height >= 360 && chart.y + chart.height <= 900).toBe(true);
+      for (let i = 0; i < 3; i++) {
+        const box = await rows.nth(i).boundingBox();
+        expect(box && box.y + box.height <= 900, `oportunidade ${i + 1} acima da dobra`).toBe(true);
+      }
+    }
     await page.screenshot({ path: `dev/screenshots/home-${info.project.name}.png`, fullPage: true });
   });
 
+  test("movimento reduzido: nenhuma animação se repete em nenhuma rota depois de carregar", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    for (const [path, heading] of ROUTES) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      const repeating = await page.evaluate(() =>
+        document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations === Infinity).map((a) => (a as CSSAnimation).animationName),
+      );
+      expect(repeating, path).toEqual([]);
+    }
+  });
+
   test("price cards keep one context: the reference is shown apart, with the source name", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/mercados");
     const card = page.getByTestId("price-card-USDPYG");
     await expect(card).toContainText("Dinheiro físico");
     await expect(card).toContainText("Cambios Alberdi");
     await expect(card).toContainText("≈ BCP (referência)");
-    await expect(card).not.toContainText("ueno");
+    await expect(card).toContainText("BCP");
   });
 
   test("connection indicator shows demo state and quote age is separate", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/mercados");
     const status = page.getByTestId("connection-status");
     await expect(status).toHaveAttribute("data-state", "demo");
     await expect(page.getByText(/há \d+ (s|min|h|d)/).first()).toBeVisible();
@@ -39,14 +70,14 @@ test.describe("Fronteira FX terminal", () => {
   test("navigation reaches every screen", async ({ page }) => {
     for (const [path, heading] of ROUTES) {
       await page.goto(path);
-      await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     }
   });
 
   test("no route scrolls horizontally (DS25)", async ({ page }) => {
     for (const [path, heading] of ROUTES) {
       await page.goto(path);
-      await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
       await expectNoHorizontalScroll(page);
     }
   });
@@ -59,13 +90,13 @@ test.describe("Fronteira FX terminal", () => {
     await expect(menu).toBeVisible();
     for (const label of ["Monitor ao vivo", "Alertas", "Conhecimento", "Memória", "Configurações"]) await expect(menu.getByRole("link", { name: label })).toBeVisible();
     await menu.getByRole("link", { name: "Memória" }).click();
-    await expect(page.getByRole("heading", { level: 2, name: "Memória" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Memória" })).toBeVisible();
   });
 
   test("unknown route shows the pt-BR not-found page inside the shell", async ({ page }) => {
     await page.goto("/nao-existe");
     await expect(page.getByRole("heading", { level: 2, name: "Esta página não existe" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Ir para a visão geral" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ir para o início" })).toBeVisible();
   });
 
   test("simulator form validates and returns rankings", async ({ page }, info) => {
@@ -124,7 +155,7 @@ test.describe("Fronteira FX terminal", () => {
 
   test("theme toggle switches to light", async ({ page }) => {
     await page.goto("/configuracoes");
-    await page.getByRole("button", { name: "Ativar tema claro" }).click();
+    await page.getByRole("button", { name: "Alternar tema" }).click();
     await expect(page.locator("html")).not.toHaveClass(/dark/);
   });
 

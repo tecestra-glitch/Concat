@@ -4,6 +4,7 @@ import { DEFAULT_FILTERS, Filters, type MarketFilters } from "./filters";
 import { QuoteTable } from "./quote-table";
 import { PriceChart, SERIES_ALL } from "@/components/charts/price-chart";
 import { VolatilityCard } from "./volatility-card";
+import { PriceCards } from "./price-cards";
 import { useHistory, useQuotes, useSources } from "@/lib/queries";
 import { useSettings } from "@/lib/settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,6 +64,8 @@ export function Markets() {
       <PageHeader title="Mercados" description="Cotações e spreads por cidade e instituição. Referência de mercado (≈, não executável), indicativa e executável são distinguidas.">
         <Filters value={filters} onChange={setFilters} showCapital={false} />
       </PageHeader>
+      {/* Faixa de cotações no topo (ME1): melhor compra e venda por par, com bandeiras. */}
+      {q.isLoading ? <Skeleton className="h-24" /> : q.isError ? null : <PriceCards quotes={tableQuotes} sources={sources} />}
       <Tabs defaultValue="todas">
         <TabsList aria-label="Agrupamento">
           <TabsTrigger value="todas">Todas</TabsTrigger>

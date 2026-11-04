@@ -41,7 +41,7 @@ export function KnowledgeSearch() {
           <form onSubmit={submit} className="grid gap-3 sm:grid-cols-[1fr_8rem_8rem_auto] sm:items-end" role="search">
             <div className="grid gap-1">
               <Label htmlFor="rag-q">Pergunta ou termo</Label>
-              <Input id="rag-q" value={draft.q} onChange={(e) => setDraft({ ...draft, q: e.target.value })} placeholder="ex.: tarifa de saque ueno" autoComplete="off" />
+              <Input id="rag-q" value={draft.q} onChange={(e) => setDraft({ ...draft, q: e.target.value })} placeholder="Ex.: tarifa de saque em caixa" autoComplete="off" />
             </div>
             <div className="grid gap-1">
               <Label htmlFor="rag-tag">Etiqueta</Label>
@@ -49,7 +49,7 @@ export function KnowledgeSearch() {
             </div>
             <div className="grid gap-1">
               <Label htmlFor="rag-k">Resultados</Label>
-              <select id="rag-k" className="h-9 rounded-md border border-border bg-background px-2 text-sm" value={draft.k} onChange={(e) => setDraft({ ...draft, k: Number(e.target.value) })}>
+              <select id="rag-k" className="h-9 rounded-control border border-control-border bg-surface px-2 text-body" value={draft.k} onChange={(e) => setDraft({ ...draft, k: Number(e.target.value) })}>
                 {K_OPTIONS.map((k) => <option key={k} value={k}>{k}</option>)}
               </select>
             </div>

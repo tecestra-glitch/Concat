@@ -188,7 +188,7 @@ describe("api endpoints without a client until now", () => {
     expect(String(lastCall()[0])).toBe("/api/fx/v1/volatility?key=chaco%3ACDE%3AUSD%2FPYG%3Acash&window=24h&data_mode=real");
 
     fetchMock.mockImplementation(async () => json({ id: "acc-1" }));
-    await api.createAccount("real", { institution: "ueno", label: "ueno PYG", currency: "PYG", kind: "bank", location: "ASU", balance_free: "1000", balance_reserved: "0", balance_in_transit: "0" });
+    await api.createAccount("real", { institution: "banco-demo-py", label: "banco demo PY PYG", currency: "PYG", kind: "bank", location: "ASU", balance_free: "1000", balance_reserved: "0", balance_in_transit: "0" });
     expect(String(lastCall()[0])).toBe("/api/fx/v1/accounts?data_mode=real");
     expect(lastCall()[1]?.method).toBe("POST");
     await api.updateAccount("real", "acc-1", { balance_free: "1500" });

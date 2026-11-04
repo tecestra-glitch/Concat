@@ -79,13 +79,13 @@ describe("PregaoLayout — abas do celular", () => {
   it("renderiza quatro role=tab com id e aria-controls correspondentes", () => {
     const html = render();
     expect(html.match(/role="tab"/g)?.length).toBe(4);
-    for (const id of ["grafico", "lista", "ultimas"] as const) {
+    // As abas são `FxSegmented` (fx-segmented): id `pregao-tab-*`; os painéis se rotulam por `aria-labelledby`.
+    for (const id of ["grafico", "lista", "ultimas", "livro"] as const) {
       const tag = tabTag(html, id);
-      expect(tag).toContain(`aria-controls="pregao-panel-${id}"`);
+      expect(tag).toContain(`id="pregao-tab-${id}"`);
       expect(tag).toContain('role="tab"');
     }
-    // A aba Livro controla o livro e o bloco do mapa + cruzado (que em lg+ mora sob o gráfico).
-    expect(tabTag(html, "livro")).toContain('aria-controls="pregao-panel-livro pregao-panel-livro-extra"');
+    expect(html).toContain('aria-labelledby="pregao-tab-livro"');
   });
 
   it("por padrão só Gráfico está selecionada e é a única com tabIndex 0", () => {
@@ -221,9 +221,9 @@ describe("PregaoLayout — painéis", () => {
     expect(tabs).not.toContain("top-0");
   });
 
-  it("o contêiner do gráfico tem altura por breakpoint, até xl:h-[420px]", () => {
+  it("o contêiner do gráfico tem altura por breakpoint, por token de painel (spec PR6)", () => {
     const html = render();
-    expect(html).toMatch(/h-\[280px\] md:h-\[360px\] xl:h-\[420px\]">\s*<div data-testid="slot-chart"/);
+    expect(html).toMatch(/h-\(--panel-h-sm\) md:h-\(--panel-h-md\) xl:h-\(--panel-h-lg\)">\s*<div data-testid="slot-chart"/);
   });
 });
 

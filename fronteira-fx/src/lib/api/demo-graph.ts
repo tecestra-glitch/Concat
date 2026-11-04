@@ -52,20 +52,20 @@ export function demoTransferEdges(): Edge[] {
   const wu5k = demoWesternUnionQuotes.find((q) => q.amount_base === "5000" && q.context?.receive === "bank_account")!;
   const wuCash = demoWesternUnionQuotes.find((q) => q.amount_base === "5000" && q.context?.receive === "cash_pickup")!;
   return [
-    // remessa: BRL no banco BR → PYG na ueno (WU, tarifa 100 % desconto)
-    transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "ueno"), { rate: wu5k.sell ?? "0", minutes: 2 * 1440, via: "Western Union → conta ueno (Pix)", confidence: "estimated", evidence_id: wu5k.evidence_id }),
+    // remessa: BRL no banco BR → PYG na banco demo PY (WU, tarifa 100 % desconto)
+    transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "banco-demo-py"), { rate: wu5k.sell ?? "0", minutes: 2 * 1440, via: "Western Union → conta banco demo PY (Pix)", confidence: "estimated", evidence_id: wu5k.evidence_id }),
     transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "cash:CDE"), { rate: wuCash.sell ?? "0", minutes: 30, via: "Western Union retirada em loja (CDE)", confidence: "estimated", evidence_id: wuCash.evidence_id }),
-    // ueno ↔ dinheiro (saque/depósito em PYG, custo ilustrativo)
-    transfer(nodeKey("PYG", "ueno"), nodeKey("PYG", "cash:ASU"), { minutes: 20, via: "saque ueno (ASU)", confidence: "estimated" }),
-    transfer(nodeKey("PYG", "cash:ASU"), nodeKey("PYG", "ueno"), { minutes: 20, via: "depósito ueno (ASU)", confidence: "estimated" }),
-    transfer(nodeKey("PYG", "cash:CDE"), nodeKey("PYG", "ueno"), { minutes: 30, via: "depósito ueno (CDE)", confidence: "estimated" }),
-    transfer(nodeKey("PYG", "ueno"), nodeKey("PYG", "cash:CDE"), { minutes: 30, via: "saque ueno (CDE)", confidence: "estimated" }),
+    // banco demo PY ↔ dinheiro (saque/depósito em PYG, custo ilustrativo)
+    transfer(nodeKey("PYG", "banco-demo-py"), nodeKey("PYG", "cash:ASU"), { minutes: 20, via: "saque banco demo PY (ASU)", confidence: "estimated" }),
+    transfer(nodeKey("PYG", "cash:ASU"), nodeKey("PYG", "banco-demo-py"), { minutes: 20, via: "depósito banco demo PY (ASU)", confidence: "estimated" }),
+    transfer(nodeKey("PYG", "cash:CDE"), nodeKey("PYG", "banco-demo-py"), { minutes: 30, via: "depósito banco demo PY (CDE)", confidence: "estimated" }),
+    transfer(nodeKey("PYG", "banco-demo-py"), nodeKey("PYG", "cash:CDE"), { minutes: 30, via: "saque banco demo PY (CDE)", confidence: "estimated" }),
     // dinheiro ↔ casas de câmbio (mesma cidade)
     ...counterEdges("CDE", ["chaco:CDE", "alberdi:CDE"]),
     ...counterEdges("ASU", ["chaco:ASU", "bonanza:ASU", "norte:ASU"]),
     // USD entre contas digitais (custo de transferência internacional ainda não confirmado → incompleto)
-    transfer(nodeKey("USD", "ueno"), nodeKey("USD", "nomad"), { fee_pct: "0.003", minutes: 1440, via: "transferência USD ueno → Nomad (custo a confirmar)", confidence: "incomplete" }),
-    transfer(nodeKey("USD", "nomad"), nodeKey("USD", "ueno"), { fee_pct: "0.003", minutes: 1440, via: "transferência USD Nomad → ueno (custo a confirmar)", confidence: "incomplete" }),
+    transfer(nodeKey("USD", "banco-demo-py"), nodeKey("USD", "nomad"), { fee_pct: "0.003", minutes: 1440, via: "transferência USD banco demo PY → Nomad (custo a confirmar)", confidence: "incomplete" }),
+    transfer(nodeKey("USD", "nomad"), nodeKey("USD", "banco-demo-py"), { fee_pct: "0.003", minutes: 1440, via: "transferência USD Nomad → banco demo PY (custo a confirmar)", confidence: "incomplete" }),
     // Nomad: USD → BRL (venda) de volta ao banco BR (cotação pública líquida de spread)
     transfer(nodeKey("USD", "nomad"), nodeKey("BRL", "brbank"), { rate: dec(5.431 * 0.9961, 8), minutes: 1440, via: "Nomad vende USD → Pix BRL", confidence: "estimated" }),
     // Brasil: cartão BR pagando em PYG (compra) não é ciclo; omitido.
@@ -78,8 +78,8 @@ export function demoEdges(): Edge[] {
 }
 
 const ACCOUNT_VENUE: Record<string, string> = {
-  "acc-ueno-pyg": "ueno",
-  "acc-ueno-usd": "ueno",
+  "acc-banco-demo-py-pyg": "banco-demo-py",
+  "acc-banco-demo-py-usd": "banco-demo-py",
   "acc-nomad-usd": "nomad",
   "acc-revolut-usd": "revolut",
   "acc-brl-bank": "brbank",

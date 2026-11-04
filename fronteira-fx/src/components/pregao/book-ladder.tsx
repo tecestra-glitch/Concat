@@ -7,6 +7,7 @@ import { ReferenceBadge } from "@/components/pregao/reference-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFlash } from "@/components/ui/fx/fx-flash";
 import type { Currency } from "@/lib/api/types";
 import { formatAge, formatRate, toNumber } from "@/lib/format";
 import type { BookLevel, PairKey } from "@/lib/pregao/types";
@@ -84,6 +85,12 @@ interface BookRowProps {
   onSelect: (key: string) => void;
 }
 
+/** Preço do livro: `.fx-num` (tabular, sem quebra) e realce curto só quando o próprio preço muda (`useFlash`). */
+function PriceCell({ value, quote }: { value: string | null; quote: Currency }): ReactElement {
+  const flash = useFlash(value);
+  return <td className={cn("fx-num text-foreground", flash)}>{formatRate(value, quote)}</td>;
+}
+
 function BookRow({ level, side, best, quote, selected, now, onSelect }: BookRowProps): ReactElement {
   const price = side === "buy" ? level.buy : level.sell;
   const agio = side === "buy" ? level.agio_buy_pct : level.agio_sell_pct;
@@ -138,7 +145,7 @@ function BookRow({ level, side, best, quote, selected, now, onSelect }: BookRowP
           ) : null}
         </span>
       </td>
-      <td className="tnum whitespace-nowrap text-right text-foreground">{formatRate(price, quote)}</td>
+      <PriceCell value={price} quote={quote} />
       <td className="whitespace-nowrap pl-2 text-right">
         <AgioBadge value={agio} />
       </td>
@@ -218,7 +225,7 @@ function RefTable({ rows, quote, now }: { rows: BookLevel[]; quote: Currency; no
                 <ReferenceBadge compact source={level.source_id} />
               </span>
             </td>
-            <td className="tnum whitespace-nowrap text-right text-muted">{`≈ ${refValue(level, quote)}`}</td>
+            <td className="fx-num text-muted">{`≈ ${refValue(level, quote)}`}</td>
             <AgeCell iso={level.captured_at} now={now} />
           </tr>
         ))}

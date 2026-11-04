@@ -25,8 +25,9 @@ describe("Pregao (container da integração, §24.4)", () => {
   it("raiz com o modo, um só h2 «Pregão» e o botão de atalhos", () => {
     expect(html).toContain('data-testid="pregao-root"');
     expect(html).toContain('data-mode="demo"');
-    expect(html.match(/<h2[ >]/g)).toHaveLength(1);
-    expect(html).toMatch(/<h2[^>]*>Pregão<\/h2>/);
+    // G1: o título da rota é o h1 da barra superior; a página não repete o título em um h2.
+    expect(html.match(/<h2[ >]/g) ?? []).toHaveLength(0);
+    expect(html).not.toMatch(/<h2[^>]*>Pregão<\/h2>/);
     expect(html).toContain("Cotações publicadas pelas casas de câmbio. Referências do BCP só para comparar.");
     expect(html).toMatch(/Atalhos[\s\S]*?<kbd[^>]*>\?<\/kbd>/);
   });

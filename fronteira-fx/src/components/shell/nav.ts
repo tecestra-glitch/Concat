@@ -8,7 +8,7 @@ export interface NavItem {
 }
 
 export const NAV: NavItem[] = [
-  { href: "/", label: "Visão geral", short: "Início", icon: LayoutDashboard },
+  { href: "/", label: "Início", short: "Início", icon: LayoutDashboard },
   { href: "/mercados", label: "Mercados", short: "Mercados", icon: CandlestickChart },
   { href: "/pregao", label: "Pregão", short: "Pregão", icon: TrendingUp },
   { href: "/oportunidades", label: "Oportunidades", short: "Oportun.", icon: Sparkles },
