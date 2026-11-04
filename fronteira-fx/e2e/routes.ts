@@ -4,6 +4,7 @@ export const ROUTES = [
   ["/mercados", "Mercados"],
   ["/pregao", "Pregão"],
   ["/oportunidades", "Oportunidades"],
+  ["/planos", "Planos"],
   ["/simulador", "Simulador de rotas"],
   ["/contas", "Contas e cartões"],
   ["/fontes", "Fontes"],
