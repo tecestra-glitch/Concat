@@ -6680,6 +6680,17 @@
             "type": "string",
             "title": "Method"
           },
+          "integration": {
+            "type": "string",
+            "enum": [
+              "api_oficial",
+              "endpoint_interno",
+              "html",
+              "navegador"
+            ],
+            "title": "Integration",
+            "default": "html"
+          },
           "url": {
             "type": "string",
             "title": "Url"

@@ -68,6 +68,7 @@ class UenoAdapter:
         name="ueno",
         kind="bank",
         method="html",
+        integration="html",
         url=URL,
         capabilities=["buy_sell", "usd_pyg", "modalities_app_cash_transfer", "ajax_refresh", "declared_update_ts"],
         limitations=[

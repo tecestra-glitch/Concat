@@ -143,6 +143,7 @@ class Collector:
         src.name = info.name
         src.kind = info.kind
         src.method = info.method
+        src.integration = info.integration
         src.url = info.url
         src.capabilities = list(info.capabilities)
         src.limitations = list(info.limitations)

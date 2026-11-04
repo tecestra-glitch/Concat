@@ -30,7 +30,7 @@ modo demonstração e descobre o modo da instância por `GET /v1/health` (que nu
 ```jsonc
 Source {
   "id": "chaco", "name": "Cambios Chaco", "kind": "exchange_house|remittance|bank|fintech|central_bank",
-  "method": "html", "url": "https://...", "health": "ok", "last_success_at": "...|null", "last_error": "string|null",
+  "method": "html", "integration": "endpoint_interno|api_oficial|html|navegador", "url": "https://...", "health": "ok", "last_success_at": "...|null", "last_error": "string|null",
   "capabilities": ["branch_table","buy_sell","usd_pyg","brl_pyg"],
   "limitations": ["sem API oficial", "cotação por filial requer navegador"],
   "coverage": { "cities": ["CDE","ASU"], "currencies": ["USD","BRL","PYG"] },

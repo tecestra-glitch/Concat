@@ -132,6 +132,7 @@ class NorteAdapter:
         name="Norte Cambios",
         kind="exchange_house",
         method="html",
+        integration="html",
         url=HOME_URL,
         capabilities=["branch_table", "buy_sell", "usd_pyg", "brl_pyg", "declared_update_ts", "livewire_branches"],
         limitations=[

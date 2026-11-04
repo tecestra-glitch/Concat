@@ -57,6 +57,7 @@ class NomadAdapter:
         name="Nomad",
         kind="fintech",
         method="official_api",
+        integration="endpoint_interno",
         url=PAGE_URL,
         capabilities=["usd_brl", "indicative", "declared_update_ts", "history_90d", "json_endpoint"],
         limitations=[

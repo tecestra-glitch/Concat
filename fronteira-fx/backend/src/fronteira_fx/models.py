@@ -130,6 +130,7 @@ class Source(Base):
     name: Mapped[str] = mapped_column(String(200))
     kind: Mapped[str] = mapped_column(String(32))
     method: Mapped[str] = mapped_column(String(32))
+    integration: Mapped[str] = mapped_column(String(32), default="html", server_default="html")
     url: Mapped[str] = mapped_column(Text, default="")
     health: Mapped[str] = mapped_column(String(16), default="unknown")
     last_success_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

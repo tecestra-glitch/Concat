@@ -83,6 +83,7 @@ class AlberdiAdapter:
         name="Cambios Alberdi",
         kind="exchange_house",
         method="official_api",
+        integration="endpoint_interno",
         url=HOME_URL,
         capabilities=["branch_table", "buy_sell", "usd_pyg", "brl_pyg", "declared_update_ts", "json_endpoint"],
         limitations=[

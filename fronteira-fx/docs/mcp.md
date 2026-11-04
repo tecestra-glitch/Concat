@@ -32,7 +32,7 @@ resposta é `409` e nada é lido nem gravado (cada instância serve um único mo
 
 | Ferramenta | Tipo | Rota | O que faz |
 |---|---|---|---|
-| `list_sources` | leitura | `GET /v1/sources` | fontes e saúde |
+| `list_sources` | leitura | `GET /v1/sources` | fontes, saúde e `integration` (como cada fonte é alcançada) |
 | `get_quotes` | leitura | `GET /v1/quotes` | última cotação por contexto comparável (filtros `city`, `base`, `quote`, `source`, `modality`, `amount`); cada `Quote` traz `series_key` |
 | `request_quote` | **escrita** | `POST /v1/quotes/request` | pede captura nova de uma fonte (fila do worker para fontes com navegador); o piso de 60 s por fonte vale mesmo com `force` → `429` + `Retry-After` dentro da janela |
 | `get_history` | leitura | `GET /v1/history?key=` | série reamostrada por `series_key` |

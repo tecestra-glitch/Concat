@@ -136,6 +136,7 @@ class WesternUnionAdapter:
         name="Western Union (BR → PY)",
         kind="remittance",
         method="browser",
+        integration="navegador",
         url=START_URL,
         capabilities=["simulator_brl_pyg", "amount_dependent", "receive_methods", "fees", "delivery_time", "promo",
                       "screenshot_evidence"],

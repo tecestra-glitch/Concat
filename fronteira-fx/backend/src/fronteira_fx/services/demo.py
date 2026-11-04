@@ -29,6 +29,7 @@ D = Decimal
 SOURCES: list[dict[str, Any]] = [
     dict(
         id="chaco",
+        integration="endpoint_interno",
         name="Cambios Chaco (demo)",
         kind="exchange_house",
         method="html",
@@ -40,6 +41,7 @@ SOURCES: list[dict[str, Any]] = [
     ),
     dict(
         id="maxicambios",
+        integration="html",
         name="MaxiCambios (demo)",
         kind="exchange_house",
         method="html",
@@ -51,6 +53,7 @@ SOURCES: list[dict[str, Any]] = [
     ),
     dict(
         id="amambay-pjc",
+        integration="html",
         name="Casa de Câmbio PJC (demo)",
         kind="exchange_house",
         method="manual",
@@ -62,6 +65,7 @@ SOURCES: list[dict[str, Any]] = [
     ),
     dict(
         id="wu",
+        integration="navegador",
         name="Western Union (demo)",
         kind="remittance",
         method="browser",
@@ -73,6 +77,7 @@ SOURCES: list[dict[str, Any]] = [
     ),
     dict(
         id="ueno",
+        integration="html",
         name="ueno bank (demo)",
         kind="bank",
         method="browser",
@@ -84,6 +89,7 @@ SOURCES: list[dict[str, Any]] = [
     ),
     dict(
         id="nomad",
+        integration="endpoint_interno",
         name="Nomad (demo)",
         kind="fintech",
         method="html",
@@ -95,6 +101,7 @@ SOURCES: list[dict[str, Any]] = [
     ),
     dict(
         id="revolut",
+        integration="endpoint_interno",
         name="Revolut (demo)",
         kind="fintech",
         method="html",
@@ -106,6 +113,7 @@ SOURCES: list[dict[str, Any]] = [
     ),
     dict(
         id="bcp",
+        integration="api_oficial",
         name="BCP – Banco Central del Paraguay (demo)",
         kind="central_bank",
         method="official_api",
