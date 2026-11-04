@@ -159,7 +159,8 @@ def refresh_reads(session: Session, settings: Settings, now: datetime) -> int:
 
 
 class ReadsRefresher:
-    """Chamado a cada tick do worker. Recalcula no máximo a cada `every_s` segundos (o worker não precisa de mais)."""
+    """Recalcula as leituras no máximo a cada `every_s` segundos. O controle de frequência fica no banco (carimbo de
+    `computed_at`), e não na memória, para valer também numa função serverless (rota de coleta disparada de fora)."""
 
     def __init__(
         self,
@@ -171,12 +172,11 @@ class ReadsRefresher:
         self.factory = session_factory
         self.settings = settings
         self.every_s = every_s
-        self._last: datetime | None = None
 
     def maybe_refresh(self, now: datetime | None = None) -> int:
         now = now or datetime.now(tz=UTC)
-        if self._last is not None and (now - self._last).total_seconds() < self.every_s:
-            return 0
-        self._last = now  # marca antes: uma falha não vira repetição a cada tick
         with session_scope(self.factory) as session:
+            row = read_row(session, TRIANGLE_KIND, TRIANGLE_MODES[0], self.settings.data_mode)
+            if row is not None and (now - row.computed_at).total_seconds() < self.every_s:
+                return 0
             return refresh_reads(session, self.settings, now)

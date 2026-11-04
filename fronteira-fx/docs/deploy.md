@@ -343,6 +343,9 @@ Por que 5 minutos:
   por mês, ~0,9% do limite de invocações, mas o limite de CPU de 4 h dá **~1,7 s de CPU por chamada**.
   Esse é o ponto apertado. Se o painel mostrar consumo alto de CPU, troque o agendamento por
   `*/10 * * * *` (ou mais lento): `select cron.unschedule('fx-collect');` e de novo `cron.schedule(...)` com o novo intervalo;
+- a mesma rodada também recalcula triângulos e indicadores (`market_reads`), no máximo uma vez por 60 s
+  (carimbo no banco). Esse cálculo sai da requisição do usuário, mas soma CPU a cada chamada do cron. Se o
+  limite de CPU apertar, o primeiro corte é esse recálculo (ou o intervalo do cron, acima);
 - o SSE de quem deixa o app aberto soma invocações: uma a cada ~30 s por aba, ~86 mil por mês para uma
   aba 24 horas por dia. Com o limite de 1 milhão, isso comporta poucas abas abertas o mês inteiro.
 

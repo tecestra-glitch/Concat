@@ -10,14 +10,17 @@ exist; a wrong or missing secret gets 401.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict
 
+from ..market.reads import ReadsRefresher
 from .deps import CollectorDep, SettingsDep, cron_secret_matches
 
+log = logging.getLogger("fronteira_fx.api.internal")
 router = APIRouter(prefix="/internal", tags=["internal"])
 MAX_SELECTED_SOURCES = 30
 
@@ -94,6 +97,12 @@ async def internal_collect(
         result = await collector.run_selected(ids, budget_s=settings.collect_budget_s)
     else:
         result = await collector.run_round(budget_s=settings.collect_budget_s)
+    # Sem worker residente (modo grátis), esta rodada periódica também recalcula triângulos e indicadores, com
+    # frequência limitada no banco. A API continua só lendo market_reads. Falha aqui não derruba a coleta.
+    try:
+        ReadsRefresher(collector.session_factory, settings).maybe_refresh()
+    except Exception:
+        log.exception("leituras de mercado não recalculadas nesta rodada")
     return CollectRoundOut(
         duration_ms=round((time.monotonic() - started) * 1000),
         data_mode=result.data_mode,

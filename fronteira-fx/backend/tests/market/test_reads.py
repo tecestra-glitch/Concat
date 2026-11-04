@@ -93,3 +93,16 @@ def test_refresher_recalcula_no_maximo_a_cada_60_segundos(market_factory):
     assert first > 0
     assert refresher.maybe_refresh(T0 + timedelta(seconds=30)) == 0
     assert refresher.maybe_refresh(T0 + timedelta(seconds=60)) > 0
+
+
+def test_frequencia_vale_entre_instancias_serverless(market_factory):
+    """Função serverless: cada rodada cria outro objeto. O controle de 60 s está no banco, não na memória."""
+    session = market_factory()
+    try:
+        seed_market(session)
+        session.commit()
+    finally:
+        session.close()
+    assert reads.ReadsRefresher(market_factory, market_settings()).maybe_refresh(T0) > 0
+    assert reads.ReadsRefresher(market_factory, market_settings()).maybe_refresh(T0 + timedelta(seconds=45)) == 0
+    assert reads.ReadsRefresher(market_factory, market_settings()).maybe_refresh(T0 + timedelta(seconds=61)) > 0
