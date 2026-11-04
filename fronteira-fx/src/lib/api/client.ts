@@ -51,7 +51,7 @@ import { DEMO_SERVER_TIME, allDemoQuotes, demoAccounts, demoBranches, demoEviden
 import { demoEdges, demoParkedBalances } from "./demo-graph";
 import { demoDeleteRule, demoUpdateRule } from "./demo-watch";
 import { approveDemoPlan, completeDemoStep, createDemoPlan, getDemoPlan, listDemoPlans, rejectDemoPlan, resetDemoPlans } from "./demo-plans";
-import { dec, findCycles } from "../graph";
+import { dec, findCycles, isCelularEdge } from "../graph";
 import { toNumber } from "../format";
 import { computeVolatility } from "../volatility";
 import {
@@ -288,12 +288,14 @@ export const api = {
     const f: OpportunityFilters = typeof filters === "number" ? { capital: filters } : (filters ?? {});
     if (mode !== "demo") {
       const digital = f.city === "digital";
-      const list = await http<Opportunity[]>(`/v1/opportunities${qs({ capital: f.capital, channel: f.channel, city: digital ? undefined : f.city, ...modeQuery(mode) })}`);
+      const list = await http<Opportunity[]>(`/v1/opportunities${qs({ capital: f.capital, channel: f.channel, city: digital ? undefined : f.city, mode: f.mode ?? "celular", ...modeQuery(mode) })}`);
       return digital ? list.filter((o) => o.city === null) : list;
     }
     const capital = active(f.capital) ? toNumber(f.capital) : null;
+    const celular = (f.mode ?? "celular") === "celular";
     return demoOpportunities.filter(
       (o) =>
+        (!celular || o.channel !== "physical") &&
         (capital === null || !(capital > 0) || toNumber(o.capital_brl) === capital) &&
         (!active(f.channel) || o.channel === f.channel) &&
         (!active(f.city) || (f.city === "digital" ? o.city === null : o.city === f.city)),
@@ -301,8 +303,10 @@ export const api = {
   },
   /** D1: GET /v1/opportunities/cycles. Demo mode runs the TS mirror of the engine on the demo graph. */
   async cycles(mode: Mode, f: CycleFilters = {}): Promise<Cycle[]> {
-    if (mode !== "demo") return http<Cycle[]>(`/v1/opportunities/cycles${qs({ max_len: f.maxLen ?? 4, min_roi: f.minRoi, start: f.start, limit: f.limit, ...modeQuery(mode) })}`);
-    const all = findCycles(demoEdges(), demoParkedBalances(), { maxLen: f.maxLen ?? 4, minRoi: f.minRoi, dataMode: "demo" });
+    if (mode !== "demo") return http<Cycle[]>(`/v1/opportunities/cycles${qs({ max_len: f.maxLen ?? 4, min_roi: f.minRoi, start: f.start, limit: f.limit, mode: f.mode ?? "celular", ...modeQuery(mode) })}`);
+    const celular = (f.mode ?? "celular") === "celular";
+    const edges = celular ? demoEdges().filter(isCelularEdge) : demoEdges();
+    const all = findCycles(edges, demoParkedBalances(), { maxLen: f.maxLen ?? 4, minRoi: f.minRoi, dataMode: "demo" });
     return (f.start ? all.filter((c) => c.start === f.start) : all).slice(0, f.limit ?? 200);
   },
   async simulate(mode: Mode, req: SimulationRequest): Promise<SimulationResponse> {
@@ -329,7 +333,7 @@ export const api = {
     if (mode !== "demo") return http<Plan>(`/v1/plans${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify(body) });
     // mesmos limites do backend: até 21 nós (6 pernas com balcões) e a busca de até 6 pernas, sem corte
     if (body.path.length > 21) throw new ApiError(422, "path: no máximo 21 nós");
-    const cycles = await api.cycles("demo", { maxLen: 6 });
+    const cycles = await api.cycles("demo", { maxLen: 6, mode: "todos" }); // planos aceitam qualquer ciclo, inclusive presencial
     const cycle = cycles.find((c) => c.start === body.start && c.path.length === body.path.length && c.path.every((n, i) => n === body.path[i]));
     if (!cycle) throw new ApiError(404, "este ciclo não existe mais com as cotações e saldos atuais (demonstração)");
     return createDemoPlan(cycle, Date.now());

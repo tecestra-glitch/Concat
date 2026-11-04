@@ -195,10 +195,14 @@ export interface Opportunity {
 }
 
 /** GET /v1/opportunities filters. */
+/** Modo celular (regra do dono): `celular` (padrão) só traz rotas e ciclos inteiros pelo celular; `todos` inclui o presencial. */
+export type RouteMode = "celular" | "todos";
+
 export interface OpportunityFilters {
   capital?: string | number;
   channel?: Channel | "all" | string;
   city?: string;
+  mode?: RouteMode;
 }
 
 /** Canal de uma perna: presencial (casa, balcão, deslocamento), assistida (app de banco/fintech), automatizável (nenhuma hoje). */
@@ -296,6 +300,7 @@ export interface CycleFilters {
   minRoi?: string; // decimal string
   start?: string; // node key `${currency}@${venue}`
   limit?: number; // 1..500, default 200
+  mode?: RouteMode; // default "celular"
 }
 
 export interface Evidence {

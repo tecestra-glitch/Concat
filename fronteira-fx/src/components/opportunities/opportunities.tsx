@@ -14,7 +14,7 @@ import { formatMoney } from "@/lib/format";
 import { useSettings } from "@/lib/settings";
 import { LiveCycles } from "./live-cycles";
 
-type OppTab = "principal" | "secundario" | "cruzamento";
+type OppTab = "principal" | "secundario" | "cruzamento" | "presencial";
 
 export function Opportunities() {
   const { settings, mode } = useSettings();
@@ -22,9 +22,14 @@ export function Opportunities() {
   const [channel, setChannel] = React.useState("all");
   const [tab, setTab] = React.useState<OppTab>("principal");
   const capitals = capitalOptions(mode, settings.defaultCapital);
+  // Modo celular por padrão. Escolher o canal presencial (ou abrir a aba) traz o resto, com `mode=todos`.
+  const presencial = channel === "physical";
+  const routeMode = presencial ? "todos" : "celular";
   // O canal vai para a API (`channel=digital|physical`); "all" é removido pelo cliente.
-  const q = useOpportunities({ capital, channel });
+  const q = useOpportunities({ capital, channel, mode: routeMode });
+  const qPresencial = useOpportunities({ capital, channel: "physical", mode: "todos" });
   const items = q.data ?? [];
+  const presencialItems = (qPresencial.data ?? []).filter((o) => o.channel === "physical");
   const main = items.filter((o) => o.in_main_ranking);
   const secondary = items.filter((o) => !o.in_main_ranking);
   const body = (list: typeof items) =>
@@ -33,10 +38,11 @@ export function Opportunities() {
     { id: "principal" as const, label: `Ranking principal (${main.length})` },
     { id: "secundario" as const, label: `Secundário (${secondary.length})` },
     { id: "cruzamento" as const, label: "Cruzamento ao vivo" },
+    { id: "presencial" as const, label: "Presencial (opcional)" },
   ];
   return (
     <div className="space-y-4">
-      <PageHeader title="Oportunidades" description="Digital primeiro: qualquer ganho líquido positivo aparece. Presencial só entra no principal se superar o melhor digital comparável em ≥ 1 ponto percentual.">
+      <PageHeader title="Oportunidades" description="Pelo celular: aqui entram só as rotas que dá para fazer inteiras no app, sem levar dinheiro em espécie de uma cidade para outra. O presencial fica na aba própria.">
         <div className="flex flex-wrap gap-2">
           <div className="grid gap-1">
             <Label htmlFor="opp-capital">Orçamento</Label>
@@ -72,6 +78,19 @@ export function Opportunities() {
       {tab === "cruzamento" && (
         <section role="tabpanel" id="opp-panel-cruzamento" aria-labelledby="opp-tab-cruzamento">
           <LiveCycles />
+        </section>
+      )}
+      {tab === "presencial" && (
+        <section role="tabpanel" id="opp-panel-presencial" aria-labelledby="opp-tab-presencial">
+          <Card>
+            <CardHeader>
+              <CardTitle>Presencial (opcional)</CardTitle>
+              <CardDescription data-testid="presencial-aviso">Exige ir à casa de câmbio: estas rotas têm uma perna em espécie, então não entram no ranking pelo celular.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0 sm:p-2">
+              {qPresencial.isLoading ? <TableSkeleton rows={5} cols={6} /> : <RankingTable items={presencialItems} />}
+            </CardContent>
+          </Card>
         </section>
       )}
     </div>

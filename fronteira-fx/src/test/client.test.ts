@@ -122,14 +122,14 @@ describe("api filters are really sent", () => {
   it("opportunities: capital, channel and city are sent (number or object form)", async () => {
     fetchMock.mockImplementation(async () => json([]));
     await api.opportunities("real", 5000);
-    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities?capital=5000&data_mode=real");
+    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities?capital=5000&mode=celular&data_mode=real");
     await api.opportunities("real", { capital: "25000", channel: "digital", city: "CDE" });
-    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities?capital=25000&channel=digital&city=CDE&data_mode=real");
+    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities?capital=25000&channel=digital&city=CDE&mode=celular&data_mode=real");
   });
   it("opportunities: city=digital is not a backend value (422); it becomes a client-side null-city filter (MED-05)", async () => {
     fetchMock.mockImplementation(async () => json([{ id: "d", city: null, data_mode: "real" }, { id: "c", city: "CDE", data_mode: "real" }]));
     const out = await api.opportunities("real", { capital: "5000", city: "digital" });
-    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities?capital=5000&data_mode=real");
+    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities?capital=5000&mode=celular&data_mode=real");
     expect(out.map((o) => o.id)).toEqual(["d"]);
   });
   it("demo quotes keep quotes without amount when an amount is filtered, like the backend (MED-06)", async () => {
@@ -154,9 +154,9 @@ describe("api endpoints without a client until now", () => {
   it("cycles: max_len, min_roi (decimal string), start and limit", async () => {
     fetchMock.mockImplementation(async () => json([]));
     await api.cycles("real", { maxLen: 6, minRoi: "0.001", start: "BRL@brbank", limit: 50 });
-    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities/cycles?max_len=6&min_roi=0.001&start=BRL%40brbank&limit=50&data_mode=real");
+    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities/cycles?max_len=6&min_roi=0.001&start=BRL%40brbank&limit=50&mode=celular&data_mode=real");
     await api.cycles("real", {});
-    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities/cycles?max_len=4&data_mode=real");
+    expect(String(lastCall()[0])).toBe("/api/fx/v1/opportunities/cycles?max_len=4&mode=celular&data_mode=real");
   });
   it("cycles in demo mode come from the TS graph as D1 strings and never hit the network", async () => {
     const cycles = await api.cycles("demo", { maxLen: 4 });

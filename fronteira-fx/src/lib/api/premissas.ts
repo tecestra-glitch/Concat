@@ -24,15 +24,20 @@ export interface PremissaRail {
   to: string;
   currency: string;
   to_currency: string;
-  fee_fixed: null;
-  fee_pct: null;
-  iof_pct: null;
+  fee_fixed: { amount: string; currency: string } | null;
+  fee_pct: string | null;
+  iof_pct: string | null;
   minutes: number;
-  min_amount: null;
-  max_amount: null;
+  min_amount: string | null;
+  max_amount: string | null;
   source_url: string | null;
   checked_at: string | null;
   verified: boolean;
+  as_of: string | null;
+  rate: string | null;
+  available: boolean;
+  stale: boolean;
+  note: string | null;
 }
 
 export const PREMISSAS_TRANSPORT: PremissaRoute[] = [
@@ -44,15 +49,23 @@ export const PREMISSAS_TRANSPORT: PremissaRoute[] = [
 ];
 
 export const PREMISSAS_RAILS: PremissaRail[] = [
-  { id: "pix-br-bank-revolut-brl", from: "br_bank", to: "revolut", currency: "BRL", to_currency: "BRL", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 5, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false },
-  { id: "br-bank-nomad-usd-conv", from: "br_bank", to: "nomad", currency: "BRL", to_currency: "USD", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 1440, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false },
-  { id: "nomad-revolut-usd", from: "nomad", to: "revolut", currency: "USD", to_currency: "USD", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false },
-  { id: "revolut-nomad-usd", from: "revolut", to: "nomad", currency: "USD", to_currency: "USD", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false },
-  { id: "sipap-py-bank-to-house-pyg", from: "py_bank", to: "exchange_house", currency: "PYG", to_currency: "PYG", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 30, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false },
-  { id: "deposito-house-to-py-bank-pyg", from: "exchange_house", to: "py_bank", currency: "PYG", to_currency: "PYG", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 120, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false },
-  { id: "saque-atm-py-bank-pyg", from: "py_bank", to: "cash", currency: "PYG", to_currency: "PYG", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false },
-  { id: "saque-atm-revolut-usd", from: "revolut", to: "cash", currency: "USD", to_currency: "USD", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false },
-  { id: "saque-atm-br-bank-brl", from: "br_bank", to: "cash", currency: "BRL", to_currency: "BRL", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false },
+  { id: "pix-br-bank-revolut-brl", from: "br_bank", to: "revolut", currency: "BRL", to_currency: "BRL", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 5, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false, as_of: null, rate: null, available: true, stale: false, note: null },
+  { id: "br-bank-nomad-usd-conv", from: "br_bank", to: "nomad", currency: "BRL", to_currency: "USD", fee_fixed: null, fee_pct: "0.035", iof_pct: null, minutes: 1440, min_amount: null, max_amount: null, source_url: "https://www.nomadglobal.com/tarifas", checked_at: "2026-11-04", verified: true, as_of: "2026-11-04", rate: null, available: true, stale: false, note: "encargos 3,5 % (Conta Internacional); conversão a partir de 1 % (varia com Nomad Pass): spread desconhecido" },
+  { id: "nomad-revolut-usd", from: "nomad", to: "revolut", currency: "USD", to_currency: "USD", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false, as_of: null, rate: null, available: true, stale: false, note: null },
+  { id: "revolut-nomad-usd", from: "revolut", to: "nomad", currency: "USD", to_currency: "USD", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false, as_of: null, rate: null, available: true, stale: false, note: null },
+  { id: "sipap-py-bank-to-house-pyg", from: "py_bank", to: "exchange_house", currency: "PYG", to_currency: "PYG", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 30, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false, as_of: null, rate: null, available: true, stale: false, note: null },
+  { id: "deposito-house-to-py-bank-pyg", from: "exchange_house", to: "py_bank", currency: "PYG", to_currency: "PYG", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 120, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false, as_of: null, rate: null, available: true, stale: false, note: null },
+  { id: "saque-atm-py-bank-pyg", from: "py_bank", to: "cash", currency: "PYG", to_currency: "PYG", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false, as_of: null, rate: null, available: true, stale: false, note: null },
+  { id: "saque-atm-revolut-usd", from: "revolut", to: "cash", currency: "USD", to_currency: "USD", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false, as_of: null, rate: null, available: true, stale: false, note: null },
+  { id: "saque-atm-br-bank-brl", from: "br_bank", to: "cash", currency: "BRL", to_currency: "BRL", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 60, min_amount: null, max_amount: null, source_url: null, checked_at: null, verified: false, as_of: null, rate: null, available: true, stale: false, note: null },
+  { id: "wu-pix-itau-py-brl-pyg", from: "br_bank", to: "py_bank", currency: "BRL", to_currency: "PYG", fee_fixed: null, fee_pct: null, iof_pct: null, minutes: 2880, min_amount: null, max_amount: null, source_url: "https://www.westernunion.com/br/es/providers/itau-paraguay.html", checked_at: "2026-11-04", verified: true, as_of: "2026-11-04", rate: null, available: false, stale: false, note: "Western Union por Pix para conta do Itaú Paraguay. Tarifa a partir de R$ 9,90 (mínimo, não valor fixo): null. Câmbio não publicado: null. Depósito em conta bancária no Paraguai desligado pelo site em 04/11/2026: indisponível" },
+  { id: "remitly-bancop-brl-pyg", from: "br_bank", to: "py_bank", currency: "BRL", to_currency: "PYG", fee_fixed: { amount: "4.49", currency: "BRL" }, fee_pct: null, iof_pct: null, minutes: 2880, min_amount: null, max_amount: null, source_url: "https://www.remitly.com/br/en/providers-paraguay/send-money-to-bancop", checked_at: "2026-11-04", verified: true, as_of: "2026-11-04", rate: null, available: true, stale: false, note: "Remitly com depósito no Bancop: tarifa R$ 4,49. Câmbio do app não publicado: null (incompleto). Prazo não verificado" },
+  { id: "global66-brl-pyg", from: "global", to: "global", currency: "BRL", to_currency: "PYG", fee_fixed: null, fee_pct: "0.0315", iof_pct: null, minutes: 1440, min_amount: null, max_amount: null, source_url: "https://www.global66.com/", checked_at: "2026-11-04", verified: true, as_of: "2026-11-04", rate: "1082.62", available: true, stale: false, note: "captura do dono 04/11/2026 ~06:15 UTC: envia R$ 5.000,00; monto a enviar R$ 4.842,50 (desconto R$ 157,50 = 3,15 %); 1 BRL = 1.082,62 PYG; recebe ₲ 5.242.584 (arredondamento do câmbio exibido); chega no dia seguinte. IOF não aparece na captura: null" },
+  { id: "global66-pyg-brl", from: "global", to: "global", currency: "PYG", to_currency: "BRL", fee_fixed: { amount: "0", currency: "PYG" }, fee_pct: "0.0315", iof_pct: null, minutes: 1440, min_amount: null, max_amount: null, source_url: "https://www.global66.com/", checked_at: "2026-11-04", verified: true, as_of: "2026-11-04", rate: "0.00092371926324", available: true, stale: false, note: "captura do dono 04/11/2026 ~06:19 UTC: tu envias ₲ 500.000; custo de envio ₲ 15.750 (3,15 %); custos operacionais ₲ 0,00; monto a convertir ₲ 484.250; 1 BRL = 1.082,58 PYG; recebe ≈ R$ 447,31. Efetivo 1.117,8 PYG por BRL. IOF não aparece na captura: null" },
+  { id: "nomad-usd-brl-conv", from: "nomad", to: "br_bank", currency: "USD", to_currency: "BRL", fee_fixed: null, fee_pct: "0.0038", iof_pct: null, minutes: 1440, min_amount: null, max_amount: null, source_url: "https://www.nomadglobal.com/tarifas-nomad", checked_at: "2026-11-04", verified: true, as_of: "2026-11-04", rate: null, available: true, stale: false, note: "encargos 0,38 % + conversão a partir de 1 % (spread desconhecido). O 'US$ 10' de volta.md é ambíguo (wire): fica em observação, fora do trilho" },
+  { id: "revolut-brl-usd-conv", from: "br_bank", to: "revolut", currency: "BRL", to_currency: "USD", fee_fixed: null, fee_pct: "0.006", iof_pct: "0.035", minutes: 5, min_amount: null, max_amount: null, source_url: "https://www.revolut.com/pt-BR/legal/standard-fees/", checked_at: "2025-05", verified: false, as_of: "2025-05", rate: null, available: true, stale: false, note: "IOF 3,5 % + spread 0,6 %; +0,2 % fora do horário comercial (não modelado). Tarifa de mai/2025, vigência a confirmar" },
+  { id: "revolut-usd-brl-conv", from: "revolut", to: "br_bank", currency: "USD", to_currency: "BRL", fee_fixed: null, fee_pct: "0.006", iof_pct: "0.0038", minutes: 5, min_amount: null, max_amount: null, source_url: "https://www.revolut.com/pt-BR/legal/standard-fees/", checked_at: "2025-05", verified: false, as_of: "2025-05", rate: null, available: true, stale: false, note: "IOF 0,38 % + spread 0,6 %; tarifa de mai/2025, vigência a confirmar" },
+  { id: "inter-swift-usd-in", from: "swift", to: "inter", currency: "USD", to_currency: "USD", fee_fixed: { amount: "0", currency: "BRL" }, fee_pct: null, iof_pct: null, minutes: 2880, min_amount: null, max_amount: null, source_url: "https://blog.inter.co/receber-dinheiro-do-exterior/", checked_at: "2023-04-12", verified: true, as_of: "2023-04-12", rate: null, available: true, stale: true, note: "recebimento de USD por SWIFT na Inter Global: R$ 0 segundo página de 2022/2023 (atualizada em 12/04/2023). Desatualizada: confirmar antes de usar" },
 ];
 
 /** Rótulo de confiança de uma premissa: sem verificação (ou sem fonte) nunca aparece como confirmada. */

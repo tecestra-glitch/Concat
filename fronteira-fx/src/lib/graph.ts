@@ -200,6 +200,14 @@ function describeCycle(start: string, edges: Edge[], amountIn: number): Pick<Cyc
  * Enumera ciclos simples até `maxLen` arestas a partir de cada nó de `starts`,
  * avaliando o valor com o montante informado para cada nó (saldo estacionado, string decimal).
  */
+/**
+ * Modo celular (regra do dono): a perna só entra se for assistida ou automatizável. Depósito, saque em espécie,
+ * deslocamento e balcão ficam de fora. Espelha `is_celular_edge` do backend.
+ */
+export function isCelularEdge(e: Edge): boolean {
+  return (e.channel === "assistida" || e.channel === "automatizavel") && e.kind !== "deposit" && e.kind !== "withdraw" && e.kind !== "travel" && !e.counter;
+}
+
 export function findCycles(edges: Edge[], starts: Record<string, string | number>, opts: FindCyclesOptions = {}): Cycle[] {
   const maxLen = opts.maxLen ?? 4;
   const minRoi = toNumber(opts.minRoi) ?? -Infinity;
