@@ -145,11 +145,17 @@ export function CandleChart({
     chart.subscribeCrosshairMove((p) => setHoverTime(p.time === undefined ? null : Number(p.time)));
     handlesRef.current = { chart, candles, volume, sma, ema, bbUpper, bbLower };
     return () => {
+      // Ordem do descarte: primeiro some com as referências (nenhum efeito toca o gráfico depois), depois remove.
+      // Um `remove()` que já foi feito (StrictMode, troca de rota) não pode derrubar a tela.
       attribution.disconnect();
-      chart.remove();
       handlesRef.current = null;
       priceLineRef.current = null;
       watermarkRef.current = null;
+      try {
+        chart.remove();
+      } catch {
+        // gráfico já descartado pela biblioteca
+      }
     };
   }, []);
 
@@ -163,6 +169,7 @@ export function CandleChart({
       if (!h) return;
       const tokens = readChartTokens(document.documentElement);
       tokensRef.current = tokens;
+      try {
       h.chart.applyOptions(buildChartOptions(tokens, { tf: dataTf, quote }));
       h.candles.applyOptions(buildCandleOptions(tokens, quote));
       h.volume.applyOptions(buildVolumeOptions(tokens));
@@ -172,6 +179,9 @@ export function CandleChart({
       h.bbLower.applyOptions({ ...buildLineOptions(tokens, "band"), visible: h.bbLower.options().visible });
       priceLineRef.current?.applyOptions({ color: tokens.muted });
       watermarkRef.current?.applyOptions({ lines: [{ text: WATERMARK_TEXT, color: tokens.watermark, fontSize: WATERMARK_SIZE }] });
+      } catch {
+        // gráfico descartado entre a leitura de `handlesRef` e a aplicação: nada a fazer
+      }
     };
     apply();
     const observer = new MutationObserver(apply);

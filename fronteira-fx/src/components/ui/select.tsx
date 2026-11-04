@@ -38,7 +38,7 @@ export function SelectContent({ className, children, position = "popper", ...pro
       <SelectPrimitive.Content
         position={position}
         className={cn(
-          "fx-pop z-(--z-overlay) max-h-72 min-w-[8rem] overflow-hidden rounded-control border border-border bg-surface text-foreground shadow-[var(--shadow-2)]",
+          "fx-pop z-(--z-popover) max-h-72 min-w-[8rem] overflow-hidden rounded-control border border-border bg-surface text-foreground shadow-[var(--shadow-2)]",
           position === "popper" && "data-[side=bottom]:translate-y-1 w-(--radix-select-trigger-width)",
           className,
         )}

@@ -65,6 +65,7 @@
   --z-header: 30;
   --z-nav: 40;
   --z-overlay: 50;
+  --z-popover: 55; /* listas (Select) sobre diálogos: abrem dentro de um diálogo e não ficam atrás do overlay */
   --z-toast: 60;
   /* Movimento (§3.1) */
   --motion-fast: 120ms;

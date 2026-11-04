@@ -13,6 +13,8 @@ import { useMounted } from "@/lib/use-now";
 export function TopBar() {
   const pathname = usePathname();
   const current = NAV.find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)));
+  // Detalhe de plano (/planos/[id]) tem o título próprio; sem isto a barra mostraria só "Planos".
+  const label = pathname.startsWith("/planos/") ? "Plano de execução" : (current?.label ?? "Fronteira FX");
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6">
       <Dialog>
@@ -32,7 +34,7 @@ export function TopBar() {
           </nav>
         </DialogContent>
       </Dialog>
-      <h1 className="truncate text-heading font-semibold sm:text-title">{current?.label ?? "Fronteira FX"}</h1>
+      <h1 className="truncate text-heading font-semibold sm:text-title">{label}</h1>
       <div className="ml-auto flex items-center gap-2">
         <ConnectionStatus />
         <ThemeToggle />

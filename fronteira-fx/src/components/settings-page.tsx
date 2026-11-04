@@ -22,7 +22,7 @@ const MODE_HELP: Record<string, string> = {
 };
 const BACKEND_LABEL = { unknown: "verificando", available: "disponível", unavailable: "indisponível" } as const;
 const BACKEND_TONE: Record<string, BadgeVariant> = { unknown: "outline", available: "gain", unavailable: "loss" };
-const STREAM_LABEL = { connected: "conectado", reconnecting: "reconectando", offline: "offline", demo: "demonstração" } as const;
+const STREAM_LABEL = { connected: "conectado", scheduled: "ao vivo, atualiza a cada 30 s", reconnecting: "reconectando", offline: "offline", demo: "demonstração" } as const;
 
 export function SettingsPage() {
   const { settings, update, mode, backend } = useSettings();

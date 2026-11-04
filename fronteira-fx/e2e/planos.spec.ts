@@ -18,13 +18,13 @@ async function seriousViolations(page: Page): Promise<string[]> {
 /** Abre o cruzamento ao vivo e gera um plano a partir do primeiro ciclo lucrativo (demonstração). */
 async function gerarPlano(page: Page) {
   await page.goto("/oportunidades");
-  await expect(page.getByRole("heading", { level: 2, name: "Oportunidades" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Oportunidades" })).toBeVisible();
   await page.getByRole("tab", { name: /Cruzamento ao vivo/ }).click();
   await expect(page.getByTestId("live-cycles")).toBeVisible();
   await expect(page.getByTestId("cycle-row").first()).toBeVisible();
   await page.getByRole("button", { name: /^Gerar plano do ciclo/ }).first().click();
   await expect(page).toHaveURL(/\/planos\/demo-plan-\d+$/);
-  await expect(page.getByRole("heading", { level: 2, name: "Plano de execução" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Plano de execução" })).toBeVisible();
 }
 
 test.describe("planos de execução (demonstração, nada executa)", () => {
@@ -67,7 +67,7 @@ test.describe("planos de execução (demonstração, nada executa)", () => {
     // A demonstração guarda os planos na memória da página: a navegação precisa ser interna, sem recarregar.
     await page.getByRole("link", { name: "Todos os planos" }).click();
     await expect(page).toHaveURL(/\/planos$/);
-    await expect(page.getByRole("heading", { level: 2, name: "Planos" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Planos" })).toBeVisible();
     await expect(page.getByTestId("plan-row").first()).toContainText("Proposto");
     expect(await seriousViolations(page)).toEqual([]);
   });
@@ -76,7 +76,7 @@ test.describe("planos de execução (demonstração, nada executa)", () => {
 test.describe("configurações: alerta de oportunidade e premissas", () => {
   test("cria o limite de ganho líquido em dinheiro e mostra as premissas com fonte e verificação", async ({ page }, info) => {
     await page.goto("/configuracoes");
-    await expect(page.getByRole("heading", { level: 2, name: "Configurações" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Configurações" })).toBeVisible();
     await expect(page.getByTestId("net-gain-status")).toContainText("Sem limite");
     await page.getByLabel("Ganho líquido mínimo").fill("20");
     await page.getByRole("button", { name: "Criar limite" }).click();
@@ -84,7 +84,8 @@ test.describe("configurações: alerta de oportunidade e premissas", () => {
     await expect(page.getByTestId("net-gain-status")).toContainText("R$ 20,00");
 
     await expect(page.getByTestId("premissa-route")).toHaveCount(5);
-    await expect(page.getByTestId("premissa-rail")).toHaveCount(9);
+    // 17 trilhos em rails.json (fase B: os digitais com custo capturado entraram)
+    await expect(page.getByTestId("premissa-rail")).toHaveCount(17);
     await expect(page.getByTestId("premissas").getByText("não verificado").first()).toBeVisible();
     await expect(page.getByTestId("premissas")).toContainText("Foz do Iguaçu");
     await expectNoHorizontalScroll(page);

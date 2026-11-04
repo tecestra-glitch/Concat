@@ -10,13 +10,13 @@ async function expectNoHorizontalScroll(page: Page) {
 /** Abre o cruzamento ao vivo e gera um plano a partir do primeiro ciclo (demonstração). */
 async function gerarPlano(page: Page) {
   await page.goto("/oportunidades");
-  await expect(page.getByRole("heading", { level: 2, name: "Oportunidades" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Oportunidades" })).toBeVisible();
   await page.getByRole("tab", { name: /Cruzamento ao vivo/ }).click();
   await expect(page.getByTestId("live-cycles")).toBeVisible();
   await expect(page.getByTestId("cycle-row").first()).toBeVisible();
   await page.getByRole("button", { name: /^Gerar plano do ciclo/ }).first().click();
   await expect(page).toHaveURL(/\/planos\/demo-plan-\d+$/);
-  await expect(page.getByRole("heading", { level: 2, name: "Plano de execução" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Plano de execução" })).toBeVisible();
 }
 
 test.describe("planos: foco, estimativa e celular (demonstração)", () => {

@@ -10,7 +10,7 @@ async function expectNoHorizontalScroll(page: Page) {
 test.describe("Economia e cripto (módulo market)", () => {
   test("mostra manchetes com link externo seguro, referências com aviso e selo de volatilidade", async ({ page }) => {
     await page.goto("/economia");
-    await expect(page.getByRole("heading", { level: 2, name: "Economia e cripto" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Economia e cripto" })).toBeVisible();
     await expect(page.getByTestId("news-item").first()).toBeVisible();
     await expect.poll(() => page.getByTestId("news-item").count()).toBeGreaterThanOrEqual(3);
 
@@ -40,7 +40,7 @@ test.describe("Economia e cripto (módulo market)", () => {
 
   test("tela e navegação existem nos três tamanhos (screenshot)", async ({ page }, info) => {
     await page.goto("/economia");
-    await expect(page.getByRole("heading", { level: 2, name: "Economia e cripto" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Economia e cripto" })).toBeVisible();
     await expect(page.getByTestId("reference-card").first()).toBeVisible();
     await expectNoHorizontalScroll(page);
     await page.screenshot({ path: `dev/screenshots/economia-${info.project.name}.png`, fullPage: true });

@@ -161,7 +161,10 @@ export function PregaoLayout({
           id="pregao-panel-livro"
           role="tabpanel"
           aria-labelledby="pregao-tab-livro"
-          className={cn("min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-3 xl:row-start-2", tab !== "livro" && "max-md:hidden")}
+          className={cn(
+            "min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-3 lg:self-stretch xl:row-start-2 xl:self-start",
+            tab !== "livro" && "max-md:hidden",
+          )}
         >
           <h3 id="pregao-h-livro" className="text-sm font-medium">
             Livro de casas

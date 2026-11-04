@@ -5,7 +5,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { formatAge } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
 
-const LABEL = { connected: "Conectado", reconnecting: "Reconectando…", offline: "Offline", demo: "Demonstração" } as const;
+const LABEL = {
+  connected: "Conectado",
+  scheduled: "Ao vivo · atualiza a cada 30 s",
+  reconnecting: "Reconectando…",
+  offline: "Offline",
+  demo: "Demonstração",
+} as const;
 
 export function ConnectionStatus() {
   const { state, lastEventAt, eventsReceived } = useLive();
@@ -24,7 +30,7 @@ export function ConnectionStatus() {
             aria-hidden
             className={cn(
               "size-2 rounded-full",
-              state === "connected" && "bg-gain",
+              (state === "connected" || state === "scheduled") && "bg-gain",
               state === "reconnecting" && "bg-warn",
               state === "offline" && "bg-loss",
               state === "demo" && "bg-warn",

@@ -14,7 +14,11 @@ import { alertToasts } from "./alert-toasts";
 import { applyQuoteUpdate, applySnapshot, applySourceHealthEvent, parseStreamFrame, shouldResetCursor } from "./live-cache";
 import { useSettings } from "./settings";
 
-export type ConnState = "connected" | "reconnecting" | "offline" | "demo";
+/**
+ * `scheduled`: a conexão abriu e foi fechada pelo servidor (API serverless: o SSE fecha a cada ~4 s e volta
+ * em ~30 s). Não é erro: o selo diz "Ao vivo · atualiza a cada 30 s". `reconnecting` só vale para falha sem abrir.
+ */
+export type ConnState = "connected" | "scheduled" | "reconnecting" | "offline" | "demo";
 
 interface LiveCtx {
   state: ConnState;
@@ -44,6 +48,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
   const esRef = React.useRef<EventSource | null>(null);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const attemptRef = React.useRef(0);
+  const openedRef = React.useRef(false); // a conexão atual chegou a abrir (onopen)
 
   React.useEffect(() => {
     if (mode === "demo") return;
@@ -116,6 +121,7 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
       esRef.current = es;
       es.onopen = () => {
         attemptRef.current = 0;
+        openedRef.current = true;
         setState("connected");
       };
       es.onmessage = (m: MessageEvent<string>) => {
@@ -129,7 +135,10 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
         // Browser auto-retry would duplicate our own schedule; close and own the backoff.
         closeEs();
         if (disposed) return;
-        setState("reconnecting");
+        // Caiu depois de abrir: fechamento programado do servidor, não erro. Sem abrir: falha real.
+        const wasOpen = openedRef.current;
+        openedRef.current = false;
+        setState(wasOpen ? "scheduled" : "reconnecting");
         schedule();
       };
     };

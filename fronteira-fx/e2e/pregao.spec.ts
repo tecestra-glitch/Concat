@@ -348,7 +348,7 @@ test.describe("Pregão de madrugada (só digitais)", () => {
   test("blocos essenciais e sem rolagem horizontal às 03:45Z", async ({ page }, info) => {
     await page.clock.setFixedTime(MADRUGADA);
     await page.goto("/pregao");
-    await expect(page.getByRole("heading", { level: 2, name: "Pregão" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Pregão" })).toBeVisible();
     const mobile = info.project.name === "mobile-390";
     await expect(page.getByTestId("pregao-ticker")).toHaveAttribute("data-state", "ready");
     await expect(page.getByTestId("pregao-clock")).toBeVisible();
