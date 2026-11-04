@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import replace
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -35,7 +36,7 @@ from ..engine.graph import Cycle, Edge, Graph, find_cycles, node, node_currency
 from ..engine.routes import Confidence
 from ..models import Account, Quote
 from .logistics import Rail, load_rails, load_transport
-from .opportunities import derive_valuation_rates
+from .opportunities import derive_valuation_rates, valuation_quotes
 from .quotes import is_reference, latest_quotes
 
 CURRENCIES = ("BRL", "PYG", "USD")
@@ -101,6 +102,19 @@ def valuation_rates(quotes: Iterable[Quote]) -> dict[str, Decimal]:
     return rates
 
 
+def valuation_dates(quotes: Iterable[Quote]) -> dict[str, datetime]:
+    """Currency -> data da cotação que define a taxa de valoração dela (a mesma escolha das taxas)."""
+    return {ccy: q.captured_at for ccy, q in valuation_quotes(quotes, "BRL").items() if q.captured_at is not None}
+
+
+def conversion_date(src: str, dst: str, dates: dict[str, datetime]) -> datetime | None:
+    """Data que vale para uma conversão: a mais velha entre as taxas das duas moedas (BRL é a referência, sem data)."""
+    ccys = {c for c in (src, dst) if c != "BRL"}
+    if not ccys or any(c not in dates for c in ccys):
+        return None
+    return min(dates[c] for c in ccys)
+
+
 def convert(amount: Decimal | None, src: str, dst: str, rates: dict[str, Decimal]) -> Decimal | None:
     """`amount` de `src` em `dst` pelas taxas de valoração; None quando alguma moeda não tem taxa."""
     if amount is None:
@@ -156,8 +170,8 @@ def is_paraguayan_venue(venue: str) -> bool:
 def iof_applies(venue: str, src_ccy: str, dst_ccy: str) -> bool:
     """True quando converter `src_ccy` em `dst_ccy` nesse lugar pode sofrer IOF (BRL convertido fora do Paraguai).
     Quem responde True e não tem alíquota conhecida fica com IOF desconhecido: a aresta é `incomplete`."""
-    if src_ccy != "BRL" or dst_ccy == "BRL":
-        return False
+    if src_ccy != "BRL" or dst_ccy == "BRL" or venue.startswith("cash:"):
+        return False  # dinheiro na mão não é conversão de instituição
     return not is_paraguayan_venue(venue)
 
 
@@ -287,6 +301,7 @@ def _transfer_edge(
     channel: str,
     via: str,
     unknown_minutes: int,
+    quoted_at: datetime | None = None,
 ) -> Edge | None:
     """Aresta de transferência priceada pelo trilho. Conversão: taxa de valoração, mas o spread do trilho é
     desconhecido, então a aresta é `incomplete`. Sem taxa para converter, não há aresta."""
@@ -315,6 +330,7 @@ def _transfer_edge(
         mid_rate=ONE if src_ccy == dst_ccy else None,
         channel=channel,  # type: ignore[arg-type]
         unknown=unknown,
+        quoted_at=quoted_at,
     )
 
 
@@ -335,6 +351,7 @@ def build_graph(
         account_nodes[n] = account_venue(a)
 
     rates = valuation_rates(quotes)
+    dates = valuation_dates(quotes)
     rails = {r.id: r for r in load_rails().values()}
     digital_venues: dict[str, set[str]] = {}  # venue -> currencies present
     physical_venues: dict[str, tuple[str, set[str]]] = {}  # venue -> (city, currencies)
@@ -469,6 +486,7 @@ def build_graph(
                     channel="assistida",
                     via=f"conversão {venue}→{dv} ({rail.id})",
                     unknown_minutes=TRANSFER_MINUTES_UNKNOWN,
+                    quoted_at=conversion_date(ccy, out, dates),
                 )
                 if edge is not None:
                     _add_edge(edges, edge)

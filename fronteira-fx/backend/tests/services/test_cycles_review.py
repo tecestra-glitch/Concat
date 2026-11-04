@@ -132,3 +132,26 @@ def test_discontinued_source_quote_does_not_drive_cycle_valuation(db):
     assert before and after
     assert after[0]["gain_by_currency"] == before[0]["gain_by_currency"]
     assert after[0]["gain_by_currency"]["PYG"] is None
+
+
+# --- SC-1 (complemento): conversão por trilho também carrega a data da cotação que define a taxa -----------------
+
+
+def test_rail_conversion_carries_the_date_of_the_quote_that_values_its_currency(monkeypatch):
+    from datetime import UTC, datetime
+
+    from fronteira_fx.services.logistics import Rail
+
+    captured = datetime(2026, 11, 4, 11, 0, tzinfo=UTC)
+    conv = Rail.model_validate(
+        {"id": "br-nomad-usd", "from": "br_bank", "to": "nomad", "currency": "BRL", "to_currency": "USD",
+         "minutes": 1440, "verified": False}
+    )
+    monkeypatch.setattr(cyc, "load_rails", lambda: {conv.id: conv})
+    quotes = [quote(source_id="nomad", base="USD", quote="BRL", buy=None, sell=D("5.43"), captured_at=captured,
+                    modality="account", channel="digital")]
+    accs = [account("brbank", "BRL", kind="bank", balance="1000")]
+    graph, _ = cyc.build_graph(quotes, accs)
+    conv_edges = _edge(graph, node("BRL", "brbank"), node("USD", "nomad"), kind="transfer")
+    assert conv_edges, "a conversão por trilho deve existir"
+    assert all(e.quoted_at == captured for e in conv_edges)
