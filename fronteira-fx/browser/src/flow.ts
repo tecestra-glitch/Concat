@@ -7,7 +7,7 @@
 //      payment tiles (the slow, fragile part of the run);
 //   2. the click path below, as before, when that response does not come or does not show the requested combination.
 
-import { quoteFromCatalog, catalogShape } from "./catalog.js";
+import { catalogCodes, catalogShape, quoteFromCatalog } from "./catalog.js";
 import { parseDecimalText } from "./decimal.js";
 import { extractSummary, looksBlocked } from "./summary.js";
 import { Trail } from "./trail.js";
@@ -325,6 +325,7 @@ export async function runWesternUnionFlow(
         return await succeed("catalog", "quote read from the site's price response");
       }
       trail.add(`catalog:no-match(${catalogShape(catalog)})`);
+      trail.add(`catalog:codes(${catalogCodes(catalog)})`);
     }
 
     // let Angular bind the tile handlers before clicking (a click on a freshly rendered tile is lost)

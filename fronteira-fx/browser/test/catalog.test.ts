@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { catalogAmount, catalogShape, isCatalogUrl, quoteFromCatalog, sameAmount } from "../src/catalog.js";
+import {
+  catalogAmount,
+  catalogCodes,
+  catalogShape,
+  isCatalogUrl,
+  quoteFromCatalog,
+  sameAmount,
+} from "../src/catalog.js";
 
 // Synthetic response: the field names are a guess (see src/catalog.ts). No identifiers, tokens or e-mails.
 const SAMPLE = {
@@ -78,7 +85,53 @@ describe("catalogShape (diagnóstico sem valores)", () => {
   it("limita o tamanho", () => {
     const big: Record<string, unknown> = {};
     for (let i = 0; i < 40; i++) big[`k${i}`] = { a: { b: { c: { d: 1 } } } };
-    expect(catalogShape(big).length).toBeLessThanOrEqual(3_501);
+    expect(catalogShape(big).length).toBeLessThanOrEqual(901);
+  });
+
+  it("codes lista só códigos de produto, sem valores", () => {
+    const codes = catalogCodes({
+      services_groups: [{ fund_out: "BA", service: "BANK", pay_groups: [{ fund_in: "WUPAY", receive_amount: 5401871 }] }],
+    });
+    expect(codes).toContain("fund_out=[BA]");
+    expect(codes).toContain("fund_in=[WUPAY]");
+    expect(codes).not.toContain("5401871");
+  });
+
+  it("mapeia os campos vistos ao vivo: receive_amount, gross_fee, strike_gross_fee, fx_rate, speed_indicator", () => {
+    const live = {
+      services_groups: [
+        {
+          fund_out: "BA",
+          pay_groups: [
+            {
+              fund_in: "WUPAY",
+              receive_amount: 5401871,
+              fx_rate: 1080.3741,
+              gross_fee: 0,
+              strike_gross_fee: 45,
+              speed_indicator: "0-4 Dias úteis",
+              receiver_bonus_amount: 99,
+            },
+          ],
+        },
+      ],
+    };
+    expect(quoteFromCatalog(live, { receive: "bank_account", payment: "pix" })).toEqual({
+      receive_amount_pyg: "5401871",
+      fee_brl: "0",
+      fee_before_discount_brl: "45",
+      exchange_rate: "1080.3741",
+      delivery: "0-4 Dias úteis",
+      promo: null,
+    });
+  });
+
+  it("aceita WU_PAY e WU PAY além de WUPAY", () => {
+    const sample = (code: string) => ({
+      services_groups: [{ fund_out: "BA", pay_groups: [{ fund_in: code, receive_amount: 10 }] }],
+    });
+    expect(quoteFromCatalog(sample("WU_PAY"), { receive: "bank_account", payment: "pix" })).not.toBeNull();
+    expect(quoteFromCatalog(sample("WU PAY"), { receive: "bank_account", payment: "pix" })).not.toBeNull();
   });
 
   it("aceita a forma aninhada ao vivo: fund_out no serviço, fund_in na combinação", () => {
