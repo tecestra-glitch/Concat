@@ -570,3 +570,76 @@ Resposta `200` (`CollectRoundOut`):
 - `skipped[].reason` é texto do servidor, nunca mensagem de provedor. A resposta não traz segredo, cabeçalho
   nem corpo de terceiros.
 - Fora do modo `real` a rodada não consulta provedores: `sources` e `skipped` vêm vazios.
+
+## Conexões de conta — módulo `connections`
+
+Regras que este módulo não quebra: nenhuma senha de banco entra, sai ou fica guardada; nada executa ordem, saque ou
+transferência; segredo só no backend por `FX_CONNECTIONS_KEY`; respostas nunca trazem chave, segredo nem cabeçalho de
+autenticação; dinheiro trafega como string decimal.
+
+- Todas as rotas exigem `X-API-Key` (ou Bearer). Sem `API_KEY` configurada a rota responde `503` ("exige API_KEY"),
+  porque o cofre guarda chave de corretora.
+- Sem `FX_CONNECTIONS_KEY` o cofre fica desligado: qualquer rota que cifra, decifra ou valida chave responde `503`.
+  Listar e apagar continuam funcionando. Chave malformada (não são 32 bytes em base64) também responde `503`.
+- `422` de validação de corpo nunca devolve o valor enviado (`input` é removido nas rotas de conexões).
+
+Objeto `Connection`:
+
+```jsonc
+{
+  "id": "uuid",
+  "institution": "binance",          // slug minúsculo
+  "label": "Binance leitura",
+  "kind": "consent|readonly_key|statement|manual",
+  "status": "pending|active|error",
+  "data_mode": "real",
+  "account_id": "uuid|null",          // conta manual vinculada (opcional)
+  "key_hint": "wxyz|null",            // só os 4 últimos caracteres da chave pública
+  "balances": [ { "asset": "USDT", "free": "120.5", "locked": "0" } ],   // snapshot da última leitura, sem segredo
+  "last_error": "string|null",        // resumo curto, sem segredo
+  "last_synced_at": "2026-11-04T12:00:00Z|null",
+  "created_at": "...", "updated_at": "..."
+}
+```
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET **[chave]** | `/v1/connections` | `Connection[]` do modo da instância |
+| POST **[chave]** | `/v1/connections` | cria. `kind=readonly_key` exige `api_key` e `api_secret`: valida na corretora antes de cifrar e gravar. `201 Connection`; `422` se a chave for recusada (motivos em `detail`); `503` sem cofre. `kind=statement` aceita `account_id`. `kind=manual` só registra. `kind=consent` → `422` (usa a rota de consentimento) |
+| POST **[chave]** | `/v1/connections/validate-key` | body `{institution, api_key, api_secret}` → `KeyCheck`. Não grava nada. `200` mesmo quando recusa: `ok:false` com `reasons`. `503` sem cofre |
+| POST **[chave]** | `/v1/connections/{id}/sync` | só `readonly_key`. Decifra a chave guardada, confere as permissões de novo e relê saldos. Chave que passou a ter permissão de operar ou sacar vira `status:"error"` com `last_error`. `503` se o cofre não decifra |
+| POST **[chave]** | `/v1/connections/{id}/statement` | só `kind=statement`. body `{format:"csv"|"ofx", content, mapping?, default_currency?}` → `StatementImportOut` |
+| POST **[chave]** | `/v1/connections/openfinance/consent` | consentimento Open Finance. Sem provedor: `503 "Open Finance não configurado …"` (explica que é preciso contratar um agregador). Provedor configurado sem integração nesta versão: `501`. Nunca recebe credencial de banco |
+| DELETE **[chave]** | `/v1/connections/{id}` | `204`. Apaga a conexão, o ciphertext e os lançamentos importados. A conta vinculada não muda |
+
+`KeyCheck`: `{ "ok": bool, "institution": "binance", "flags": {"enableWithdrawals": false, ...}, "reasons": [], "balances": [Balance] }`.
+
+### Validação de chave só leitura
+
+- **Binance** (`GET /sapi/v1/account/apiRestrictions`, assinado HMAC-SHA256, header `X-MBX-APIKEY`): recusa se
+  `enableSpotAndMarginTrading`, `enableMargin`, `enableFutures`, `enableWithdrawals`, `enableInternalTransfer`,
+  `permitsUniversalTransfer`, `enableVanillaOptions` ou `enablePortfolioMarginTrading` não estiver explicitamente `false`
+  (ausente conta como ligado). Exige `enableReading: true`. Depois lê `GET /api/v3/account` e recusa se `canTrade` ou
+  `canWithdraw` não forem `false`. Saldos vêm desse endpoint; nenhum endpoint de ordem é chamado.
+- **Kraken**: recusada por padrão. A API não expõe permissões da chave; a mensagem explica como criar uma chave só com
+  "Query Funds".
+- **Outras instituições**: recusadas por padrão, sem validação nesta versão.
+
+### Importação de extrato
+
+- Limite: 512 KiB de texto e 5000 lançamentos. Acima disso, `422`.
+- **CSV**: `mapping` obrigatório com `date`, `description`, `amount` (nomes das colunas) e `currency` opcional
+  (senão `default_currency`). `date_format` ∈ `%Y-%m-%d`, `%d/%m/%Y`, `%d-%m-%Y`, `%Y/%m/%d`, `%d.%m.%Y`. `delimiter` ∈ `,` `;` `TAB`.
+  Valores aceitos: `1234.56`, `1.234,56`, `1,234.56`, `-12,5`, `(12,50)`.
+- **OFX** 1.x/2.x: lido como texto (`CURDEF`, `STMTTRN`, `DTPOSTED`, `TRNAMT`, `FITID`, `NAME`/`MEMO`). Nenhuma entidade
+  externa é resolvida e nada do arquivo é executado.
+- Erro em qualquer linha recusa o arquivo inteiro: `422` com `detail` = lista de `linha N: …` (máx. 20).
+- Reimportar o mesmo arquivo não duplica: `duplicates` conta o que já existia (FITID quando há; senão data+valor+moeda+descrição+ordem).
+- Com `account_id`, o saldo livre da conta manual recebe a soma dos lançamentos novos (`balance_delta`). Moeda diferente
+  da conta → `422` e nada é gravado.
+
+`StatementImportOut`: `{connection_id, format, imported, duplicates, account_id, balance_delta, account_balance_free}`.
+
+### Modos de dados
+
+Conexões têm `data_mode` como o resto: a instância só enxerga as suas. `?data_mode=` diferente → `409`.
