@@ -224,6 +224,41 @@ docker buildx imagetools inspect docker.io/library/node:<versão>-bookworm-slim
 Ao subir o Playwright, mude `uv.lock` (`uv lock --upgrade-package playwright`) e a tag da imagem na
 mesma alteração.
 
+## O que foi verificado nas imagens Docker (2026-11-04)
+
+Verificação feita em 2026-11-04 num contêiner Linux de desenvolvimento, com Docker Engine 29.9.2
+(overlayfs, daemon sem bridge e sem iptables, `--network=host` nos builds e nos containers). Não é
+prova de produção: serve para saber o que já foi exercitado e o que não foi.
+
+Verificado:
+
+- `docker compose config -q` passa com as variáveis de `.env.example` e **falha** sem
+  `POSTGRES_PASSWORD` ou `API_KEY` (o `:?` funciona).
+- Subida da pilha completa (postgres, api, worker e web, com `--profile web`) com um override temporário
+  de rede (`network_mode: host`, fora do Git) e imagens de teste construídas a partir dos Dockerfiles
+  (ver o ponto de builds abaixo): `postgres` fica `healthy`; `api` roda as migrações do alembic
+  e fica `healthy`; `worker` sobe; `web` fica `healthy`. `pgvector` está disponível no banco.
+- Em `DATA_MODE=demo`: `GET /v1/health`, `GET /v1/candles` e `GET /v1/pregao/sessions` respondem;
+  `/mcp` sem chave responde 401; `/pregao` responde 200 pelo frontend; `/api/fx/v1/health` responde 200
+  pelo proxy server-side.
+- Worker: a imagem importa `fronteira_fx` e o Playwright 1.64.1, lança o Chromium headless e o laço de
+  coleta roda ticks; em `demo` ele não consulta provedores. Um `SIGTERM` encerra com código 0.
+- Frontend com `FX_BASIC_AUTH` definido: o `HEALTHCHECK` original (que exigia `2xx` na raiz) ficava
+  `unhealthy`, porque o proxy responde 401 sem credenciais. Corrigido em `Dockerfile.web` para aceitar
+  qualquer resposta abaixo de 500 (o servidor está de pé); verificado depois da correção: `healthy`.
+
+Não verificado (e por isso não prometido):
+
+- Os três `docker build` oficiais (`backend/Dockerfile`, `backend/Dockerfile.worker`, `Dockerfile.web`)
+  **não concluíram neste ambiente**: o proxy de saída do sandbox re-cifra o HTTPS com uma CA que não
+  está no trust store dos contêineres, e `uv`/`npm` falham com `UnknownIssuer`/`SELF_SIGNED_CERT_IN_CHAIN`
+  ao baixar de `files.pythonhosted.org` e `registry.npmjs.org`. É um problema do sandbox, não do
+  Dockerfile. As imagens usadas nos testes acima vieram de cópias dos Dockerfiles com a CA do proxy
+  injetada (só para teste, fora do Git). Confirme os builds oficiais num runner sem proxy interceptador
+  (a CI, job `docker`, já faz isso).
+- Coleta contra provedores reais (`DATA_MODE=real`), notificações, backup e restauração, publicação do
+  frontend na Vercel e o `HEALTHCHECK` de longa duração em produção.
+
 ## Supabase como Postgres gerenciado (opcional)
 
 1. **Enquadramento.** O Supabase entra **somente** como Postgres gerenciado com pgvector. O backend
