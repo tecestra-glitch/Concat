@@ -142,6 +142,8 @@ class WesternUnionAdapter:
     # With FX_BROWSER_URL and FX_BROWSER_SECRET set, fetch() calls the mini navegador instead of a local Chromium,
     # and the collector may run this source outside the worker (rate-limited by remote_browser_min_interval_s).
     remote_browser = True
+    # Process memory only: False after a remote run that was not OK, so the next one asks for a screenshot.
+    remote_last_ok = True
     info = AdapterInfo(
         id="westernunion",
         name="Western Union (BR → PY)",
@@ -283,7 +285,8 @@ class WesternUnionAdapter:
         settings = get_settings()
         if settings.remote_browser_enabled:
             return await self._fetch_remote(settings, amount=amount, payment=payment, receive=receive, bank=bank,
-                                            promo=promo, captured_at=captured_at)
+                                            promo=promo, captured_at=captured_at,
+                                            screenshot=bool(params.get("screenshot")))
         try:
             from playwright.async_api import TimeoutError as PWTimeout
             from playwright.async_api import async_playwright
@@ -474,13 +477,29 @@ class WesternUnionAdapter:
         return result
 
     async def _fetch_remote(self, settings: Settings, *, amount: Decimal, payment: Payment, receive: Receive,
-                            bank: str | None, promo: str | None, captured_at: datetime) -> AdapterResult:
+                            bank: str | None, promo: str | None, captured_at: datetime,
+                            screenshot: bool = False) -> AdapterResult:
+        """Calls the mini navegador and remembers whether its last answer was OK.
+
+        The screenshot is requested only when the caller asks for it or when the previous remote run did not come back
+        OK (so the failure can be seen). Each capture costs CPU on the remote, so it is not on by default.
+        """
+        result = await self._remote_call(settings, amount=amount, payment=payment, receive=receive, bank=bank,
+                                         promo=promo, captured_at=captured_at,
+                                         screenshot=screenshot or not self.remote_last_ok)
+        self.remote_last_ok = result.status == AdapterStatus.OK
+        return result
+
+    async def _remote_call(self, settings: Settings, *, amount: Decimal, payment: Payment, receive: Receive,
+                           bank: str | None, promo: str | None, captured_at: datetime,
+                           screenshot: bool) -> AdapterResult:
         """POST the same parameters to the mini navegador and turn its answer into an AdapterResult.
 
         Transport and HTTP failures never raise: they come back as ERROR (network, 401/404/400, bad JSON), and the
         remote's own blocked/degraded/error statuses map straight to the adapter statuses.
         """
-        body: dict[str, Any] = {"amount_brl": str(amount), "payment": payment, "receive": receive, "screenshot": True}
+        body: dict[str, Any] = {"amount_brl": str(amount), "payment": payment, "receive": receive,
+                                "screenshot": screenshot}
         if bank:
             body["bank"] = bank
         headers = {"Authorization": f"Bearer {settings.browser_secret}", "Accept": "application/json"}
