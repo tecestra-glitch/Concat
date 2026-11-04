@@ -1,7 +1,22 @@
 """Registry of provider adapters. The collector and the API look adapters up here."""
 from __future__ import annotations
 
-from . import alberdi, bcp, bonanza, chaco, dolarpy, maxicambios, myd, nomad, norte, revolut, ueno, westernunion
+from . import (
+    alberdi,
+    bcp,
+    bonanza,
+    chaco,
+    dolarpy,
+    icambio,
+    maxicambios,
+    myd,
+    nomad,
+    norte,
+    revolut,
+    scappini,
+    ueno,
+    westernunion,
+)
 from .base import Adapter
 
 _ALL: tuple[Adapter, ...] = (
@@ -17,6 +32,8 @@ _ALL: tuple[Adapter, ...] = (
     maxicambios.adapter,
     myd.adapter,
     dolarpy.adapter,
+    *icambio.ADAPTERS.values(),  # iguassu, cataratas, atlas (Foz do Iguaçu, plataforma iCâmbio)
+    scappini.adapter,
 )
 
 # Sorted by id: the API and the collector enumerate sources in this order, so it must not depend on import order.

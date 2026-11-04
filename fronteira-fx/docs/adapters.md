@@ -18,7 +18,7 @@ Política comum de status (`_common.finalize`):
 Helpers: `_http.py` (UA, timeout, `sha256_hex`, `excerpt`/`build_evidence`, `parse_decimal(text, locale_hint)` para
 `"7.350,00"` / `"7,350"` / `"7350"` / `"5.4043"` / `"Gs. 5.680"`, `http_get`/`http_post` com classificação de erros) e
 `_common.py` (`BranchInfo`, `city_from_text` → `CDE|ASU|PJC|None`, `finalize`, `quotes_excerpt`).
-Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]` (12 adaptadores, **ordenados por id**: a API e o collector
+Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]` (16 adaptadores, **ordenados por id**: a API e o collector
 enumeram as fontes nessa ordem), `get_adapter(id)`.
 
 Vocabulário de `QuoteDraft` (`base.py`): `modality` inclui `reference` e `channel` inclui `aggregator` — os dois marcam
@@ -125,6 +125,30 @@ comportamento esperado (nunca números inventados). Nenhum deles martela: um `GE
 - **dolarPy é referência de terceiro.** Nunca vira preço executável nem cotação de balcão da casa, nunca entra no ranking
   nem no grafo de posições (filtro de `modality="reference"` no backend-core): serve para cruzar com os nossos adapters
   e para cobrir casas que não raspamos. `AdapterInfo.kind="fintech"` porque `SourceKind` não tem valor para agregador.
+
+## Casas de Foz do Iguaçu (adicionadas 2026-11-04)
+
+Cidade `FOZ` (`channel=physical`, `city=FOZ`). Quatro fontes, todas sem chave e com um `GET` por coleta.
+
+| id | casa | transporte | captura usada como fixture | observação |
+|---|---|---|---|---|
+| `iguassu` | Iguassu Câmbio | `html` (tabela `table.icambio-table` na home) | `iguassu_icambio.html` (trecho do widget) | rodapé "Atualizado em" 03/11/2026 10:52; tenant iCâmbio 7 |
+| `cataratas` | Cataratas Câmbio | JSON `icambio.com.br/Cliente/api/cotacoes.php?tenant=10` | `cataratas_cotacoes.json` | 03/11/2026 15:36:13 (America/Sao_Paulo) |
+| `atlas` | Atlas Câmbio | JSON `...?tenant=9` | `atlas_cotacoes.json` | IOF +3,5% na venda, registrado como `Fee` |
+| `scappini` | Scappini Câmbio | `html` (seção "Câmbio do dia") | `scappini_cambio_dia.html` (trecho) | 03/11/2026 15:40:15; Matriz e Muffato JK com a mesma tabela |
+
+- **Plataforma iCâmbio** (Iguassu, Cataratas, Atlas): um módulo `icambio.py` com `HOUSES` parametrizado (tenant, transporte, IOF).
+  O widget do Atlas e da Cataratas chama `cotacoes.php?tenant=N` (JSON com `moeda_codigo`, `valor_compra`, `valor_venda`,
+  `data_cotacao`); o da Iguassu vem no HTML. Três casas no mesmo sistema: se o fornecedor errar, as três erram juntas.
+- **Convenção do guarani**: nessas casas o PYG vem como guaranis por R$ 1 com rótulos invertidos ("compra" > "venda").
+  `buy` = rótulo "venda" (o que o cliente recebe ao vender R$ 1); `sell` = rótulo "compra" (o que paga para ter R$ 1).
+  Os testes travam isso com os números das fixtures (Iguassu 1.050 / 1.280; Atlas 1.085 / 1.250).
+- **USB ("Dólar Branco")**: ignorado com motivo (definição não confirmada); aparece em `message` como nota.
+- **IOF da Atlas**: `Fee(label="IOF +3,5% sobre a venda (por unidade)")` com o valor por unidade na moeda da cotação
+  (USD: 5,49 x 0,035 = 0,1922 BRL). No PYG, o rótulo "venda" é o campo `buy` do adaptador; o engine deve tratar isso.
+- **Limites de sanidade**: USD/BRL entre 3 e 15; BRL/PYG entre 500 e 3.000. Fora disso: `DEGRADED` "implausible".
+- **Robots e termos**: `robots.txt` da Scappini permite `/` (bloqueia só `/admin` e `/api/`); as outras três não têm
+  `robots.txt` (404) e as páginas não trazem proibição de automação. O endpoint `cotacoes.php` é interno do fornecedor.
 
 ## Variáveis de ambiente
 

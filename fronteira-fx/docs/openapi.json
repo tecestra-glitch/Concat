@@ -174,7 +174,8 @@
                   "enum": [
                     "CDE",
                     "ASU",
-                    "PJC"
+                    "PJC",
+                    "FOZ"
                   ],
                   "type": "string"
                 },
@@ -194,8 +195,8 @@
                 {
                   "enum": [
                     "BRL",
-                    "USD",
-                    "PYG"
+                    "PYG",
+                    "USD"
                   ],
                   "type": "string"
                 },
@@ -215,8 +216,8 @@
                 {
                   "enum": [
                     "BRL",
-                    "USD",
-                    "PYG"
+                    "PYG",
+                    "USD"
                   ],
                   "type": "string"
                 },
@@ -1419,7 +1420,8 @@
                   "enum": [
                     "CDE",
                     "ASU",
-                    "PJC"
+                    "PJC",
+                    "FOZ"
                   ],
                   "type": "string"
                 },
@@ -4045,7 +4047,8 @@
               "cycle_roi",
               "quote_move",
               "source_down",
-              "opportunity_new"
+              "opportunity_new",
+              "cycle_net_gain"
             ],
             "title": "Kind"
           },
@@ -4620,6 +4623,14 @@
             "type": "array",
             "title": "Edges"
           },
+          "legs": {
+            "items": {
+              "$ref": "#/components/schemas/LegOut"
+            },
+            "type": "array",
+            "title": "Legs",
+            "default": []
+          },
           "amount_in": {
             "type": "string",
             "title": "Amount In"
@@ -4635,6 +4646,68 @@
           "roi": {
             "type": "string",
             "title": "Roi"
+          },
+          "gain_by_currency": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "BRL",
+                    "USD",
+                    "PYG"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain By Currency"
+          },
+          "costs": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "spread",
+                    "fees",
+                    "iof",
+                    "transport"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costs"
+          },
+          "requires_declaration": {
+            "type": "boolean",
+            "title": "Requires Declaration",
+            "default": false
           },
           "minutes": {
             "type": "integer",
@@ -4744,7 +4817,8 @@
               "quote",
               "transfer",
               "deposit",
-              "withdraw"
+              "withdraw",
+              "travel"
             ],
             "title": "Kind"
           },
@@ -4790,6 +4864,16 @@
               }
             ],
             "title": "Evidence Id"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "presencial",
+              "assistida",
+              "automatizavel"
+            ],
+            "title": "Channel",
+            "default": "presencial"
           }
         },
         "type": "object",
@@ -5324,6 +5408,120 @@
           "text"
         ],
         "title": "JournalEntryOut"
+      },
+      "LegCostsOut": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "enum": [
+              "BRL",
+              "USD",
+              "PYG"
+            ],
+            "title": "Currency"
+          },
+          "spread": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread"
+          },
+          "fees": {
+            "type": "string",
+            "title": "Fees"
+          },
+          "iof": {
+            "type": "string",
+            "title": "Iof"
+          },
+          "transport": {
+            "type": "string",
+            "title": "Transport"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency",
+          "fees",
+          "iof",
+          "transport"
+        ],
+        "title": "LegCostsOut",
+        "description": "Custos de uma perna, na moeda em que foram pagos (`currency`). `spread` null = sem taxa de referência."
+      },
+      "LegOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "exchange",
+              "transfer",
+              "travel",
+              "deposit",
+              "withdraw"
+            ],
+            "title": "Kind"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "presencial",
+              "assistida",
+              "automatizavel"
+            ],
+            "title": "Channel"
+          },
+          "from": {
+            "type": "string",
+            "title": "From"
+          },
+          "to": {
+            "type": "string",
+            "title": "To"
+          },
+          "via": {
+            "type": "string",
+            "title": "Via"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "border": {
+            "type": "boolean",
+            "title": "Border",
+            "default": false
+          },
+          "amount_in": {
+            "type": "string",
+            "title": "Amount In"
+          },
+          "amount_out": {
+            "type": "string",
+            "title": "Amount Out"
+          },
+          "costs": {
+            "$ref": "#/components/schemas/LegCostsOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "channel",
+          "from",
+          "to",
+          "via",
+          "minutes",
+          "amount_in",
+          "amount_out",
+          "costs"
+        ],
+        "title": "LegOut"
       },
       "MemoryCreate": {
         "properties": {
