@@ -18,7 +18,7 @@ Política comum de status (`_common.finalize`):
 Helpers: `_http.py` (UA, timeout, `sha256_hex`, `excerpt`/`build_evidence`, `parse_decimal(text, locale_hint)` para
 `"7.350,00"` / `"7,350"` / `"7350"` / `"5.4043"` / `"Gs. 5.680"`, `http_get`/`http_post` com classificação de erros) e
 `_common.py` (`BranchInfo`, `city_from_text` → `CDE|ASU|PJC|None`, `finalize`, `quotes_excerpt`).
-Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]` (12 adaptadores, **ordenados por id**: a API e o collector
+Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]` (15 adaptadores, **ordenados por id**: a API e o collector
 enumeram as fontes nessa ordem), `get_adapter(id)`.
 
 Vocabulário de `QuoteDraft` (`base.py`): `modality` inclui `reference` e `channel` inclui `aggregator` — os dois marcam
@@ -160,3 +160,28 @@ na 1.x) já constam em `pyproject.toml`.
   send_amount}`, `receiver{cty_iso2_ext:"PY",curr_iso3:"PYG"}`, `visitor{fingerprint_id}`) devolve `services_groups[].pay_groups[]`
   com os preços por combinação fund_in/fund_out; exige fingerprint/cookies da sessão — candidato a adapter HTTP se se provar estável.
 - ueno: o AJAX devolve também EUR; se a página passar a publicar BRL, o adapter o captura sem mudanças.
+
+## Bancos paraguaios digitais (adicionados 2026-11-04)
+
+Canal `digital`, `city=None`, `kind="bank"`. Cotações PYG por 1 unidade da moeda base; compra = o que o banco paga, venda = o que cobra.
+Capturas reais de 2026-11-04 (uma chamada por fonte) em `backend/tests/adapters/fixtures/`; testes offline em `tests/adapters/test_py_banks.py`.
+
+| provider | URL lida | o que é emitido | leitura real (2026-11-04) | fora do escopo / limitações |
+|---|---|---|---|---|
+| `basa` Banco Basa | `https://www.bancobasa.com.py/` (bloco "Cotización de monedas": `img[src*=/cotizacion/]` com alt `Compra X / Venta Y`) | USD/PYG, BRL/PYG (`modality=account`) | USD 5880/6250; BRL 1050/1180 | sem horário; EUR e pesos ignorados |
+| `familiar` Banco Familiar | `https://www.familiar.com.py/cambios` (card "Dólar Americano Cheque / Transf.") | USD/PYG (`modality=transfer`) | USD 5910/6250 | Efectivo sem cidade não emitido; card "Real" sem modalidade é noticiado, não emitido |
+| `gnb` Banco GNB | `https://www.bancognb.com.py/public/currency_quotations` (JSON que alimenta a tabela da home) | USD/PYG home banking (`modality=account`) | USD 5910/6230 | efectivo sem cidade não emitido; sem BRL no feed |
+
+Robots.txt lido: Familiar permite tudo (Crawl-delay 10 só para ClaudeBot); Basa e GNB não têm robots.txt. Os termos completos
+dos sites não foram lidos nesta rodada: são páginas públicas, com um GET por coleta.
+
+### Sem adaptador nesta rodada (registrado, nada criado)
+
+- Sudameris: `GET /` retornou HTTP 403 (bloqueio); não contornado.
+- Banco Atlas: `GET /web` retornou HTTP 403 (bloqueio); idem.
+- Interfisa: página de desafio Incapsula (WAF); `BLOCKED` pelo critério do projeto.
+- Itaú Paraguay: a home não publica cotação; `/cotizaciones` redireciona a 404.
+- Continental: conexão recusada pelo proxy de saída (CONNECT 502) nesta sessão; tentar em outra rodada.
+- Visión Banco: conexão resetada pelo peer nesta sessão; tentar em outra rodada.
+- Eko: não sondada; a discovery indica que não publica cotação própria (usa o Banco Familiar).
+- ueno bank: em resolução pelo BCP desde 03/11/2026; nada novo.
