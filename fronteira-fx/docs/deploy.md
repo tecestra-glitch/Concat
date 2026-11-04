@@ -135,11 +135,18 @@ Comportamento:
   "Lembrar por 30 dias" (ligado por padrão) grava cookie persistente de 30 dias; desligado, cookie de sessão do
   navegador com token de 12 h.
 - Login e sair aceitam só POST com `Origin` igual ao host (CSRF). Sair apaga o cookie.
-- Limite de tentativas: 5 falhas por IP em 15 min e teto global de 30 falhas na mesma janela. Atraso fixo de 800 ms
-  em toda tentativa. Isso vive na memória de cada instância: é melhor esforço em serverless (um cold start zera a
-  contagem). Não substitui o rate limit da plataforma.
-- Trocar `FX_SESSION_SECRET` derruba todas as sessões. Trocar `FX_SITE_PASSWORD_HASH` não derruba sessões
-  existentes (o cookie só depende do segredo); para forçar, troque também o segredo.
+- Limite de tentativas: 5 falhas por IP em 15 min e teto global de 30 na mesma janela. Cada tentativa é reservada
+  antes da conferência, então pedidos paralelos contam para o limite. Atraso fixo de 800 ms em toda tentativa.
+  O IP é o último valor de `x-forwarded-for` (anexado pela plataforma); o primeiro valor vem do cliente e não é usado.
+- Limitações (não resolvidas aqui): a contagem vive na memória de cada instância. Em serverless, cada instância tem a
+  sua e um cold start zera tudo, então o teto real é o número de instâncias vezes 5. Compartilhar a contagem
+  (Supabase ou Redis) exige uma tabela nova e fica como pendência. Não trate o limitador como proteção contra força
+  bruta: a defesa real é a senha forte (o hash scrypt impede a conferência offline) somada ao rate limit da Vercel.
+- Sair só apaga o cookie deste navegador. Um cookie copiado (computador compartilhado) segue válido até expirar
+  (30 dias com "lembrar", 12 h sem). Para derrubar tudo de uma vez, troque `FX_SESSION_SECRET` ou
+  `FX_SITE_PASSWORD_HASH`.
+- A chave que assina o cookie deriva de `FX_SESSION_SECRET` e do hash da senha. Trocar qualquer um dos dois derruba
+  todas as sessões existentes.
 - Configuração quebrada (só uma das duas variáveis, segredo curto ou hash com formato errado): o app responde 503
   e não abre, a não ser que `FX_BASIC_AUTH` esteja definido.
 - Sem as duas variáveis, `FX_BASIC_AUTH` continua valendo como alternativa, e depois dele o comportamento antigo

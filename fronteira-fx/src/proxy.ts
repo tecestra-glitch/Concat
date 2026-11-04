@@ -41,7 +41,7 @@ function sessionGate(request: NextRequest, secret: string): NextResponse {
 
 export function proxy(request: NextRequest): NextResponse {
   const login = loginConfig();
-  if (login.kind === "enabled") return sessionGate(request, login.secret);
+  if (login.kind === "enabled") return sessionGate(request, login.sessionKey);
 
   const basic = basicAuthSetting();
   if (login.kind === "misconfigured" && !basic) {

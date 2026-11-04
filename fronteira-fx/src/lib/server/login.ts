@@ -8,13 +8,7 @@
 import { SESSION_COOKIE, REMEMBER_TTL_S, SHORT_TTL_S, signSession, verifySession } from "./session-token";
 import { loginConfig, safeNextPath } from "./site-login";
 import { verifyPassword } from "./site-password";
-import {
-  LOGIN_DELAY_MS,
-  clearLoginFailures,
-  clientKey,
-  loginBlocked,
-  recordLoginFailure,
-} from "./login-limiter";
+import { LOGIN_DELAY_MS, clientKey, reserveLoginAttempt, settleLoginAttempt } from "./login-limiter";
 
 export const MAX_PASSWORD_LENGTH = 1024;
 
@@ -74,23 +68,26 @@ export async function attemptLogin(req: Request, deps: LoginDeps = {}): Promise<
   const para = safeNextPath(typeof form?.get("para") === "string" ? (form!.get("para") as string) : null);
   const key = clientKey(req.headers);
 
-  if (loginBlocked(key, nowMs())) {
+  // Reserva síncrona, antes de qualquer await: a checagem e o registro da tentativa acontecem no mesmo passo,
+  // então pedidos paralelos não passam todos pelo limite com contagem zero.
+  if (!reserveLoginAttempt(key, nowMs())) {
     await sleep(LOGIN_DELAY_MS);
     return redirect(loginPage({ erro: MSG_LIMITE, para }));
   }
 
-  // Atraso fixo antes de conferir: o tempo de resposta não separa senha certa de errada.
-  await sleep(LOGIN_DELAY_MS);
-  const ok = password.length > 0 && password.length <= MAX_PASSWORD_LENGTH && (await verifyPassword(password, config.passwordHash));
-  if (!ok) {
-    recordLoginFailure(key, nowMs());
-    return redirect(loginPage({ erro: MSG_ERRO, para }));
+  let ok = false;
+  try {
+    // Atraso fixo antes de conferir: o tempo de resposta não separa senha certa de errada.
+    await sleep(LOGIN_DELAY_MS);
+    ok = password.length > 0 && password.length <= MAX_PASSWORD_LENGTH && (await verifyPassword(password, config.passwordHash));
+  } finally {
+    settleLoginAttempt(key, ok, nowMs());
   }
+  if (!ok) return redirect(loginPage({ erro: MSG_ERRO, para }));
 
-  clearLoginFailures(key);
   const nowS = Math.floor(nowMs() / 1000);
   const ttl = remember ? REMEMBER_TTL_S : SHORT_TTL_S;
-  const token = signSession(config.secret, nowS, ttl);
+  const token = signSession(config.sessionKey, nowS, ttl);
   return redirect(para, sessionSetCookie(token, remember ? REMEMBER_TTL_S : null));
 }
 
@@ -101,8 +98,8 @@ export function signOut(req: Request): Response {
 }
 
 /** Token de sessão vale agora? (relógio lido aqui, fora dos componentes, para a página /entrar). */
-export function sessionValidNow(token: string | null | undefined, secret: string): boolean {
-  return verifySession(token, secret, Math.floor(Date.now() / 1000));
+export function sessionValidNow(token: string | null | undefined, sessionKey: string): boolean {
+  return verifySession(token, sessionKey, Math.floor(Date.now() / 1000));
 }
 
 /** A sessão deste pedido vale? Usado pelo proxy, pelo gate do /api/fx e pela página /entrar. */

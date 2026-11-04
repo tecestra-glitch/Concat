@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { REMEMBER_TTL_S, SHORT_TTL_S, cookieValue, signSession, verifySession } from "@/lib/server/session-token";
+import { REMEMBER_TTL_S, SHORT_TTL_S, cookieValue, deriveSessionKey, signSession, verifySession } from "@/lib/server/session-token";
 import { loginConfig, safeNextPath } from "@/lib/server/site-login";
 import { hashPassword } from "@/lib/server/site-password";
 import { requestHasValidSession } from "@/lib/server/login";
@@ -80,8 +80,17 @@ describe("configuração do login (loginConfig)", () => {
     expect(loginConfig({ FX_SITE_PASSWORD_HASH: hash, FX_SESSION_SECRET: SECRET })).toEqual({
       kind: "enabled",
       passwordHash: hash,
-      secret: SECRET,
+      sessionKey: deriveSessionKey(SECRET, hash),
     });
+  });
+
+  it("a chave de sessão depende do hash: outra senha, outra chave (e o segredo cru nunca é usado para assinar)", async () => {
+    const hash = await hashPassword("x", { N: 2 ** 10, r: 8, p: 1 });
+    const other = await hashPassword("y", { N: 2 ** 10, r: 8, p: 1 });
+    const a = loginConfig({ FX_SITE_PASSWORD_HASH: hash, FX_SESSION_SECRET: SECRET });
+    const b = loginConfig({ FX_SITE_PASSWORD_HASH: other, FX_SESSION_SECRET: SECRET });
+    expect(a.kind === "enabled" && b.kind === "enabled" && a.sessionKey !== b.sessionKey).toBe(true);
+    expect(a.kind === "enabled" && a.sessionKey !== SECRET).toBe(true);
   });
 
   it("marca como quebrado quando falta uma das duas, o segredo é curto ou o hash é inválido", async () => {

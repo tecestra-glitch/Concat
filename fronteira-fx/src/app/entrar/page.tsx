@@ -31,7 +31,7 @@ export default async function EntrarPage({ searchParams }: { searchParams: Promi
 
   const params = await searchParams;
   const para = safeNextPath(first(params.para));
-  const jaLogado = sessionValidNow((await cookies()).get(SESSION_COOKIE)?.value, config.secret);
+  const jaLogado = sessionValidNow((await cookies()).get(SESSION_COOKIE)?.value, config.sessionKey);
   if (jaLogado) redirect(para);
 
   const erro = first(params.erro);

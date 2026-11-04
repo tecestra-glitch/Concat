@@ -2,8 +2,9 @@
  * Cookie de sessão do Fronteira FX: token assinado com HMAC-SHA256 (`FX_SESSION_SECRET`).
  *
  * Forma do token: `base64url(JSON {"v":1,"exp":<segundos epoch>}) . base64url(HMAC)`.
- * A expiração fica dentro do valor assinado: mexer no `exp` invalida a assinatura. Sem estado no servidor,
- * então sair = apagar o cookie; trocar `FX_SESSION_SECRET` derruba todas as sessões.
+ * A expiração fica dentro do valor assinado: mexer no `exp` invalida a assinatura. Sem estado no servidor:
+ * sair apaga o cookie deste navegador (um cookie copiado segue válido até expirar); trocar `FX_SESSION_SECRET`
+ * ou `FX_SITE_PASSWORD_HASH` derruba todas as sessões (ver `deriveSessionKey`).
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 
@@ -17,6 +18,14 @@ const MAX_TOKEN_LENGTH = 512;
 
 function sign(body: string, secret: string): Buffer {
   return createHmac("sha256", secret).update(body).digest();
+}
+
+/**
+ * Chave que assina os cookies. Deriva de `FX_SESSION_SECRET` **e** do hash da senha: trocar a senha (novo
+ * `FX_SITE_PASSWORD_HASH`) muda a chave e derruba todas as sessões emitidas antes, sem precisar trocar o segredo.
+ */
+export function deriveSessionKey(secret: string, passwordHash: string): string {
+  return createHmac("sha256", secret).update(`fronteira-fx sessao v1|${passwordHash}`).digest("base64url");
 }
 
 /** Emite um token que expira em `ttlS` segundos a partir de `nowS`. */

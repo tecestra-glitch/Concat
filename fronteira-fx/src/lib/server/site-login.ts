@@ -6,11 +6,12 @@
  * - Só uma das duas, ou formato inválido: configuração quebrada. O proxy fecha tudo (503) a não ser que
  *   `FX_BASIC_AUTH` esteja definido como alternativa; nunca abre o site por engano.
  */
+import { deriveSessionKey } from "./session-token";
 import { isWellFormedPasswordHash } from "./site-password";
 
 export type LoginConfig =
   | { kind: "disabled" }
-  | { kind: "enabled"; passwordHash: string; secret: string }
+  | { kind: "enabled"; passwordHash: string; sessionKey: string }
   | { kind: "misconfigured"; reason: string };
 
 export const MIN_SECRET_LENGTH = 32;
@@ -25,7 +26,7 @@ export function loginConfig(env: Partial<Record<string, string | undefined>> = p
     return { kind: "misconfigured", reason: `FX_SESSION_SECRET com menos de ${MIN_SECRET_LENGTH} caracteres` };
   }
   if (!isWellFormedPasswordHash(hash)) return { kind: "misconfigured", reason: "FX_SITE_PASSWORD_HASH com formato inválido" };
-  return { kind: "enabled", passwordHash: hash, secret };
+  return { kind: "enabled", passwordHash: hash, sessionKey: deriveSessionKey(secret, hash) };
 }
 
 /**

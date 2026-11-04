@@ -55,7 +55,7 @@ export type FrontendGate = { kind: "trusted" } | { kind: "unprotected" } | { kin
 export function frontendGate(req: Request): FrontendGate {
   const login = loginConfig();
   if (login.kind === "enabled") {
-    return requestHasValidSession(req.headers.get("cookie"), login.secret) ? { kind: "trusted" } : { kind: "unauthenticated" };
+    return requestHasValidSession(req.headers.get("cookie"), login.sessionKey) ? { kind: "trusted" } : { kind: "unauthenticated" };
   }
   const basic = basicAuthSetting();
   if (basic) return basicAuthMatches(req.headers.get("authorization"), basic) ? { kind: "trusted" } : { kind: "unauthenticated" };
