@@ -1,6 +1,8 @@
 import Chromium from "@sparticuz/chromium";
-import { chromium, type Browser, type Page } from "playwright-core";
+import { chromium, type Browser, type Page, type Response } from "playwright-core";
+import { catalogAmount, isCatalogUrl, sameAmount } from "./catalog.js";
 import { escapeRegExp, FlowTimeout, type FlowPage } from "./flow.js";
+import { installRouting, type RouteCounters } from "./routing.js";
 
 // Same user agent as the backend's adapters (adapters/_http.py). Not a stealth setup: no fingerprint changes.
 export const USER_AGENT =
@@ -20,8 +22,32 @@ async function guard<T>(op: () => Promise<T>): Promise<T> {
   }
 }
 
+interface CapturedCatalog {
+  amount: string | null;
+  body: unknown;
+}
+
 export class PlaywrightFlowPage implements FlowPage {
-  constructor(private readonly page: Page) {}
+  private readonly catalogs: CapturedCatalog[] = [];
+  private readonly waiters = new Set<() => void>();
+
+  constructor(private readonly page: Page) {
+    // Keeps the parsed JSON of the site's own price responses in memory only (never logged, never returned as is).
+    page.on("response", (resp) => {
+      void this.onResponse(resp).catch(() => undefined);
+    });
+  }
+
+  private async onResponse(resp: Response): Promise<void> {
+    if (!isCatalogUrl(resp.url())) return;
+    const req = resp.request();
+    if (req.method() !== "POST" || !resp.ok()) return;
+    const contentType = resp.headers()["content-type"] ?? "";
+    if (!contentType.includes("json")) return;
+    const body: unknown = await resp.json();
+    this.catalogs.push({ amount: catalogAmount(req.postData()), body });
+    for (const wake of [...this.waiters]) wake();
+  }
 
   goto(url: string, timeoutMs: number): Promise<number | null> {
     return guard(async () => {
@@ -92,10 +118,45 @@ export class PlaywrightFlowPage implements FlowPage {
   wait(ms: number): Promise<void> {
     return guard(() => this.page.waitForTimeout(ms));
   }
+
+  url(): string {
+    return this.page.url();
+  }
+
+  async title(): Promise<string | null> {
+    try {
+      return await this.page.title();
+    } catch {
+      return null;
+    }
+  }
+
+  async waitForCatalog(amount: string, timeoutMs: number): Promise<unknown | null> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      for (let i = this.catalogs.length - 1; i >= 0; i--) {
+        const hit = this.catalogs[i] as CapturedCatalog;
+        if (hit.amount !== null && sameAmount(hit.amount, amount)) return hit.body;
+      }
+      const left = deadline - Date.now();
+      if (left <= 0) return null;
+      await new Promise<void>((resolve) => {
+        const wake = (): void => {
+          clearTimeout(timer);
+          this.waiters.delete(wake);
+          resolve();
+        };
+        const timer = setTimeout(wake, left);
+        this.waiters.add(wake);
+      });
+    }
+  }
 }
 
 export interface OpenedPage {
   page: FlowPage;
+  /** Counts of requests blocked and allowed by routing (no URLs, no headers). */
+  counters: RouteCounters;
   close(): Promise<void>;
 }
 
@@ -103,6 +164,7 @@ export interface OpenedPage {
  * Starts a headless Chromium and a page with the backend's locale, user agent and viewport.
  * - `CHROMIUM_EXECUTABLE_PATH` set (local tests): launch that binary.
  * - otherwise (Vercel): the Chromium that `@sparticuz/chromium` inflates into /tmp, with its serverless flags.
+ * Images, media, fonts and the analytics/ads domains of routing.ts are blocked; the site's own scripts and XHR load.
  */
 export async function openWesternUnionPage(env: Record<string, string | undefined>): Promise<OpenedPage> {
   const localPath = env.CHROMIUM_EXECUTABLE_PATH?.trim();
@@ -120,9 +182,12 @@ export async function openWesternUnionPage(env: Record<string, string | undefine
       userAgent: USER_AGENT,
       viewport: { width: 1280, height: 2400 },
     });
+    const counters: RouteCounters = { blocked: 0, allowed: 0 };
+    await installRouting(context, counters);
     const page = await context.newPage();
     return {
       page: new PlaywrightFlowPage(page),
+      counters,
       close: () => browser.close().catch(() => undefined),
     };
   } catch (err) {
