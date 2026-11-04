@@ -13,7 +13,7 @@ const e = (from: string, to: string, rate: number | string, extra: Partial<Edge>
   minutes: 0,
   via: "t",
   confidence: "quoted",
-  evidence_id: null,
+  evidence_id: null, channel: "presencial",
   ...extra,
 });
 

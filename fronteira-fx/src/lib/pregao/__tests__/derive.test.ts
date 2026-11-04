@@ -57,18 +57,18 @@ function mkSession(source_id: string, status: HouseSession["status"]): HouseSess
 }
 
 const sources: Source[] = [
-  { id: "chaco", name: "Cambios Chaco", kind: "exchange_house", method: "html", url: "", health: "ok", last_success_at: null, last_error: null, capabilities: [], limitations: [], coverage: { cities: ["CDE"], currencies: ["USD", "PYG"] }, poll_interval_s: 300, data_mode: "real" },
-  { id: "bcp", name: "BCP (referência)", kind: "central_bank", method: "html", url: "", health: "ok", last_success_at: null, last_error: null, capabilities: [], limitations: [], coverage: { cities: [], currencies: ["USD", "PYG"] }, poll_interval_s: 3600, data_mode: "real" },
+  { id: "chaco", name: "Cambios Chaco", kind: "exchange_house", method: "html", integration: "html", url: "", health: "ok", last_success_at: null, last_error: null, capabilities: [], limitations: [], coverage: { cities: ["CDE"], currencies: ["USD", "PYG"] }, poll_interval_s: 300, data_mode: "real" },
+  { id: "bcp", name: "BCP (referência)", kind: "central_bank", method: "html", integration: "api_oficial", url: "", health: "ok", last_success_at: null, last_error: null, capabilities: [], limitations: [], coverage: { cities: [], currencies: ["USD", "PYG"] }, poll_interval_s: 3600, data_mode: "real" },
 ];
 
 const chacoOld = mkQuote({ id: "q-chaco-old", source_id: "chaco", buy: "5900", sell: "5970", captured_at: ago(900) });
 const chaco = mkQuote({ id: "q-chaco", source_id: "chaco" });
 const alberdi = mkQuote({ id: "q-alberdi", source_id: "alberdi", buy: "5915", sell: "5965", captured_at: ago(200) });
-const uenoHalf = mkQuote({ id: "q-ueno", source_id: "ueno", city: null, buy: "5880", sell: null, modality: "account", channel: "digital", captured_at: ago(60) });
+const bancoDemoHalf = mkQuote({ id: "q-banco-demo-py", source_id: "banco-demo-py", city: null, buy: "5880", sell: null, modality: "account", channel: "digital", captured_at: ago(60) });
 const bcp = mkQuote({ id: "q-bcp", source_id: "bcp", city: null, buy: "5944.76", sell: "5944.76", modality: "transfer", kind: "market_reference", channel: "digital", captured_at: ago(900) });
 const brl = mkQuote({ id: "q-chaco-brl", source_id: "chaco", base: "BRL", buy: "1092", sell: "1112" });
 const eur = mkQuote({ id: "q-eur", source_id: "chaco", base: "USD", quote: "BRL", buy: "5.40", sell: "5.46", city: null, channel: "digital", modality: "account" });
-const quotes = [chacoOld, chaco, alberdi, uenoHalf, bcp, brl, eur];
+const quotes = [chacoOld, chaco, alberdi, bancoDemoHalf, bcp, brl, eur];
 const sessions = [mkSession("chaco", "closed"), mkSession("alberdi", "open")];
 
 describe("fórmulas de §0.8", () => {
@@ -128,7 +128,7 @@ describe("lookups", () => {
 describe("toBookLevels", () => {
   const levels = toBookLevels(quotes, "USD/PYG", sources, sessions, NOW);
   it("keeps one level per key, most recent first, references last", () => {
-    expect(levels.map((l) => l.source_id)).toEqual(["ueno", "chaco", "alberdi", "bcp"]);
+    expect(levels.map((l) => l.source_id)).toEqual(["banco-demo-py", "chaco", "alberdi", "bcp"]);
     expect(levels.find((l) => l.source_id === "chaco")?.buy).toBe("5905");
     expect(levels.every((l) => l.pair === "USD/PYG")).toBe(true);
   });
@@ -138,8 +138,8 @@ describe("toBookLevels", () => {
     expect(c.spread_pct).toBeCloseTo(1.1784, 3);
     expect(c.agio_buy_pct).toBeCloseTo(-0.66882, 4);
     expect(c.agio_sell_pct).toBeCloseTo(0.50868, 4);
-    const u = levels.find((l) => l.source_id === "ueno")!;
-    expect(u).toMatchObject({ incomplete: true, spread_pct: null, agio_sell_pct: null, status: "unknown", house: "ueno" });
+    const u = levels.find((l) => l.source_id === "banco-demo-py")!;
+    expect(u).toMatchObject({ incomplete: true, spread_pct: null, agio_sell_pct: null, status: "unknown", house: "banco-demo-py" });
     expect(u.agio_buy_pct).not.toBeNull();
   });
   it("keeps the reference with null agio", () => {
@@ -152,7 +152,7 @@ describe("toTickerItems", () => {
   it("one per key, pairs in PAIRS order, houses before references, houses by source_id", () => {
     const stats = new Map<string, SessionStats>([[chaco.series_key, { key: chaco.series_key, day_start: "", open: null, high: null, low: null, last: null, last_at: null, change_abs: null, change_pct: "0.0681663", n_quotes: 4, spread_avg: null, houses: 1, data_mode: "real" }]]);
     const items = toTickerItems(quotes, sources, stats);
-    expect(items.map((i) => `${i.pair} ${i.source_id}`)).toEqual(["USD/PYG alberdi", "USD/PYG chaco", "USD/PYG ueno", "USD/PYG bcp", "BRL/PYG chaco", "USD/BRL chaco"]);
+    expect(items.map((i) => `${i.pair} ${i.source_id}`)).toEqual(["USD/PYG alberdi", "USD/PYG banco-demo-py", "USD/PYG chaco", "USD/PYG bcp", "BRL/PYG chaco", "USD/BRL chaco"]);
     const c = items.find((i) => i.key === chaco.series_key)!;
     expect(c).toMatchObject({ mid: 5940, buy: "5905", incomplete: false, house: "Cambios Chaco" });
     expect(c.change_pct).toBeCloseTo(0.0681663, 6);
@@ -194,7 +194,7 @@ describe("defaultKeyFor", () => {
     const levels = toBookLevels(quotes, "USD/PYG", sources, sessions, NOW);
     expect(defaultKeyFor(levels)).toBe(alberdi.series_key);
     const closed = toBookLevels(quotes, "USD/PYG", sources, [], NOW);
-    expect(defaultKeyFor(closed)).toBe(uenoHalf.series_key);
+    expect(defaultKeyFor(closed)).toBe(bancoDemoHalf.series_key);
     expect(defaultKeyFor(toBookLevels([bcp], "USD/PYG", sources, [], NOW))).toBeNull();
     expect(defaultKeyFor([])).toBeNull();
   });

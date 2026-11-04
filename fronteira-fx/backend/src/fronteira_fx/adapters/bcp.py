@@ -99,6 +99,7 @@ class BcpAdapter:
         name="Banco Central del Paraguay (referencial)",
         kind="central_bank",
         method="official_api",
+        integration="api_oficial",
         url=URL,
         capabilities=["market_reference", "usd_pyg", "brl_pyg", "declared_date", "json_feed", "html_fallback"],
         limitations=[

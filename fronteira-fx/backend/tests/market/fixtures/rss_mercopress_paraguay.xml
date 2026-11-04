@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+
+<channel>
+  <title>MercoPress</title>
+  <link>https://en.mercopress.com/</link>
+  <atom:link  rel="self" type="application/rss+xml" href="https://en.mercopress.com/rss/paraguay" />
+  <description>South Atlantic News Agency</description>
+  <language>en</language>
+    <copyright>Copyright 2026, MercoPress.</copyright>
+  <image>
+    <url>https://en.mercopress.com/web/img/en/mercopress-logo.gif</url>
+    <title>MercoPress</title>
+    <link>http://en.mercopress.com/</link>
+  </image>  
+    <item>
+      <title><![CDATA[Milei stays silent on Lula’s victory as Kast and Peña congratulate him]]></title>
+      <link><![CDATA[https://en.mercopress.com/2026/10/26/milei-stays-silent-on-lula-s-victory-as-kast-and-pena-congratulate-him?utm_source=feed&utm_medium=rss&utm_content=paraguay&utm_campaign=rss]]></link>
+      <guid><![CDATA[https://en.mercopress.com/2026/10/26/milei-stays-silent-on-lula-s-victory-as-kast-and-pena-congratulate-him?utm_source=feed&utm_medium=rss&utm_content=paraguay&utm_campaign=rss]]></guid>
+      <description><![CDATA[<p>
+	   	      <img src="https://en.mercopress.com/data/cache/noticias/111901/100x80/jmasdc.jpeg" alt="Neither the president nor Foreign Minister Pablo Quirno had issued a statement on the result, according to the Argentine press" width="100" height="80" style="float:left;margin:0 12px 6px 0;border:1px solid #333" />
+	         Argentine President Javier Milei had not congratulated Luiz Inácio Lula da Silva on his re-election in Brazil by Monday, unlike other right-wing South American leaders such as Chile’s José Antonio Kast, Paraguay’s Santiago Peña and Bolivia’s Rodrigo Paz. Milei, who publicly backed Senator Flávio Bolsonaro during the campaign, met his cabinet at the Casa Rosada first thing in the morning.</p>]]></description>
+      <enclosure url="https://en.mercopress.com/data/cache/noticias/111901/100x80/jmasdc.jpeg" length="0" type="image/jpg" />      <category><![CDATA[Politics, Argentina, Brazil, Latin America, Mercosur, Paraguay, Chile]]></category>
+      <pubDate>Mon, 26 Oct 2026 13:05:00 GMT</pubDate>
+    </item>
+<item>
+      <title><![CDATA[Paraguay’s president travels to Washington and will meet the CIA director]]></title>
+      <link><![CDATA[https://en.mercopress.com/2026/10/21/paraguay-s-president-travels-to-washington-and-will-meet-the-cia-director?utm_source=feed&utm_medium=rss&utm_content=paraguay&utm_campaign=rss]]></link>
+      <guid><![CDATA[https://en.mercopress.com/2026/10/21/paraguay-s-president-travels-to-washington-and-will-meet-the-cia-director?utm_source=feed&utm_medium=rss&utm_content=paraguay&utm_campaign=rss]]></guid>
+      <description><![CDATA[<p>
+	   	      <img src="https://en.mercopress.com/data/cache/noticias/111849/100x80/pena.jpg" alt="Pe&ntilde;a has declared himself an ally of the White House on foreign policy" width="100" height="80" style="float:left;margin:0 12px 6px 0;border:1px solid #333" />
+	         Paraguayan President Santiago Peña travelled to Washington on Wednesday for a brief visit that includes a meeting with US Central Intelligence Agency (CIA) Director John Ratcliffe and a keynote address at the annual gala of the Inter-American Dialogue think tank.</p>]]></description>
+      <enclosure url="https://en.mercopress.com/data/cache/noticias/111849/100x80/pena.jpg" length="0" type="image/jpg" />      <category><![CDATA[Politics, Mercosur, Paraguay, United States]]></category>
+      <pubDate>Wed, 21 Oct 2026 19:14:00 GMT</pubDate>
+    </item>
+<item>
+      <title><![CDATA[Pressure mounts on Paraguay’s Central Bank over doubts about some lenders’ solvency]]></title>
+      <link><![CDATA[https://en.mercopress.com/2026/10/18/pressure-mounts-on-paraguay-s-central-bank-over-doubts-about-some-lenders-solvency?utm_source=feed&utm_medium=rss&utm_content=paraguay&utm_campaign=rss]]></link>
+      <guid><![CDATA[https://en.mercopress.com/2026/10/18/pressure-mounts-on-paraguay-s-central-bank-over-doubts-about-some-lenders-solvency?utm_source=feed&utm_medium=rss&utm_content=paraguay&utm_campaign=rss]]></guid>
+      <description><![CDATA[<p>
+	   	      <img src="https://en.mercopress.com/data/cache/noticias/111806/100x80/bpp.jpg" alt="&ldquo;We ask the Central Bank to report on the solvency of all entities that received facilities in merger processes. That way doubts will be cleared,&rdquo; the association said" width="100" height="80" style="float:left;margin:0 12px 6px 0;border:1px solid #333" />
+	         The Association of Banks of Paraguay, which groups 14 private lenders, on Sunday asked the Central Bank of Paraguay to report on the solvency of institutions that received facilities in merger processes, days after senators from the ruling party and the opposition called on President Santiago Peña to remove the institution’s leadership.</p>]]></description>
+      <enclosure url="https://en.mercopress.com/data/cache/noticias/111806/100x80/bpp.jpg" length="0" type="image/jpg" />      <category><![CDATA[Economy, Politics, Paraguay]]></category>
+      <pubDate>Sun, 18 Oct 2026 17:51:00 GMT</pubDate>
+    </item>    
+
+  </channel>
+</rss>

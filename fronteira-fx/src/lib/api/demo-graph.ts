@@ -1,10 +1,13 @@
 /**
- * Arestas de transferência/depósito da DEMONSTRAÇÃO (ilustrativas) + saldos estacionados por nó.
- * Tudo em string decimal (D1); só o cálculo em `../graph` converte para número.
+ * Arestas de transferência, depósito, saque e deslocamento da DEMONSTRAÇÃO (ilustrativas) + saldos
+ * estacionados por nó. Tudo em string decimal (D1); só o cálculo em `../graph` converte para número.
+ *
+ * Trilhos e deslocamentos seguem `backend/.../data/rails.json` e `transport.json`: custo não verificado
+ * vira `incomplete` e nunca zero. O banco fechado saiu do grafo (resolução do BCP em 03/11/2026).
  */
 import { dec, edgesFromQuotes, nodeKey } from "../graph";
 import { allDemoQuotes, demoAccounts, demoWesternUnionQuotes } from "./demo-data";
-import type { Confidence, Currency, Edge, Quote } from "./types";
+import type { Confidence, Currency, Edge, Quote, RouteChannel } from "./types";
 
 /** venue de uma cotação na demo: fonte digital = própria fonte; casa de câmbio = fonte:cidade. */
 export function demoVenue(q: Quote): string {
@@ -12,6 +15,8 @@ export function demoVenue(q: Quote): string {
 }
 
 interface TransferSpec {
+  kind?: Edge["kind"];
+  channel: RouteChannel;
   rate?: string;
   fee_pct?: string;
   fee_fixed?: string;
@@ -19,13 +24,18 @@ interface TransferSpec {
   via: string;
   confidence: Confidence;
   evidence_id?: string | null;
+  border?: boolean;
+  counter?: boolean;
+  unknown_costs?: Edge["unknown_costs"];
+  /** Data da cotação que define a taxa (conversão): a validade do plano sai da mais velha. */
+  quoted_at?: string | null;
 }
 
 function transfer(from: string, to: string, spec: TransferSpec): Edge {
   return {
     from,
     to,
-    kind: "transfer",
+    kind: spec.kind ?? "transfer",
     rate: spec.rate ?? "1",
     fee_pct: spec.fee_pct ?? "0",
     fee_fixed: spec.fee_fixed ?? "0",
@@ -33,41 +43,62 @@ function transfer(from: string, to: string, spec: TransferSpec): Edge {
     via: spec.via,
     confidence: spec.confidence,
     evidence_id: spec.evidence_id ?? null,
+    channel: spec.channel,
+    ...(spec.border ? { border: true } : {}),
+    ...(spec.counter ? { counter: true } : {}),
+    ...(spec.unknown_costs ? { unknown_costs: spec.unknown_costs } : {}),
+    ...(spec.quoted_at !== undefined ? { quoted_at: spec.quoted_at } : {}),
   };
 }
 
 const CURRENCIES: Currency[] = ["PYG", "USD", "BRL"];
 
-/** dinheiro ↔ balcão na mesma cidade: sem custo, só o deslocamento até a casa. */
+/** dinheiro ↔ balcão na mesma cidade: sem tarifa, só o deslocamento até a casa (presencial). */
 function counterEdges(city: "CDE" | "ASU", venues: readonly string[]): Edge[] {
   return venues.flatMap((v) =>
     CURRENCIES.flatMap((c) => [
-      transfer(nodeKey(c, `cash:${city}`), nodeKey(c, v), { minutes: 10, via: `balcão ${v}`, confidence: "quoted" }),
-      transfer(nodeKey(c, v), nodeKey(c, `cash:${city}`), { minutes: 0, via: `balcão ${v}`, confidence: "quoted" }),
+      transfer(nodeKey(c, `cash:${city}`), nodeKey(c, v), { channel: "presencial", minutes: 10, via: `balcão ${v}`, confidence: "quoted", counter: true }),
+      transfer(nodeKey(c, v), nodeKey(c, `cash:${city}`), { channel: "presencial", minutes: 0, via: `balcão ${v}`, confidence: "quoted", counter: true }),
     ]),
   );
+}
+
+/** Ônibus entre cidades: custo ainda não verificado em `transport.json` → `incomplete` em ambos os sentidos. */
+function travelEdges(a: "CDE" | "ASU", b: "CDE" | "ASU", minutes: number): Edge[] {
+  return CURRENCIES.flatMap((c) => [
+    transfer(nodeKey(c, `cash:${a}`), nodeKey(c, `cash:${b}`), { kind: "travel", channel: "presencial", minutes, via: `ônibus ${a} → ${b} (custo não verificado)`, confidence: "incomplete" }),
+    transfer(nodeKey(c, `cash:${b}`), nodeKey(c, `cash:${a}`), { kind: "travel", channel: "presencial", minutes, via: `ônibus ${b} → ${a} (custo não verificado)`, confidence: "incomplete" }),
+  ]);
 }
 
 export function demoTransferEdges(): Edge[] {
   const wu5k = demoWesternUnionQuotes.find((q) => q.amount_base === "5000" && q.context?.receive === "bank_account")!;
   const wuCash = demoWesternUnionQuotes.find((q) => q.amount_base === "5000" && q.context?.receive === "cash_pickup")!;
+  // cotação Nomad USD/BRL: define a taxa das conversões que passam pelo Nomad (e a data delas)
+  const nomadUsd = allDemoQuotes.find((q) => q.source_id === "nomad" && q.base === "USD" && q.quote === "BRL")!;
   return [
-    // remessa: BRL no banco BR → PYG na ueno (WU, tarifa 100 % desconto)
-    transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "ueno"), { rate: wu5k.sell ?? "0", minutes: 2 * 1440, via: "Western Union → conta ueno (Pix)", confidence: "estimated", evidence_id: wu5k.evidence_id }),
-    transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "cash:CDE"), { rate: wuCash.sell ?? "0", minutes: 30, via: "Western Union retirada em loja (CDE)", confidence: "estimated", evidence_id: wuCash.evidence_id }),
-    // ueno ↔ dinheiro (saque/depósito em PYG, custo ilustrativo)
-    transfer(nodeKey("PYG", "ueno"), nodeKey("PYG", "cash:ASU"), { minutes: 20, via: "saque ueno (ASU)", confidence: "estimated" }),
-    transfer(nodeKey("PYG", "cash:ASU"), nodeKey("PYG", "ueno"), { minutes: 20, via: "depósito ueno (ASU)", confidence: "estimated" }),
-    transfer(nodeKey("PYG", "cash:CDE"), nodeKey("PYG", "ueno"), { minutes: 30, via: "depósito ueno (CDE)", confidence: "estimated" }),
-    transfer(nodeKey("PYG", "ueno"), nodeKey("PYG", "cash:CDE"), { minutes: 30, via: "saque ueno (CDE)", confidence: "estimated" }),
+    // remessa: BRL no banco BR → PYG no banco demo PY (WU, tarifa 100 % desconto)
+    transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "banco-demo-py"), { channel: "assistida", rate: wu5k.sell ?? "0", minutes: 2 * 1440, via: "Western Union → conta banco demo PY (Pix)", confidence: "estimated", evidence_id: wu5k.evidence_id, quoted_at: wu5k.captured_at }),
+    transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "cash:CDE"), { channel: "presencial", rate: wuCash.sell ?? "0", minutes: 30, via: "Western Union retirada em loja (CDE)", confidence: "estimated", evidence_id: wuCash.evidence_id, quoted_at: wuCash.captured_at }),
+    // banco demo PY ↔ dinheiro (saque/depósito em PYG): tarifa não verificada → incompleto (nunca zero, como no backend)
+    transfer(nodeKey("PYG", "banco-demo-py"), nodeKey("PYG", "cash:ASU"), { kind: "withdraw", channel: "presencial", minutes: 20, via: "saque banco demo PY (ASU) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
+    transfer(nodeKey("PYG", "cash:ASU"), nodeKey("PYG", "banco-demo-py"), { kind: "deposit", channel: "presencial", minutes: 20, via: "depósito banco demo PY (ASU) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
+    transfer(nodeKey("PYG", "cash:CDE"), nodeKey("PYG", "banco-demo-py"), { kind: "deposit", channel: "presencial", minutes: 30, via: "depósito banco demo PY (CDE) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
+    transfer(nodeKey("PYG", "banco-demo-py"), nodeKey("PYG", "cash:CDE"), { kind: "withdraw", channel: "presencial", minutes: 30, via: "saque banco demo PY (CDE) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
     // dinheiro ↔ casas de câmbio (mesma cidade)
     ...counterEdges("CDE", ["chaco:CDE", "alberdi:CDE"]),
     ...counterEdges("ASU", ["chaco:ASU", "bonanza:ASU", "norte:ASU"]),
-    // USD entre contas digitais (custo de transferência internacional ainda não confirmado → incompleto)
-    transfer(nodeKey("USD", "ueno"), nodeKey("USD", "nomad"), { fee_pct: "0.003", minutes: 1440, via: "transferência USD ueno → Nomad (custo a confirmar)", confidence: "incomplete" }),
-    transfer(nodeKey("USD", "nomad"), nodeKey("USD", "ueno"), { fee_pct: "0.003", minutes: 1440, via: "transferência USD Nomad → ueno (custo a confirmar)", confidence: "incomplete" }),
+    // Pix BR ↔ Revolut (BRL) e conversão BR → Nomad (USD): trilhos sem custo validado → incompleto
+    transfer(nodeKey("BRL", "brbank"), nodeKey("BRL", "revolut"), { channel: "assistida", minutes: 5, via: "Pix → Revolut BRL (custo não verificado)", confidence: "incomplete", border: true }),
+    transfer(nodeKey("BRL", "revolut"), nodeKey("BRL", "brbank"), { channel: "assistida", minutes: 5, via: "Pix Revolut BRL → banco BR (custo não verificado)", confidence: "incomplete", border: true }),
+    transfer(nodeKey("BRL", "brbank"), nodeKey("USD", "nomad"), { channel: "assistida", rate: dec(1 / 5.4043, 12), minutes: 1440, via: "conversão BRL → Nomad USD (custo não verificado)", confidence: "incomplete", quoted_at: nomadUsd.captured_at }),
+    // USD entre contas digitais (transferência internacional sem custo confirmado → incompleto)
+    transfer(nodeKey("USD", "revolut"), nodeKey("USD", "nomad"), { channel: "assistida", fee_pct: "0.003", minutes: 60, via: "transferência USD Revolut → Nomad (custo a confirmar)", confidence: "incomplete" }),
+    transfer(nodeKey("USD", "nomad"), nodeKey("USD", "revolut"), { channel: "assistida", fee_pct: "0.003", minutes: 60, via: "transferência USD Nomad → Revolut (custo a confirmar)", confidence: "incomplete" }),
     // Nomad: USD → BRL (venda) de volta ao banco BR (cotação pública líquida de spread)
-    transfer(nodeKey("USD", "nomad"), nodeKey("BRL", "brbank"), { rate: dec(5.431 * 0.9961, 8), minutes: 1440, via: "Nomad vende USD → Pix BRL", confidence: "estimated" }),
+    transfer(nodeKey("USD", "nomad"), nodeKey("BRL", "brbank"), { channel: "assistida", rate: dec(5.431 * 0.9961, 8), minutes: 1440, via: "Nomad vende USD → Pix BRL", confidence: "estimated", quoted_at: nomadUsd.captured_at }),
+    // deslocamento entre cidades (ônibus), sem custo verificado
+    ...travelEdges("CDE", "ASU", 240),
     // Brasil: cartão BR pagando em PYG (compra) não é ciclo; omitido.
   ];
 }
@@ -78,10 +109,10 @@ export function demoEdges(): Edge[] {
 }
 
 const ACCOUNT_VENUE: Record<string, string> = {
-  "acc-ueno-pyg": "ueno",
-  "acc-ueno-usd": "ueno",
+  "acc-banco-demo-py-pyg": "banco-demo-py",
   "acc-nomad-usd": "nomad",
   "acc-revolut-usd": "revolut",
+  "acc-revolut-brl": "revolut",
   "acc-brl-bank": "brbank",
   "acc-cash-cde": "cash:CDE",
 };

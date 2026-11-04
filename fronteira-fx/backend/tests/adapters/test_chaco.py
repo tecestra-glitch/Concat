@@ -22,7 +22,7 @@ def test_parse_combined_json(captured_at: datetime) -> None:
     res = chaco.adapter.parse(load("chaco.json"), captured_at=captured_at, url=URL)
     # branch 1 was last updated on 2026-10-30 13:39 -03:00, 2.5 days before captured_at -> stale, quotes kept
     assert res.status == AdapterStatus.STALE, res.message
-    assert len(res.quotes) == 6  # 3 branches x (USD, BRL)
+    assert len(res.quotes) == 9  # 3 branches x (USD, BRL, cruzamento USD•BRL)
 
     asu_usd = _q(res.quotes, "chaco-1", "USD")
     assert (asu_usd.buy, asu_usd.sell) == (Decimal("5750"), Decimal("5900"))
@@ -65,9 +65,11 @@ def test_branch_city_mapping_from_api_list() -> None:
     mapped = {b["id"]: chaco._branch_from_api(b) for b in branches}
     assert mapped["1"].city == "ASU" and mapped["9"].city == "CDE" and mapped["28"].city == "PJC"
     assert mapped["16"].city is None  # Hernandarias is not one of the tracked cities
-    assert mapped["23"].city is None  # Encarnación
+    assert mapped["23"].city == "ENC"  # Encarnación
     assert mapped["9"].id == "chaco-9" and mapped["9"].name.startswith("Ciudad del Este")
     assert set(chaco.ChacoAdapter.default_branch_ids()) == {
+        "23",
+        "24",
         "1",
         "2",
         "3",
@@ -127,10 +129,10 @@ def test_missing_currency_is_degraded() -> None:
 
 def test_stale(much_later: datetime) -> None:
     res = chaco.adapter.parse(load("chaco.json"), captured_at=much_later, url=URL)
-    assert res.status == AdapterStatus.STALE and len(res.quotes) == 6
+    assert res.status == AdapterStatus.STALE and len(res.quotes) == 9
 
 
 def test_info() -> None:
     assert chaco.adapter.info.id == "chaco"
-    assert set(chaco.adapter.info.cities) == {"CDE", "ASU", "PJC"}
+    assert set(chaco.adapter.info.cities) == {"CDE", "ASU", "PJC", "ENC"}
     assert chaco.adapter.info.allowed_domains == ["www.cambioschaco.com.py"]

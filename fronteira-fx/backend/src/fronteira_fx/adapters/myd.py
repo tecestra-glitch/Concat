@@ -64,6 +64,7 @@ class MydAdapter:
         name="M&D Cambios",
         kind="exchange_house",
         method="html",
+        integration="html",
         url=URL,
         capabilities=["buy_sell", "usd_pyg", "brl_pyg", "boards_asu_cde"],
         limitations=[

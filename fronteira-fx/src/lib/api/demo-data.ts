@@ -31,15 +31,15 @@ function seeded(seed: number) {
 }
 
 export const demoSources: Source[] = [
-  { id: "chaco", name: "Cambios Chaco", kind: "exchange_house", method: "html", url: "https://www.cambioschaco.com.py/", health: "ok", last_success_at: iso(-120), last_error: null, capabilities: ["branch_table", "buy_sell", "usd_pyg", "brl_pyg"], limitations: ["sem API oficial", "cotação por filial"], coverage: { cities: ["CDE", "ASU"], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
-  { id: "alberdi", name: "Cambios Alberdi", kind: "exchange_house", method: "html", url: "https://www.cambiosalberdi.com/", health: "ok", last_success_at: iso(-200), last_error: null, capabilities: ["branch_table", "buy_sell"], limitations: ["sem API oficial"], coverage: { cities: ["CDE", "ASU", "PJC"], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
-  { id: "norte", name: "Cambios Norte", kind: "exchange_house", method: "html", url: "https://www.nortecambios.com.py/", health: "degraded", last_success_at: iso(-3600), last_error: "cadeia TLS inválida (verificação falhou)", capabilities: ["buy_sell"], limitations: ["certificado TLS com cadeia incompleta"], coverage: { cities: ["ASU", "PJC"], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
-  { id: "bonanza", name: "Bonanza Cambios", kind: "exchange_house", method: "browser", url: "https://www.bonanzacambios.com.py/", health: "ok", last_success_at: iso(-300), last_error: null, capabilities: ["buy_sell"], limitations: ["página renderizada por JavaScript"], coverage: { cities: ["ASU", "CDE"], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
-  { id: "bcp", name: "BCP (referência)", kind: "central_bank", method: "html", url: "https://www.bcp.gov.py/webapps/web/cotizacion/monedas", health: "ok", last_success_at: iso(-900), last_error: null, capabilities: ["market_reference"], limitations: ["referência diária, não executável"], coverage: { cities: [], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 3600, data_mode: "demo" },
-  { id: "ueno", name: "ueno", kind: "bank", method: "html", url: "https://www.ueno.com.py/cambio-de-moneda/", health: "ok", last_success_at: iso(-180), last_error: null, capabilities: ["buy_sell", "account", "card"], limitations: ["câmbio efetivo em app pode diferir"], coverage: { cities: [], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
-  { id: "westernunion", name: "Western Union", kind: "remittance", method: "browser", url: "https://www.westernunion.com/br/pt/web/send-money/start", health: "degraded", last_success_at: iso(-5400), last_error: "simulador exigiu nova sessão", capabilities: ["simulator_by_amount", "receive_methods", "promo"], limitations: ["contexto completo obrigatório", "depende de navegador"], coverage: { cities: [], currencies: ["BRL", "PYG"] }, poll_interval_s: 900, data_mode: "demo" },
-  { id: "nomad", name: "Nomad", kind: "fintech", method: "html", url: "https://www.nomadglobal.com/cotacao/dolar-hoje", health: "ok", last_success_at: iso(-240), last_error: null, capabilities: ["public_calculator"], limitations: ["proposta efetiva depende da conta"], coverage: { cities: [], currencies: ["BRL", "USD"] }, poll_interval_s: 300, data_mode: "demo" },
-  { id: "revolut", name: "Revolut", kind: "fintech", method: "manual", url: "https://www.revolut.com/currency-converter/", health: "blocked", last_success_at: null, last_error: "HTTP 403 — conversor público bloqueado para automação", capabilities: [], limitations: ["região e disponibilidade registradas manualmente"], coverage: { cities: [], currencies: ["BRL", "USD"] }, poll_interval_s: 900, data_mode: "demo" },
+  { id: "chaco", name: "Cambios Chaco", kind: "exchange_house", method: "html", integration: "endpoint_interno", url: "https://www.cambioschaco.com.py/", health: "ok", last_success_at: iso(-120), last_error: null, capabilities: ["branch_table", "buy_sell", "usd_pyg", "brl_pyg"], limitations: ["sem API oficial", "cotação por filial"], coverage: { cities: ["CDE", "ASU"], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
+  { id: "alberdi", name: "Cambios Alberdi", kind: "exchange_house", method: "html", integration: "endpoint_interno", url: "https://www.cambiosalberdi.com/", health: "ok", last_success_at: iso(-200), last_error: null, capabilities: ["branch_table", "buy_sell"], limitations: ["sem API oficial"], coverage: { cities: ["CDE", "ASU", "PJC"], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
+  { id: "norte", name: "Cambios Norte", kind: "exchange_house", method: "html", integration: "html", url: "https://www.nortecambios.com.py/", health: "degraded", last_success_at: iso(-3600), last_error: "cadeia TLS inválida (verificação falhou)", capabilities: ["buy_sell"], limitations: ["certificado TLS com cadeia incompleta"], coverage: { cities: ["ASU", "PJC"], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
+  { id: "bonanza", name: "Bonanza Cambios", kind: "exchange_house", method: "browser", integration: "endpoint_interno", url: "https://www.bonanzacambios.com.py/", health: "ok", last_success_at: iso(-300), last_error: null, capabilities: ["buy_sell"], limitations: ["página renderizada por JavaScript"], coverage: { cities: ["ASU", "CDE"], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
+  { id: "bcp", name: "BCP (referência)", kind: "central_bank", method: "html", integration: "api_oficial", url: "https://www.bcp.gov.py/webapps/web/cotizacion/monedas", health: "ok", last_success_at: iso(-900), last_error: null, capabilities: ["market_reference"], limitations: ["referência diária, não executável"], coverage: { cities: [], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 3600, data_mode: "demo" },
+  { id: "banco-demo-py", name: "Banco demo PY", kind: "bank", method: "html", integration: "html", url: "https://demo.invalid/cambio-de-moneda/", health: "ok", last_success_at: iso(-180), last_error: null, capabilities: ["buy_sell", "account", "card"], limitations: ["câmbio e tarifas ilustrativos (demonstração)"], coverage: { cities: [], currencies: ["USD", "BRL", "PYG"] }, poll_interval_s: 300, data_mode: "demo" },
+  { id: "westernunion", name: "Western Union", kind: "remittance", method: "browser", integration: "navegador", url: "https://www.westernunion.com/br/pt/web/send-money/start", health: "degraded", last_success_at: iso(-5400), last_error: "simulador exigiu nova sessão", capabilities: ["simulator_by_amount", "receive_methods", "promo"], limitations: ["contexto completo obrigatório", "depende de navegador"], coverage: { cities: [], currencies: ["BRL", "PYG"] }, poll_interval_s: 900, data_mode: "demo" },
+  { id: "nomad", name: "Nomad", kind: "fintech", method: "html", integration: "endpoint_interno", url: "https://www.nomadglobal.com/cotacao/dolar-hoje", health: "ok", last_success_at: iso(-240), last_error: null, capabilities: ["public_calculator"], limitations: ["proposta efetiva depende da conta"], coverage: { cities: [], currencies: ["BRL", "USD"] }, poll_interval_s: 300, data_mode: "demo" },
+  { id: "revolut", name: "Revolut", kind: "fintech", method: "manual", integration: "endpoint_interno", url: "https://www.revolut.com/currency-converter/", health: "blocked", last_success_at: null, last_error: "HTTP 403 — conversor público bloqueado para automação", capabilities: [], limitations: ["região e disponibilidade registradas manualmente"], coverage: { cities: [], currencies: ["BRL", "USD"] }, poll_interval_s: 900, data_mode: "demo" },
 ];
 
 function iso(offsetSeconds: number): string {
@@ -99,9 +99,9 @@ const specs: QSpec[] = [
   // BCP reference
   { source: "bcp", branch: null, city: null, base: "USD", quote: "PYG", buy: 5944.76, sell: 5944.76, modality: "transfer", kind: "market_reference", channel: "digital", age: 900, declaredAge: 43200 },
   { source: "bcp", branch: null, city: null, base: "BRL", quote: "PYG", buy: 1099.99, sell: 1099.99, modality: "transfer", kind: "market_reference", channel: "digital", age: 900, declaredAge: 43200 },
-  // ueno digital
-  { source: "ueno", branch: null, city: null, base: "USD", quote: "PYG", buy: 5880, sell: 5940, modality: "account", kind: "indicative", channel: "digital", age: 180 },
-  { source: "ueno", branch: null, city: null, base: "BRL", quote: "PYG", buy: 1078, sell: 1128, modality: "account", kind: "indicative", channel: "digital", age: 180 },
+  // banco demo PY digital
+  { source: "banco-demo-py", branch: null, city: null, base: "USD", quote: "PYG", buy: 5880, sell: 5940, modality: "account", kind: "indicative", channel: "digital", age: 180 },
+  { source: "banco-demo-py", branch: null, city: null, base: "BRL", quote: "PYG", buy: 1078, sell: 1128, modality: "account", kind: "indicative", channel: "digital", age: 180 },
   // Nomad BRL->USD (USD por 1 BRL => inverse of R$ per US$)
   { source: "nomad", branch: null, city: null, base: "USD", quote: "BRL", buy: null, sell: 5.4310, modality: "account", kind: "indicative", channel: "digital", age: 240 },
 ];
@@ -205,11 +205,12 @@ export function demoHistory(key: string, points = 288, stepMs = 5 * 60 * 1000): 
 }
 
 export const demoAccounts: Account[] = [
-  { id: "acc-ueno-pyg", institution: "ueno", label: "ueno conta PYG", currency: "PYG", kind: "bank", location: "digital", balance_free: "1250000", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-600) },
-  { id: "acc-ueno-usd", institution: "ueno", label: "ueno conta USD", currency: "USD", kind: "bank", location: "digital", balance_free: "320", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-600) },
-  { id: "acc-ueno-card", institution: "ueno", label: "ueno cartão de crédito", currency: "PYG", kind: "card_credit", location: "digital", balance_free: "0", balance_reserved: "480000", balance_in_transit: "0", updated_at: iso(-600) },
+  { id: "acc-banco-demo-py-pyg", institution: "banco-demo-py", label: "banco demo PY conta PYG", currency: "PYG", kind: "bank", location: "digital", balance_free: "1250000", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-600) },
+  { id: "acc-banco-demo-py-usd", institution: "banco-demo-py", label: "banco demo PY conta USD", currency: "USD", kind: "bank", location: "digital", balance_free: "320", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-600) },
+  { id: "acc-banco-demo-py-card", institution: "banco-demo-py", label: "banco demo PY cartão de crédito", currency: "PYG", kind: "card_credit", location: "digital", balance_free: "0", balance_reserved: "480000", balance_in_transit: "0", updated_at: iso(-600) },
   { id: "acc-nomad-usd", institution: "Nomad", label: "Nomad conta USD", currency: "USD", kind: "fintech", location: "digital", balance_free: "1500", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-3600) },
-  { id: "acc-revolut-usd", institution: "Revolut", label: "Revolut USD", currency: "USD", kind: "fintech", location: "digital", balance_free: "0", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-86400) },
+  { id: "acc-revolut-usd", institution: "Revolut", label: "Revolut USD", currency: "USD", kind: "fintech", location: "digital", balance_free: "1200", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-1800) },
+  { id: "acc-revolut-brl", institution: "Revolut", label: "Revolut BRL", currency: "BRL", kind: "fintech", location: "digital", balance_free: "4000", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-900) },
   { id: "acc-brl-bank", institution: "Banco BR", label: "Conta BRL (Pix)", currency: "BRL", kind: "bank", location: "digital", balance_free: "25000", balance_reserved: "0", balance_in_transit: "5000", updated_at: iso(-60) },
   { id: "acc-cash-cde", institution: "Dinheiro", label: "Espécie em CDE", currency: "USD", kind: "cash", location: "CDE", balance_free: "0", balance_reserved: "0", balance_in_transit: "0", updated_at: iso(-86400) },
 ];
@@ -219,30 +220,30 @@ function buildOpportunities(capital: number): Opportunity[] {
   const wuRate = wu ? Number(wu.sell) : 1080;
   const chacoBrlBuy = Number(demoQuotes.find((q) => q.source_id === "chaco" && q.base === "BRL" && q.city === "CDE")!.buy);
   const chacoBrlSell = Number(demoQuotes.find((q) => q.source_id === "chaco" && q.base === "BRL" && q.city === "CDE")!.sell);
-  const uenoUsdSell = Number(demoQuotes.find((q) => q.source_id === "ueno" && q.base === "USD")!.sell);
+  const bancoDemoUsdSell = Number(demoQuotes.find((q) => q.source_id === "banco-demo-py" && q.base === "USD")!.sell);
   const chacoUsdBuy = Number(demoQuotes.find((q) => q.source_id === "chaco" && q.base === "USD" && q.city === "CDE")!.buy);
   const nomadSell = Number(demoQuotes.find((q) => q.source_id === "nomad")!.sell);
 
   const list: Opportunity[] = [];
 
-  // 1. Remittance saving (digital): Pix -> WU -> ueno PYG vs reference BCP BRL/PYG
+  // 1. Remittance saving (digital): Pix -> WU -> banco demo PY (PYG) vs reference BCP BRL/PYG
   {
     const r = runRoute(capital, [
-      { description: "Pix BRL → Western Union → conta ueno (PYG)", rate: wuRate, rateNote: "PYG por 1 BRL (simulador WU)", duration: "0–4 dias úteis", promo: "100 % desconto na tarifa", feeIn: [{ label: "tarifa WU", amount: "0", currency: "BRL" }], from: pos("BRL", "acc-brl-bank", "digital", "transfer"), to: pos("PYG", "acc-ueno-pyg", "digital", "account") },
+      { description: "Pix BRL → Western Union → conta banco demo PY (PYG)", rate: wuRate, rateNote: "PYG por 1 BRL (simulador WU)", duration: "0–4 dias úteis", promo: "100 % desconto na tarifa", feeIn: [{ label: "tarifa WU", amount: "0", currency: "BRL" }], from: pos("BRL", "acc-brl-bank", "digital", "transfer"), to: pos("PYG", "acc-banco-demo-py-pyg", "digital", "account") },
     ]);
     const refPyg = capital * 1099.99; // BCP reference (2026-10-30: USD/PYG 5944.76, USD/BRL 5.4043)
     const gainPyg = r.final - refPyg;
     const gainBrl = gainPyg / 1099.99;
-    list.push(opp("demo-op-wu", "Remessa Pix → WU → ueno vs referência BCP", "remittance_saving", "digital", null, capital, capital + gainBrl, gainBrl, wuRate, r.steps, r.confidence, r.pending));
+    list.push(opp("demo-op-wu", "Remessa Pix → WU → banco demo PY vs referência BCP", "remittance_saving", "digital", null, capital, capital + gainBrl, gainBrl, wuRate, r.steps, r.confidence, r.pending));
   }
-  // 2. Digital cycle: BRL -> ueno PYG (WU) -> ueno USD -> Nomad? (sell USD for BRL at Nomad rate) micro gain
+  // 2. Digital cycle: BRL -> banco demo PY (PYG) (WU) -> banco demo PY USD -> Nomad? (sell USD for BRL at Nomad rate) micro gain
   {
     const r = runRoute(capital, [
-      { description: "Pix BRL → WU → conta ueno PYG", rate: wuRate, rateNote: "PYG por 1 BRL", duration: "0–4 dias úteis", promo: "100 % desconto na tarifa", from: pos("BRL", "acc-brl-bank", "digital", "transfer"), to: pos("PYG", "acc-ueno-pyg", "digital", "account") },
-      { description: "ueno: PYG → USD (venda USD do banco)", rate: 1 / uenoUsdSell, rateNote: "USD por 1 PYG", duration: "imediato", from: pos("PYG", "acc-ueno-pyg", "digital", "account"), to: pos("USD", "acc-ueno-usd", "digital", "account") },
+      { description: "Pix BRL → WU → conta banco demo PY (PYG)", rate: wuRate, rateNote: "PYG por 1 BRL", duration: "0–4 dias úteis", promo: "100 % desconto na tarifa", from: pos("BRL", "acc-brl-bank", "digital", "transfer"), to: pos("PYG", "acc-banco-demo-py-pyg", "digital", "account") },
+      { description: "banco demo PY: PYG → USD (venda USD do banco)", rate: 1 / bancoDemoUsdSell, rateNote: "USD por 1 PYG", duration: "imediato", from: pos("PYG", "acc-banco-demo-py-pyg", "digital", "account"), to: pos("USD", "acc-banco-demo-py-usd", "digital", "account") },
       { description: "USD → BRL via conta Nomad (cotação pública)", rate: nomadSell * 0.9961, rateNote: "BRL por 1 USD (líquido de spread)", duration: "1 dia útil", unknownFee: "IOF/custo de transferência USD→Nomad não confirmado", from: pos("USD", "acc-nomad-usd", "digital", "account"), to: pos("BRL", "acc-brl-bank", "digital", "transfer") },
     ]);
-    list.push(opp("demo-op-cycle-digital", "Ciclo digital BRL → ueno → USD → Nomad → BRL", "cycle", "digital", null, capital, r.final, r.final - capital, r.final / capital, r.steps, r.confidence, r.pending));
+    list.push(opp("demo-op-cycle-digital", "Ciclo digital BRL → banco demo PY → USD → Nomad → BRL", "cycle", "digital", null, capital, r.final, r.final - capital, r.final / capital, r.steps, r.confidence, r.pending));
   }
   // 3. Physical cycle in CDE: BRL cash -> USD cash (Chaco) -> BRL cash (Chaco)
   {
@@ -253,27 +254,27 @@ function buildOpportunities(capital: number): Opportunity[] {
     ]);
     list.push(opp("demo-op-cycle-cde", "Ciclo presencial CDE (Chaco) BRL → PYG → USD → BRL", "cycle", "physical", "CDE", capital, r.final, r.final - capital, r.final / capital, r.steps, r.confidence, r.pending));
   }
-  // 4. Physical remittance alternative: carry BRL cash to Alberdi PJC and deposit at ueno
+  // 4. Physical remittance alternative: carry BRL cash to Alberdi PJC and deposit at banco demo PY
   {
     const r = runRoute(capital, [
       { description: "Alberdi PJC: BRL espécie → PYG espécie", rate: 1086 + (capital >= 25000 ? 30 : 0), rateNote: "PYG por 1 BRL (compra da casa; melhora acima de R$ 25 mil)", duration: "presencial", feeIn: [{ label: "deslocamento + estadia", amount: "180", currency: "BRL" }], from: pos("BRL", null, "PJC", "cash"), to: pos("PYG", null, "PJC", "cash") },
-      { description: "Depósito em conta ueno", rate: 1, rateNote: "sem conversão", duration: "imediato", from: pos("PYG", null, "PJC", "cash"), to: pos("PYG", "acc-ueno-pyg", "digital", "account") },
+      { description: "Depósito em conta banco demo PY", rate: 1, rateNote: "sem conversão", duration: "imediato", from: pos("PYG", null, "PJC", "cash"), to: pos("PYG", "acc-banco-demo-py-pyg", "digital", "account") },
     ]);
     const refPyg = capital * 1099.99;
     const gainBrl = (r.final - refPyg) / 1099.99;
-    list.push(opp("demo-op-pjc", "Remessa presencial PJC (Alberdi) → depósito ueno", "remittance_saving", "physical", "PJC", capital, capital + gainBrl, gainBrl, r.final / capital, r.steps, r.confidence, r.pending));
+    list.push(opp("demo-op-pjc", "Remessa presencial PJC (Alberdi) → depósito banco demo PY", "remittance_saving", "physical", "PJC", capital, capital + gainBrl, gainBrl, r.final / capital, r.steps, r.confidence, r.pending));
   }
-  // 5. Purchase saving: pay a 2,000,000 PYG purchase via ueno card funded by WU vs paying with BR card (IOF+spread ~ 6%)
+  // 5. Purchase saving: pay a 2,000,000 PYG purchase via banco demo PY card funded by WU vs paying with BR card (IOF+spread ~ 6%)
   {
     const purchasePyg = 2_000_000;
     const costViaWu = purchasePyg / wuRate;
     const costBrCard = (purchasePyg / 1099.99) * 1.0638;
     const saving = costBrCard - costViaWu;
     const r = runRoute(costViaWu, [
-      { description: "Pix BRL → WU → saldo ueno PYG", rate: wuRate, rateNote: "PYG por 1 BRL", duration: "0–4 dias úteis", promo: "100 % desconto na tarifa", from: pos("BRL", "acc-brl-bank", "digital", "transfer"), to: pos("PYG", "acc-ueno-pyg", "digital", "account") },
-      { description: "Compra ₲ 2.000.000 no cartão de débito ueno (moeda da compra: PYG)", rate: 1, rateNote: "sem conversão (saldo PYG debitado)", duration: "imediato", unknownFee: "moeda debitada e encargos do cartão ainda não validados", from: pos("PYG", "acc-ueno-pyg", "digital", "account"), to: pos("PYG", "acc-ueno-card", "digital", "card_debit") },
+      { description: "Pix BRL → WU → saldo banco demo PY (PYG)", rate: wuRate, rateNote: "PYG por 1 BRL", duration: "0–4 dias úteis", promo: "100 % desconto na tarifa", from: pos("BRL", "acc-brl-bank", "digital", "transfer"), to: pos("PYG", "acc-banco-demo-py-pyg", "digital", "account") },
+      { description: "Compra ₲ 2.000.000 no cartão de débito banco demo PY (moeda da compra: PYG)", rate: 1, rateNote: "sem conversão (saldo PYG debitado)", duration: "imediato", unknownFee: "moeda debitada e encargos do cartão ainda não validados", from: pos("PYG", "acc-banco-demo-py-pyg", "digital", "account"), to: pos("PYG", "acc-banco-demo-py-card", "digital", "card_debit") },
     ]);
-    list.push(opp("demo-op-card", "Pagar compra ₲ 2 mi: WU → ueno débito vs cartão BR", "purchase_saving", "digital", null, capital, capital + saving, saving, wuRate, r.steps, "incomplete", [...r.pending, "spread do cartão BR estimado (6,38 %)"]));
+    list.push(opp("demo-op-card", "Pagar compra ₲ 2 mi: WU → banco demo PY débito vs cartão BR", "purchase_saving", "digital", null, capital, capital + saving, saving, wuRate, r.steps, "incomplete", [...r.pending, "spread do cartão BR estimado (6,38 %)"]));
   }
   return rankOpportunities(list);
 }
@@ -322,8 +323,8 @@ export const demoEvidence: Evidence[] = allDemoQuotes.map((q) => ({
 
 export const demoJournal: JournalEntry[] = [
   { id: "j1", ts: iso(-86400 * 2), kind: "note", text: "Início do monitoramento em modo demonstração.", amounts: [], account_ids: [] },
-  { id: "j2", ts: iso(-86400), kind: "operation", text: "Simulação registrada: Pix R$ 5.000 → WU → ueno (não executada).", amounts: [{ label: "capital", amount: "5000", currency: "BRL" }], account_ids: ["acc-brl-bank", "acc-ueno-pyg"] },
-  { id: "j3", ts: iso(-3600), kind: "reconciliation", text: "Saldos ueno informados manualmente conferidos com o app.", amounts: [], account_ids: ["acc-ueno-pyg", "acc-ueno-usd"] },
+  { id: "j2", ts: iso(-86400), kind: "operation", text: "Simulação registrada: Pix R$ 5.000 → WU → banco demo PY (não executada).", amounts: [{ label: "capital", amount: "5000", currency: "BRL" }], account_ids: ["acc-brl-bank", "acc-banco-demo-py-pyg"] },
+  { id: "j3", ts: iso(-3600), kind: "reconciliation", text: "Saldos banco demo PY informados manualmente conferidos com o app.", amounts: [], account_ids: ["acc-banco-demo-py-pyg", "acc-banco-demo-py-usd"] },
 ];
 
 export const DEMO_SERVER_TIME = new Date(DEMO_NOW).toISOString();

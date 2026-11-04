@@ -68,6 +68,7 @@ class UenoAdapter:
         name="ueno",
         kind="bank",
         method="html",
+        integration="html",
         url=URL,
         capabilities=["buy_sell", "usd_pyg", "modalities_app_cash_transfer", "ajax_refresh", "declared_update_ts"],
         limitations=[
@@ -79,6 +80,7 @@ class UenoAdapter:
         currencies=["USD", "BRL", "PYG"],
         poll_interval_s=300,
         allowed_domains=["www.ueno.com.py"],
+        discontinued=True,  # resolução pelo Banco Central del Paraguay em 03/11/2026: só histórico
     )
     stale_after = timedelta(hours=36)
 

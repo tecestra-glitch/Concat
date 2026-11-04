@@ -50,11 +50,11 @@ class UnknownSource(KeyError):
 def load_registry() -> dict[str, Adapter]:
     """Lazy, tolerant import of the adapter registry (owned by another module)."""
     try:
-        from ..adapters.registry import ADAPTERS  # type: ignore[import-not-found]
+        from ..adapters.registry import active_adapters  # type: ignore[import-not-found]
     except Exception as exc:  # registry missing or broken: watch nothing instead of crashing
         log.warning("adapter registry unavailable: %s", exc)
         return {}
-    return dict(ADAPTERS)
+    return active_adapters()
 
 
 @dataclass(slots=True)

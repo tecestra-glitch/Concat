@@ -13,12 +13,20 @@ from enum import StrEnum
 from typing import Any, Literal, Protocol
 
 Currency = Literal["BRL", "USD", "PYG"]
-City = Literal["CDE", "ASU", "PJC"] | None
+City = Literal["CDE", "ASU", "PJC", "FOZ", "ENC"] | None
 # "reference" marks third-party aggregator quotes (e.g. dolarPy): never executable, never a counter price.
 Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]
 QuoteKind = Literal["market_reference", "indicative", "executable"]
 # "aggregator" is the channel of a third-party aggregator: neither a counter nor an app you can transact in.
 Channel = Literal["digital", "physical", "aggregator"]
+
+
+# How the adapter obtains its data (shown as a seal on the Fontes screen and in list_sources):
+#   api_oficial      documented public API of the provider or of its official source (e.g. BCP reference table)
+#   endpoint_interno undocumented JSON that the site's own front end calls; replayed with plain HTTP
+#   html             server-rendered page parsed with selectolax (no JS needed)
+#   navegador        needs a headless browser (Playwright) to reach the price
+Integration = Literal["api_oficial", "endpoint_interno", "html", "navegador"]
 
 
 class AdapterStatus(StrEnum):
@@ -90,6 +98,9 @@ class AdapterInfo:
     currencies: list[str]
     poll_interval_s: int = 300
     allowed_domains: list[str] = field(default_factory=list)  # navigation restricted to these
+    integration: Integration = "html"
+    # fonte fora do monitor (ex.: ueno, em resolução pelo BCP em 03/11/2026): não é sondada nem entra em ciclos novos
+    discontinued: bool = False
 
 
 class Adapter(Protocol):

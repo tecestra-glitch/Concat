@@ -131,7 +131,7 @@ def test_city_from_text() -> None:
     assert city_from_text("Sucursal Pedro Juan Caballero") == "PJC"
     assert city_from_text("villamorra") == "ASU"
     assert city_from_text("Hernandarias - Super Carretera") is None
-    assert city_from_text("Encarnación") is None
+    assert city_from_text("Encarnación") == "ENC"  # ENC entrou nas cidades rastreadas
     assert city_from_text("") is None
 
 

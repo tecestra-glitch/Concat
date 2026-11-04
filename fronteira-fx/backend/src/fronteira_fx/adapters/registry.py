@@ -5,7 +5,23 @@ only as history (and for the demo data until that is migrated); it is no longer 
 """
 from __future__ import annotations
 
-from . import alberdi, bcp, bonanza, chaco, dolarpy, maxicambios, myd, nomad, norte, revolut, westernunion
+from . import (
+    alberdi,
+    basa,
+    bcp,
+    bonanza,
+    chaco,
+    dolarpy,
+    familiar,
+    icambio,
+    maxicambios,
+    myd,
+    nomad,
+    norte,
+    revolut,
+    scappini,
+    westernunion,
+)
 from .base import Adapter
 
 _ALL: tuple[Adapter, ...] = (
@@ -20,6 +36,10 @@ _ALL: tuple[Adapter, ...] = (
     maxicambios.adapter,
     myd.adapter,
     dolarpy.adapter,
+    basa.adapter,
+    familiar.adapter,
+    *icambio.ADAPTERS.values(),  # iguassu, cataratas, atlas (Foz do Iguaçu, plataforma iCâmbio)
+    scappini.adapter,
 )
 
 # Sorted by id: the API and the collector enumerate sources in this order, so it must not depend on import order.
@@ -36,3 +56,17 @@ def get_adapter(adapter_id: str) -> Adapter:
 
 def list_adapters() -> list[Adapter]:
     return list(ADAPTERS.values())
+
+
+def active_adapters() -> dict[str, Adapter]:
+    """Adaptadores que o coletor e o monitor sondam: sem as fontes descontinuadas (o histórico fica no banco)."""
+    return {aid: a for aid, a in ADAPTERS.items() if not a.info.discontinued}
+
+
+# Fontes que saíram do monitor e cujo módulo ficou só como histórico (fora de `ADAPTERS`): ueno, desde 03/11/2026.
+HISTORICAL_DISCONTINUED: frozenset[str] = frozenset({"ueno"})
+
+
+def discontinued_ids() -> frozenset[str]:
+    """Fontes descontinuadas: fora de novos ciclos, planos e alertas (o histórico continua no banco)."""
+    return frozenset(aid for aid, a in ADAPTERS.items() if a.info.discontinued) | HISTORICAL_DISCONTINUED

@@ -1,12 +1,14 @@
 /** Mirrors docs/api-contract.md. Money travels as decimal strings. */
 export type Currency = "BRL" | "USD" | "PYG";
-export type City = "CDE" | "ASU" | "PJC" | null;
+export type City = "CDE" | "ASU" | "PJC" | "FOZ" | "ENC" | null;
 /** `aggregator` = agregador de terceiros (dolarPy): referência, nunca executável. */
 export type Channel = "digital" | "physical" | "aggregator";
 /** `reference` = cotação de referência (BCP, dolarPy): só comparação, nunca aresta nem ranking. */
 export type Modality = "cash" | "transfer" | "account" | "card_debit" | "card_credit" | "card_virtual" | "reference";
 export type QuoteKind = "market_reference" | "indicative" | "executable";
 export type SourceMethod = "official_api" | "html" | "browser" | "manual";
+/** Como a fonte é alcançada: API pública, endpoint interno do próprio site, HTML renderizado ou navegador. */
+export type SourceIntegration = "api_oficial" | "endpoint_interno" | "html" | "navegador";
 export type Health = "ok" | "degraded" | "blocked" | "stale" | "unknown";
 export type Confidence = "quoted" | "estimated" | "incomplete";
 export type DataMode = "real" | "simulation" | "demo";
@@ -36,6 +38,7 @@ export interface Source {
   name: string;
   kind: "exchange_house" | "remittance" | "bank" | "fintech" | "central_bank";
   method: SourceMethod;
+  integration: SourceIntegration;
   url: string;
   health: Health;
   last_success_at: string | null;
@@ -198,9 +201,11 @@ export interface OpportunityFilters {
   city?: string;
 }
 
-/** D1: edge of the positions graph. Money fields are decimal strings. */
-export type EdgeKind = "quote" | "transfer" | "deposit" | "withdraw";
+/** Canal de uma perna: presencial (casa, balcão, deslocamento), assistida (app de banco/fintech), automatizável (nenhuma hoje). */
+export type RouteChannel = "presencial" | "assistida" | "automatizavel";
+export type EdgeKind = "quote" | "transfer" | "deposit" | "withdraw" | "travel";
 
+/** D1: edge of the positions graph. Money fields are decimal strings. */
 export interface Edge {
   from: string; // `${currency}@${venue}`
   to: string;
@@ -212,17 +217,74 @@ export interface Edge {
   via: string;
   confidence: Confidence;
   evidence_id: string | null;
+  channel: RouteChannel;
+  /** Cruza a fronteira BR↔PY (vira `border` na perna). */
+  border?: boolean;
+  /** Taxa de referência de mercado na mesma direção de `rate`; sem ela o spread é desconhecido. */
+  ref_rate?: string | null;
+  /** IOF sobre a entrada (fração). Ausente = 0; alíquota desconhecida vem em `unknown_costs`. */
+  iof_pct?: string;
+  /** Custo de deslocamento, na moeda de saída (aresta `travel`). */
+  transport_fixed?: string;
+  /** Balcão (ida ao caixa de uma casa na mesma cidade): não conta em `maxLen`. */
+  counter?: boolean;
+  /** Instante da cotação que originou a aresta (só arestas de cotação); validade do plano sai da mais velha. */
+  quoted_at?: string | null;
+  /** Custos que o motor não consegue precificar: `null` nessa categoria, nunca zero. */
+  unknown_costs?: Array<"spread" | "fees" | "iof" | "transport">;
 }
+
+export type LegKind = "exchange" | "transfer" | "travel" | "deposit" | "withdraw";
+
+/** Custos de uma perna, na moeda em que a perna começou. `null` = desconhecido (nunca zero). */
+export interface LegCosts {
+  currency: Currency;
+  spread: string | null;
+  fees: string | null;
+  iof: string | null;
+  transport: string | null;
+}
+
+/** Perna de um ciclo (`legs[]`), na ordem do caminho. */
+export interface Leg {
+  kind: LegKind;
+  channel: RouteChannel;
+  from: string;
+  to: string;
+  via: string;
+  minutes: number;
+  border: boolean;
+  amount_in: string;
+  amount_out: string;
+  costs: LegCosts;
+}
+
+/** Custos do ciclo somados na moeda de partida; cada um `null` se algum custo daquela categoria for desconhecido. */
+export interface CycleCosts {
+  spread: string | null;
+  fees: string | null;
+  iof: string | null;
+  transport: string | null;
+}
+
+export type GainByCurrency = Record<Currency, string | null>;
 
 /** D1: GET /v1/opportunities/cycles item. */
 export interface Cycle {
   start: string;
   path: string[];
   edges: Edge[];
+  legs: Leg[];
   amount_in: string;
   amount_out: string;
+  /** Ganho na moeda de partida (`start`). */
   gain: string;
   roi: string;
+  /** Ganho líquido convertido por taxas de valoração; `null` quando não dá para converter. */
+  gain_by_currency: GainByCurrency | null;
+  costs: CycleCosts | null;
+  /** Perna de fronteira acima de US$ 10 000 ou conversão impossível: aviso, não bloqueio. */
+  requires_declaration: boolean;
   minutes: number;
   confidence: Confidence;
   data_mode: DataMode;
@@ -256,7 +318,7 @@ export interface EvidenceFilters {
 export interface JournalEntry {
   id: string;
   ts: string;
-  kind: "note" | "operation" | "reconciliation";
+  kind: "note" | "operation" | "reconciliation" | "result";
   text: string;
   amounts: Fee[];
   account_ids: string[];
@@ -265,7 +327,7 @@ export interface JournalEntry {
 /** POST /v1/journal */
 export type JournalInput = Omit<JournalEntry, "id" | "ts">;
 
-export type StreamEventType = "quote.updated" | "source.health" | "opportunity.updated" | "heartbeat" | "source.change" | "alert.fired";
+export type StreamEventType = "quote.updated" | "source.health" | "opportunity.updated" | "heartbeat" | "source.change" | "alert.fired" | "market.news" | "market.volatility_alert";
 
 export interface StreamEvent {
   id: string;
@@ -354,10 +416,69 @@ export interface SimulationResponse {
   simulation_id: string | null;
 }
 
+/** Planos de execução (fase A: só organizam os passos; nada movimenta dinheiro). */
+export type PlanStatus = "proposed" | "approved" | "in_progress" | "done" | "rejected" | "expired";
+export type StepStatus = "pending" | "done";
+
+export interface PlanStep {
+  n: number;
+  kind: LegKind;
+  channel: RouteChannel;
+  text: string;
+  from: string;
+  to: string;
+  amount_in: string;
+  amount_out_expected: string;
+  minutes: number;
+  status: StepStatus;
+  actual_out: string | null;
+  note: string | null;
+  done_at: string | null;
+}
+
+/** GET /v1/plans, GET /v1/plans/{id} e respostas de approve, reject e passos. */
+export interface Plan {
+  id: string;
+  status: PlanStatus;
+  start: string;
+  path: string[];
+  currency: Currency;
+  amount_in: string;
+  amount_out_expected: string;
+  gain_expected: string;
+  gain_by_currency: GainByCurrency | null;
+  confidence: Confidence;
+  minutes: number;
+  requires_declaration: boolean;
+  quotes_as_of: string;
+  quote_max_age_s: number;
+  created_at: string;
+  decided_at: string | null;
+  completed_at: string | null;
+  data_mode: DataMode;
+  /** Custos do ciclo na moeda de partida; `null` em uma categoria = desconhecido (nunca zero). */
+  costs?: CycleCosts | null;
+  steps: PlanStep[];
+}
+
+/** POST /v1/plans: nós de um ciclo atual de /v1/opportunities/cycles. */
+export interface PlanCreate {
+  start: string;
+  path: string[];
+}
+
+/** POST /v1/plans/{id}/steps/{n}/done */
+export interface StepDone {
+  actual_out: string;
+  note?: string;
+}
+
 export const CITY_LABEL: Record<Exclude<City, null> | "digital", string> = {
   CDE: "Ciudad del Este",
   ASU: "Asunción",
   PJC: "Pedro Juan Caballero",
+  FOZ: "Foz do Iguaçu",
+  ENC: "Encarnación",
   digital: "Digital",
 };
 

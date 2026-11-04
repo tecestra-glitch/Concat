@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Text,
     TypeDecorator,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
@@ -130,6 +131,7 @@ class Source(Base):
     name: Mapped[str] = mapped_column(String(200))
     kind: Mapped[str] = mapped_column(String(32))
     method: Mapped[str] = mapped_column(String(32))
+    integration: Mapped[str] = mapped_column(String(32), default="html", server_default="html")
     url: Mapped[str] = mapped_column(Text, default="")
     health: Mapped[str] = mapped_column(String(16), default="unknown")
     last_success_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
@@ -382,7 +384,8 @@ class AlertRule(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     name: Mapped[str] = mapped_column(String(200))
-    kind: Mapped[str] = mapped_column(String(24))  # cycle_roi | quote_move | source_down | opportunity_new
+    # cycle_roi | quote_move | source_down | opportunity_new | cycle_net_gain
+    kind: Mapped[str] = mapped_column(String(24))
     threshold: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     params: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
     channel: Mapped[str] = mapped_column(String(16), default="ui")  # ui | telegram | webhook | email
@@ -439,3 +442,112 @@ class Task(Base):
     result: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class NewsItem(Base):
+    """Manchete de feed público (módulo `market`): só título, link, fonte e horários. Nada de texto da matéria."""
+
+    __tablename__ = "news_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    source: Mapped[str] = mapped_column(String(32), index=True)  # infomoney | agencia-brasil | bcb | mercopress | demo
+    feed: Mapped[str] = mapped_column(String(48))  # id do feed de origem (ex.: infomoney-economia)
+    title: Mapped[str] = mapped_column(Text)
+    link: Mapped[str] = mapped_column(String(2048), unique=True)  # deduplicação por link
+    published_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True, index=True)
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class MarketQuote(Base):
+    """Última referência de mercado por instrumento (cripto, câmbio de referência, série do BCB). Nunca executável."""
+
+    __tablename__ = "market_quotes"
+
+    instrument: Mapped[str] = mapped_column(String(32), primary_key=True)  # ex.: USDT/BRL, USD/PYG, PTAX venda
+    label: Mapped[str] = mapped_column(String(120))
+    kind: Mapped[str] = mapped_column(String(24))  # crypto | fx_reference | bcb_series
+    source: Mapped[str] = mapped_column(String(32))  # binance | frankfurter | bcb
+    price: Mapped[Decimal] = mapped_column(Money)
+    change_pct: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    observed_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class MarketCandle(Base):
+    """Vela OHLC (5 min ou 1 dia) de um instrumento; só velas já fechadas entram aqui."""
+
+    __tablename__ = "market_candles"
+    __table_args__ = (UniqueConstraint("instrument", "interval", "open_time", "data_mode", name="uq_market_candle"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    instrument: Mapped[str] = mapped_column(String(32), index=True)
+    interval: Mapped[str] = mapped_column(String(8))  # 5m | 1d
+    open_time: Mapped[datetime] = mapped_column(UTCDateTime)
+    close_time: Mapped[datetime] = mapped_column(UTCDateTime)
+    open: Mapped[Decimal] = mapped_column(Money)
+    high: Mapped[Decimal] = mapped_column(Money)
+    low: Mapped[Decimal] = mapped_column(Money)
+    close: Mapped[Decimal] = mapped_column(Money)
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class ExecutionPlan(Base):
+    """Plano de execução: só organiza os passos de um ciclo. Nada aqui move dinheiro (fase A).
+
+    `status`: proposed → approved → in_progress → done; ou rejected; ou expired (a cotação mais velha do plano
+    passou de `quote_max_age_s` antes de começar a execução). Aprovar só grava a decisão do dono.
+    """
+
+    __tablename__ = "execution_plans"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    status: Mapped[str] = mapped_column(String(16), default="proposed", index=True)
+    start: Mapped[str] = mapped_column(String(120))
+    path: Mapped[list[Any]] = mapped_column(JSONType, default=list)
+    currency: Mapped[str] = mapped_column(String(3))
+    amount_in: Mapped[Decimal] = mapped_column(Money)
+    amount_out_expected: Mapped[Decimal] = mapped_column(Money)
+    gain_expected: Mapped[Decimal] = mapped_column(Money)
+    gain_by_currency: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
+    confidence: Mapped[str] = mapped_column(String(16))
+    minutes: Mapped[int] = mapped_column(Integer, default=0)
+    requires_declaration: Mapped[bool] = mapped_column(Boolean, default=False)
+    # foto do ciclo no momento do plano: arestas, pernas, custos e as cotações usadas
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    quotes_as_of: Mapped[datetime] = mapped_column(UTCDateTime)
+    quote_max_age_s: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+    steps: Mapped[list[ExecutionStep]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan", order_by="ExecutionStep.n"
+    )
+
+
+class ExecutionStep(Base):
+    __tablename__ = "execution_steps"
+    __table_args__ = (UniqueConstraint("plan_id", "n", name="uq_execution_steps_plan_n"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("execution_plans.id", ondelete="CASCADE"), index=True)
+    n: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(16))  # exchange | transfer | travel | deposit | withdraw
+    channel: Mapped[str] = mapped_column(String(16))  # presencial | assistida | automatizavel
+    text: Mapped[str] = mapped_column(Text)
+    node_from: Mapped[str] = mapped_column(String(120))
+    node_to: Mapped[str] = mapped_column(String(120))
+    amount_in: Mapped[Decimal] = mapped_column(Money)
+    amount_out_expected: Mapped[Decimal] = mapped_column(Money)
+    minutes: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | done
+    actual_out: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    done_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+    plan: Mapped[ExecutionPlan] = relationship(back_populates="steps")

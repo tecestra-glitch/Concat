@@ -79,13 +79,13 @@ describe("PregaoLayout — abas do celular", () => {
   it("renderiza quatro role=tab com id e aria-controls correspondentes", () => {
     const html = render();
     expect(html.match(/role="tab"/g)?.length).toBe(4);
-    for (const id of ["grafico", "lista", "ultimas"] as const) {
+    // As abas são `FxSegmented` (fx-segmented): id `pregao-tab-*`; os painéis se rotulam por `aria-labelledby`.
+    for (const id of ["grafico", "lista", "ultimas", "livro"] as const) {
       const tag = tabTag(html, id);
-      expect(tag).toContain(`aria-controls="pregao-panel-${id}"`);
+      expect(tag).toContain(`id="pregao-tab-${id}"`);
       expect(tag).toContain('role="tab"');
     }
-    // A aba Livro controla o livro e o bloco do mapa + cruzado (que em lg+ mora sob o gráfico).
-    expect(tabTag(html, "livro")).toContain('aria-controls="pregao-panel-livro pregao-panel-livro-extra"');
+    expect(html).toContain('aria-labelledby="pregao-tab-livro"');
   });
 
   it("por padrão só Gráfico está selecionada e é a única com tabIndex 0", () => {
@@ -183,7 +183,9 @@ describe("PregaoLayout — painéis", () => {
   it("em lg+ a sessão ocupa as linhas 1–2 da direita e o gráfico começa na linha 2: a esquerda não herda a altura da sessão", () => {
     const html = render();
     const sessao = classesOf(tagWith(html, 'aria-labelledby="pregao-h-sessao"'));
-    expect(sessao).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:row-span-2", "lg:col-start-2", "max-lg:order-first"]));
+    expect(sessao).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:row-span-2", "lg:col-start-2", "max-lg:order-[-9998]"]));
+    // Celular: abas primeiro (sempre na primeira metade da tela), depois a sessão, depois os controles.
+    expect(classesOf(tagWith(html, 'data-testid="pregao-tabs"'))).toContain("order-first");
     const controles = classesOf(tagWith(html, 'aria-labelledby="pregao-h-controles"'));
     expect(controles).toEqual(expect.arrayContaining(["lg:row-start-1", "lg:col-start-1", "xl:col-end-3"]));
     const grafico = classesOf(tagWith(html, 'id="pregao-panel-grafico"'));
@@ -221,9 +223,9 @@ describe("PregaoLayout — painéis", () => {
     expect(tabs).not.toContain("top-0");
   });
 
-  it("o contêiner do gráfico tem altura por breakpoint, até xl:h-[420px]", () => {
+  it("o contêiner do gráfico tem altura por breakpoint, por token de painel (spec PR6)", () => {
     const html = render();
-    expect(html).toMatch(/h-\[280px\] md:h-\[360px\] xl:h-\[420px\]">\s*<div data-testid="slot-chart"/);
+    expect(html).toMatch(/h-\(--panel-h-sm\) md:h-\(--panel-h-md\) xl:h-\(--panel-h-lg\)">\s*<div data-testid="slot-chart"/);
   });
 });
 

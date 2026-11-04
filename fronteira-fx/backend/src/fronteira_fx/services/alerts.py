@@ -35,6 +35,8 @@ class AlertContext:
     changes: list[Change] = field(default_factory=list)
     opportunities: list[Opportunity] = field(default_factory=list)
     new_opportunity_ids: set[str] = field(default_factory=set)
+    # ciclos calculados pelo motor (contrato de `/v1/opportunities/cycles`), só quando há regra `cycle_net_gain`
+    cycles: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _in_cooldown(rule: AlertRule, now: datetime) -> bool:
@@ -143,11 +145,70 @@ def _match_opportunity_new(rule: AlertRule, ctx: AlertContext) -> tuple[str, dic
     )
 
 
+NET_GAIN_CURRENCIES = ("BRL", "USD", "PYG")
+NET_GAIN_CONFIDENCE = ("quoted", "estimated")  # `incomplete` nunca dispara: custo pendente não é lucro
+
+
+def cycles_for_rules(session: Session, *, data_mode: str) -> list[dict[str, Any]]:
+    """Ciclos do motor, só quando existe regra `cycle_net_gain` ativa neste modo (o cálculo não é grátis)."""
+    has_rule = session.scalar(
+        select(AlertRule.id)
+        .where(AlertRule.kind == "cycle_net_gain", AlertRule.enabled.is_(True), AlertRule.data_mode == data_mode)
+        .limit(1)
+    )
+    if has_rule is None:
+        return []
+    from .cycles import find_cycles_for  # import tardio: o motor não depende de alertas
+
+    # sem corte: o matcher filtra confiança depois, e um corte por ROI deixaria de fora o ciclo confirmável
+    return find_cycles_for(session, data_mode=data_mode, max_len=4, limit=None)
+
+
+def _match_cycle_net_gain(rule: AlertRule, ctx: AlertContext) -> tuple[str, dict[str, Any]] | None:
+    """Dispara com o melhor ciclo cujo ganho líquido, na moeda escolhida, é positivo e ≥ o limite."""
+    from ..notify.messages import cycle_text
+
+    currency = (rule.params or {}).get("currency")
+    if currency not in NET_GAIN_CURRENCIES or rule.threshold is None:
+        return None
+    best: tuple[Decimal, dict[str, Any]] | None = None
+    for c in ctx.cycles:
+        if c.get("confidence") not in NET_GAIN_CONFIDENCE:
+            continue
+        raw = (c.get("gain_by_currency") or {}).get(currency)
+        if raw is None:
+            continue
+        gain = Decimal(str(raw))
+        if gain <= 0 or gain < rule.threshold:
+            continue
+        if best is None or gain > best[0]:
+            best = (gain, c)
+    if best is None:
+        return None
+    gain, c = best
+    text = cycle_text(
+        path=[str(n) for n in c.get("path") or []],
+        gain=gain,
+        roi=Decimal(str(c.get("roi", "0"))),
+        minutes=Decimal(str(c.get("minutes", 0))),
+        confidence=str(c["confidence"]),
+        currency=currency,
+    )
+    return text, {
+        "start": c.get("start"),
+        "path": c.get("path"),
+        "currency": currency,
+        "gain": fmt(gain),
+        "confidence": c["confidence"],
+    }
+
+
 MATCHERS = {
     "cycle_roi": _match_cycle_roi,
     "quote_move": _match_quote_move,
     "source_down": _match_source_down,
     "opportunity_new": _match_opportunity_new,
+    "cycle_net_gain": _match_cycle_net_gain,
 }
 
 

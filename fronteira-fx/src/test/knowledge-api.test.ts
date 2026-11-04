@@ -3,7 +3,7 @@ import { api, knowledgeSearchPath, memoryListPath } from "@/lib/api/client";
 
 describe("caminhos do contrato (RAG e memória)", () => {
   it("GET /v1/rag/search?q=&k=&tag=", () => {
-    expect(knowledgeSearchPath("real", { q: "tarifa ueno", k: 5, tag: "" })).toBe("/v1/rag/search?q=tarifa+ueno&k=5&data_mode=real");
+    expect(knowledgeSearchPath("real", { q: "tarifa banco demo", k: 5, tag: "" })).toBe("/v1/rag/search?q=tarifa+banco+demo&k=5&data_mode=real");
     expect(knowledgeSearchPath("real", { q: "horário", k: 10, tag: "chaco" })).toBe("/v1/rag/search?q=hor%C3%A1rio&k=10&tag=chaco&data_mode=real");
   });
   it("simulação viaja como data_mode=simulation (D3)", () => {
@@ -11,7 +11,7 @@ describe("caminhos do contrato (RAG e memória)", () => {
   });
   it("GET /v1/memory?q=&kind=&tag=&limit= sem o sentinela all", () => {
     expect(memoryListPath("real", { q: "", kind: "all", tag: "", limit: 50 })).toBe("/v1/memory?limit=50&data_mode=real");
-    expect(memoryListPath("real", { q: "ueno", kind: "decision", tag: "fx", limit: 20 })).toBe("/v1/memory?q=ueno&kind=decision&tag=fx&limit=20&data_mode=real");
+    expect(memoryListPath("real", { q: "banco demo", kind: "decision", tag: "fx", limit: 20 })).toBe("/v1/memory?q=banco+demo&kind=decision&tag=fx&limit=20&data_mode=real");
   });
 });
 

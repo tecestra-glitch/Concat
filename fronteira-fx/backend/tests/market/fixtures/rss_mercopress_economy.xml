@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+
+<channel>
+  <title>MercoPress</title>
+  <link>https://en.mercopress.com/</link>
+  <atom:link  rel="self" type="application/rss+xml" href="https://en.mercopress.com/rss/economy" />
+  <description>South Atlantic News Agency</description>
+  <language>en</language>
+    <copyright>Copyright 2026, MercoPress.</copyright>
+  <image>
+    <url>https://en.mercopress.com/web/img/en/mercopress-logo.gif</url>
+    <title>MercoPress</title>
+    <link>http://en.mercopress.com/</link>
+  </image>  
+    <item>
+      <title><![CDATA[Hackers steal US$6.3 billion in crypto from Binance in the sector’s biggest-ever heist]]></title>
+      <link><![CDATA[https://en.mercopress.com/2026/10/30/hackers-steal-us-6.3-billion-in-crypto-from-binance-in-the-sector-s-biggest-ever-heist?utm_source=feed&utm_medium=rss&utm_content=economy&utm_campaign=rss]]></link>
+      <guid><![CDATA[https://en.mercopress.com/2026/10/30/hackers-steal-us-6.3-billion-in-crypto-from-binance-in-the-sector-s-biggest-ever-heist?utm_source=feed&utm_medium=rss&utm_content=economy&utm_campaign=rss]]></guid>
+      <description><![CDATA[<p>
+	   	      <img src="https://en.mercopress.com/data/cache/noticias/111957/100x80/images-1.jpg" alt="The Secret Service, the federal agency responsible for financial crimes, said it was &ldquo;working around the clock&rdquo; with the private sector &ldquo;to identify, freeze, trace, and recover&rdquo; the funds" width="100" height="80" style="float:left;margin:0 12px 6px 0;border:1px solid #333" />
+	         Hackers stole about US$6.3 billion in cryptocurrency from Binance, the world’s largest digital asset exchange, in the biggest theft in the sector’s history, which the US Secret Service is investigating with other agencies. Blockchain analytics firms point to a hacking group linked to North Korea, though there has been no official attribution.</p>]]></description>
+      <enclosure url="https://en.mercopress.com/data/cache/noticias/111957/100x80/images-1.jpg" length="0" type="image/jpg" />      <category><![CDATA[Economy, International, United States]]></category>
+      <pubDate>Fri, 30 Oct 2026 18:18:00 GMT</pubDate>
+    </item>
+<item>
+      <title><![CDATA[Shell and TotalEnergies double profits on a refining boom]]></title>
+      <link><![CDATA[https://en.mercopress.com/2026/10/30/shell-and-totalenergies-double-profits-on-a-refining-boom?utm_source=feed&utm_medium=rss&utm_content=economy&utm_campaign=rss]]></link>
+      <guid><![CDATA[https://en.mercopress.com/2026/10/30/shell-and-totalenergies-double-profits-on-a-refining-boom?utm_source=feed&utm_medium=rss&utm_content=economy&utm_campaign=rss]]></guid>
+      <description><![CDATA[<p>
+	   	      <img src="https://en.mercopress.com/data/cache/noticias/111949/100x80/gas.jpg" alt="France&rsquo;s TotalEnergies posted adjusted net income of US$9.1 billion, against US$4 billion a year earlier and above the US$8.3 billion forecast" width="100" height="80" style="float:left;margin:0 12px 6px 0;border:1px solid #333" />
+	         European oil majors Shell and TotalEnergies doubled their profits in the third quarter of 2026 and posted their best quarterly results since 2022, driven by refining margins almost four times higher than a year earlier amid tensions in the Middle East, according to results published on Thursday. Both expanded their share buyback programmes.</p>]]></description>
+      <enclosure url="https://en.mercopress.com/data/cache/noticias/111949/100x80/gas.jpg" length="0" type="image/jpg" />      <category><![CDATA[Economy, Energy & Oil, International]]></category>
+      <pubDate>Fri, 30 Oct 2026 01:00:00 GMT</pubDate>
+    </item>
+<item>
+      <title><![CDATA[The IMF urges Argentina to “stay the course” despite doubts over growth and country risk]]></title>
+      <link><![CDATA[https://en.mercopress.com/2026/10/29/the-imf-urges-argentina-to-stay-the-course-despite-doubts-over-growth-and-country-risk?utm_source=feed&utm_medium=rss&utm_content=economy&utm_campaign=rss]]></link>
+      <guid><![CDATA[https://en.mercopress.com/2026/10/29/the-imf-urges-argentina-to-stay-the-course-despite-doubts-over-growth-and-country-risk?utm_source=feed&utm_medium=rss&utm_content=economy&utm_campaign=rss]]></guid>
+      <description><![CDATA[<p>
+	   	      <img src="https://en.mercopress.com/data/cache/noticias/111944/100x80/jmas.jpeg" alt="On Tuesday, IMF staff and the Argentine authorities reached agreement on the third review of the Extended Fund Facility programme, which would allow a disbursement of about US$900 million" width="100" height="80" style="float:left;margin:0 12px 6px 0;border:1px solid #333" />
+	         The International Monetary Fund (IMF) on Thursday urged Argentina’s government to stick with its economic programme as the best way to reduce country risk, and set out four measures to turn the gains of stabilisation into growth and jobs, at a time when the press is warning of a possible technical recession.</p>]]></description>
+      <enclosure url="https://en.mercopress.com/data/cache/noticias/111944/100x80/jmas.jpeg" length="0" type="image/jpg" />      <category><![CDATA[Economy, Argentina, International]]></category>
+      <pubDate>Thu, 29 Oct 2026 16:26:00 GMT</pubDate>
+    </item>    
+
+  </channel>
+</rss>

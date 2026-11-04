@@ -34,6 +34,11 @@ const NUMERIC = new Set(["buy", "sell", "spread", "delta"]);
  * estado descem para a célula da casa (sigla e selo), como no livro.
  */
 const HIDDEN_BELOW_SM = new Set(["pair", "city", "spread", "trend", "status"]);
+/**
+ * Tendência (sparkline, 88 px) sai abaixo de xl: no tablet (1024 px) a tabela inteira passava da borda do painel
+ * (19 a 26 px). Sem ela, casa, cidade, preços e estado cabem no painel.
+ */
+const HIDDEN_BELOW_XL = new Set(["trend"]);
 /** Nenhuma célula quebra linha: números não se partem ("≈" de um lado, número do outro) e casa/cidade truncam com title. */
 const NOWRAP = new Set(["pair", "house", "city", "buy", "sell", "spread", "delta"]);
 
@@ -185,7 +190,7 @@ export function Watchlist({ rows, selectedKey, onSelect, loading = false, error 
   return (
     <div data-testid="pregao-watchlist" data-state="ready" data-mode={mode} className={className}>
       {/* No celular as células perdem 2 px de cada lado: casa, compra, venda e variação cabem em 358 px. */}
-      <Table className="text-[13px] max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5">
+      <Table className="text-[13px] max-xl:[&_td]:px-1.5 max-xl:[&_th]:px-1.5">
         <caption className="sr-only">Lista de séries acompanhadas</caption>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
@@ -199,12 +204,16 @@ export function Watchlist({ rows, selectedKey, onSelect, loading = false, error 
                     key={header.id}
                     scope="col"
                     aria-sort={header.column.getCanSort() ? ariaSort(sorted) : undefined}
-                    className={cn(NUMERIC.has(id) && "text-right", HIDDEN_BELOW_SM.has(id) && "max-sm:hidden")}
+                    className={cn(
+                      NUMERIC.has(id) && "text-right",
+                      HIDDEN_BELOW_SM.has(id) && "max-sm:hidden",
+                      HIDDEN_BELOW_XL.has(id) && "max-xl:hidden",
+                    )}
                   >
                     {header.column.getCanSort() ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                        className="inline-flex items-center gap-1 py-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {label}
@@ -249,7 +258,12 @@ export function Watchlist({ rows, selectedKey, onSelect, loading = false, error 
                     <TableCell
                       key={cell.id}
                       data-col={id}
-                      className={cn(NUMERIC.has(id) && "text-right tnum", NOWRAP.has(id) && "whitespace-nowrap", HIDDEN_BELOW_SM.has(id) && "max-sm:hidden")}
+                      className={cn(
+                        NUMERIC.has(id) && "text-right tnum",
+                        NOWRAP.has(id) && "whitespace-nowrap",
+                        HIDDEN_BELOW_SM.has(id) && "max-sm:hidden",
+                        HIDDEN_BELOW_XL.has(id) && "max-xl:hidden",
+                      )}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>

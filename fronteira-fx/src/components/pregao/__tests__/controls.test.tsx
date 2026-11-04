@@ -81,9 +81,10 @@ describe("PairSelector", () => {
     const html = renderToStaticMarkup(<PairSelector value="USD/PYG" onChange={() => {}} />);
     const buttons = tagsOf(html, "button");
     expect(buttons.map((b) => attr(b, "data-pair"))).toEqual(["USD/PYG", "BRL/PYG", "USD/BRL"]);
-    for (const text of [">USD/PYG</button>", ">BRL/PYG</button>", ">USD/BRL</button>"]) {
-      expect(html).toContain(text);
-    }
+    // Cada opção tem bandeiras (SVG aria-hidden) e o nome do par em texto contínuo (spec §5b-b).
+    const whole = html.match(/<button\b[\s\S]*?<\/button>/g) ?? [];
+    expect(whole.map((b) => b.replace(/<[^>]+>/g, ""))).toEqual(["USD/PYG", "BRL/PYG", "USD/BRL"]);
+    expect(html).toContain('role="radio"');
     expect(html).toContain('data-testid="pregao-pair"');
     expect(html).toContain('role="radiogroup"');
   });

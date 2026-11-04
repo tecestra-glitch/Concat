@@ -63,6 +63,7 @@ class DolarPyAdapter:
         name="dolarPy (agregador de referência)",
         kind="fintech",
         method="official_api",
+        integration="api_oficial",
         url=URL,
         capabilities=["aggregator", "reference_only", "usd_pyg", "buy_sell", "declared_update_ts", "json_endpoint"],
         limitations=[

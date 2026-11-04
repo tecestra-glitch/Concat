@@ -38,6 +38,12 @@ export interface FakeOptions {
   receiveText?: string;
   /** Every wait never resolves (simulates a hung page). */
   hang?: boolean;
+  /** Body of the site's price response (already parsed). Undefined: the response never arrives. */
+  catalog?: unknown;
+  /** Page title (default "Western Union - Envie dinheiro"). */
+  title?: string;
+  /** Current URL, with a query string to prove that it is stripped (default: the start page). */
+  url?: string;
 }
 
 const SEND = SELECTORS.send_amount;
@@ -193,5 +199,21 @@ export class FakeWuPage implements FlowPage {
 
   async wait(): Promise<void> {
     this.calls.push("wait");
+  }
+
+  url(): string {
+    return this.o.url ?? "https://www.westernunion.com/br/pt/web/send-money/start?session=abc123";
+  }
+
+  async title(): Promise<string | null> {
+    this.calls.push("title");
+    return this.o.title ?? "Western Union - Envie dinheiro";
+  }
+
+  async waitForCatalog(_amount: string, _timeoutMs: number): Promise<unknown | null> {
+    this.calls.push("waitForCatalog");
+    const hung = this.hangIfAsked();
+    if (hung) return hung;
+    return this.o.catalog === undefined ? null : this.o.catalog;
   }
 }

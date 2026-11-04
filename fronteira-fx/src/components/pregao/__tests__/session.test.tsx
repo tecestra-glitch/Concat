@@ -198,7 +198,7 @@ describe("MarketStatus", () => {
         now={now}
         sessions={[
           session({ source_id: "chaco", status: "closed", city: "CDE" }),
-          session({ source_id: "ueno", status: "unknown", channel: "digital" }),
+          session({ source_id: "banco-demo-py", status: "unknown", channel: "digital" }),
           session({ source_id: "nomad", status: "unknown", channel: "digital" }),
         ]}
       />,

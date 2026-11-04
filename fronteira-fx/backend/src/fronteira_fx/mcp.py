@@ -15,6 +15,7 @@ MCP_OPERATIONS: list[str] = [
     "simulate_cycle",
     "find_cycles",
     "search_evidence",
+    "list_institutions",
     # watch
     "watch_status",
     "list_changes",
@@ -29,6 +30,10 @@ MCP_OPERATIONS: list[str] = [
     "recall",
     "forget",
     "memory_summary",
+    # market (referência, nunca executável)
+    "list_market_news",
+    "get_market_quotes",
+    "get_market_volatility",
 ]
 
 

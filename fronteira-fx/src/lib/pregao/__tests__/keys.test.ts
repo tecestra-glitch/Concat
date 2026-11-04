@@ -14,6 +14,6 @@ describe("quoteKey", () => {
     expect(quoteKey(base)).toBe("chaco:CDE:USD/PYG:cash");
     expect(quoteKey({ ...base, series_key: "" })).toBe("chaco:CDE:USD/PYG:cash");
     expect(quoteKey({ ...base, series_key: null, branch_id: "chaco-cde-centro", amount_base: "5000" })).toBe("chaco:CDE:USD/PYG:cash:@chaco-cde-centro:5000");
-    expect(quoteKey({ ...base, city: null, modality: "account", source_id: "ueno" })).toBe("ueno:digital:USD/PYG:account");
+    expect(quoteKey({ ...base, city: null, modality: "account", source_id: "banco-demo-py" })).toBe("banco-demo-py:digital:USD/PYG:account");
   });
 });

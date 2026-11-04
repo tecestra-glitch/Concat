@@ -144,29 +144,40 @@ def _valuation_priority(q: Quote) -> int:
     return 1 if q.channel == "digital" else 2
 
 
+def _quote_mid(q: Quote) -> Decimal | None:
+    if q.buy is not None and q.sell is not None:
+        return (q.buy + q.sell) / 2
+    if q.buy is not None or q.sell is not None:
+        return q.buy if q.buy is not None else q.sell
+    return None
+
+
+def valuation_quotes(quotes: Iterable[Quote], valuation: str) -> dict[str, Quote]:
+    """currency -> the quote that values it in `valuation` (the same choice as `derive_valuation_rates`)."""
+    best: dict[str, tuple[tuple[int, str], Quote]] = {}
+    for q in quotes:
+        mid = _quote_mid(q)
+        if mid is None or mid <= 0:
+            continue
+        if q.quote != valuation and q.base != valuation:
+            continue
+        ccy = q.base if q.quote == valuation else q.quote
+        prio = (_valuation_priority(q), q.source_id or "")
+        cur = best.get(ccy)
+        if cur is None or prio < cur[0]:
+            best[ccy] = (prio, q)
+    return {k: v[1] for k, v in best.items()}
+
+
 def derive_valuation_rates(quotes: Iterable[Quote], valuation: str) -> dict[str, Decimal]:
     """currency -> valuation units per 1 unit, preferring official market_reference mids (BCP); ties are
     broken by source_id so the result never depends on the order the quotes arrive in."""
-    best: dict[str, tuple[tuple[int, str], Decimal]] = {}
-    for q in quotes:
-        mid = None
-        if q.buy is not None and q.sell is not None:
-            mid = (q.buy + q.sell) / 2
-        elif q.buy is not None or q.sell is not None:
-            mid = q.buy if q.buy is not None else q.sell
-        if mid is None or mid <= 0:
-            continue
-        prio = (_valuation_priority(q), q.source_id or "")
-        if q.quote == valuation:
-            cand = (q.base, mid)
-        elif q.base == valuation:
-            cand = (q.quote, ONE / mid)
-        else:
-            continue
-        cur = best.get(cand[0])
-        if cur is None or prio < cur[0]:
-            best[cand[0]] = (prio, cand[1])
-    return {k: v[1] for k, v in best.items()}
+    out: dict[str, Decimal] = {}
+    for ccy, q in valuation_quotes(quotes, valuation).items():
+        mid = _quote_mid(q)
+        if mid is not None:
+            out[ccy] = mid if q.quote == valuation else ONE / mid
+    return out
 
 
 def _by_pair(convs: Iterable[Conversion]) -> dict[tuple[str, str], list[Conversion]]:

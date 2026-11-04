@@ -95,8 +95,10 @@ describe("demoCandles", () => {
     expect(chaco).toHaveLength(7);
     expect(chaco.some((c) => c.t.startsWith("2026-11-01"))).toBe(false);
     expect(chaco.some((c) => c.t.startsWith("2026-10-25"))).toBe(false);
-    const ueno = demoCandles("ueno:digital:USD/PYG:transfer", "1d", monday, 7);
-    expect(ueno.some((c) => c.t.startsWith("2026-11-01"))).toBe(true);
+    const nomad = demoCandles("nomad:digital:USD/BRL:account", "1d", monday, 7);
+    expect(nomad.some((c) => c.t.startsWith("2026-11-01"))).toBe(true);
+    const bancoDemo = demoCandles("banco-demo-py:digital:USD/PYG:transfer", "1d", monday, 7);
+    expect(bancoDemo.some((c) => c.t.startsWith("2026-11-01"))).toBe(true);
   });
   it("returns [] for count 0", () => {
     expect(demoCandles(DEFAULT_SERIES_KEY, "15m", NOW, 0)).toEqual([]);
@@ -149,18 +151,18 @@ describe("demoSessions", () => {
   });
   it("uses the house hours for the status", () => {
     expect(sessions.find((s) => s.source_id === "demo-chaco")).toMatchObject({ status: "open", name: "Cambios Chaco", city: "CDE", tz: "America/Asuncion", channel: "physical", closes_at: "2026-11-02T19:00:00.000Z" });
-    expect(sessions.find((s) => s.source_id === "demo-ueno")).toMatchObject({ status: "unknown", city: null, channel: "digital", opens_at: null });
+    expect(sessions.find((s) => s.source_id === "demo-banco-demo-py")).toMatchObject({ status: "unknown", city: null, channel: "digital", opens_at: null });
     expect(sessions.find((s) => s.source_id === "demo-nomad")).toMatchObject({ status: "unknown", opens_at: null });
   });
   it("DEMO_HOURS só tem horários verificados; casa sem horário verificado fica de fora (unknown)", () => {
     expect(Object.keys(DEMO_HOURS).sort()).toEqual(["bcp", "chaco"]);
-    expect([...DEMO_HOUSE_IDS].filter((id) => !(id in DEMO_HOURS)).sort()).toEqual(["alberdi", "bonanza", "nomad", "norte", "ueno"]);
+    expect([...DEMO_HOUSE_IDS].filter((id) => !(id in DEMO_HOURS)).sort()).toEqual(["alberdi", "banco-demo-py", "bonanza", "nomad", "norte"]);
   });
 });
 
 describe("demoQuotesAt", () => {
   const quotes = demoQuotesAt(NOW);
-  it("re-stamps the 15 house/reference quotes with deterministic ages between 30 s and 9.5 min", () => {
+  it("re-stamps the 13 house/reference quotes with deterministic ages between 30 s and 9.5 min", () => {
     expect(quotes).toHaveLength(15);
     expect(quotes.every((q) => q.data_mode === "demo")).toBe(true);
     expect(quotes.some((q) => q.source_id === "westernunion" || q.source_id === "revolut")).toBe(false);
@@ -174,7 +176,7 @@ describe("demoQuotesAt", () => {
   it("demoSeriesKeys lists the house keys of a pair without references", () => {
     const keys = demoSeriesKeys("USD/PYG");
     expect(keys).toContain(DEFAULT_SERIES_KEY);
-    expect(keys).toContain("ueno:digital:USD/PYG:account");
+    expect(keys).toContain("banco-demo-py:digital:USD/PYG:account");
     expect(keys.some((k) => k.startsWith("bcp:"))).toBe(false);
     expect(new Set(keys).size).toBe(keys.length);
     expect(demoSeriesKeys("USD/BRL")).toEqual(["nomad:digital:USD/BRL:account"]);

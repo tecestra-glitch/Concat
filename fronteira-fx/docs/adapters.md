@@ -18,7 +18,7 @@ Política comum de status (`_common.finalize`):
 Helpers: `_http.py` (UA, timeout, `sha256_hex`, `excerpt`/`build_evidence`, `parse_decimal(text, locale_hint)` para
 `"7.350,00"` / `"7,350"` / `"7350"` / `"5.4043"` / `"Gs. 5.680"`, `http_get`/`http_post` com classificação de erros) e
 `_common.py` (`BranchInfo`, `city_from_text` → `CDE|ASU|PJC|None`, `finalize`, `quotes_excerpt`).
-Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]` (12 adaptadores, **ordenados por id**: a API e o collector
+Registro: `registry.py` → `ADAPTERS: dict[str, Adapter]` (17 adaptadores, **ordenados por id**: a API e o collector
 enumeram as fontes nessa ordem), `get_adapter(id)`.
 
 Vocabulário de `QuoteDraft` (`base.py`): `modality` inclui `reference` e `channel` inclui `aggregator` — os dois marcam
@@ -126,6 +126,30 @@ comportamento esperado (nunca números inventados). Nenhum deles martela: um `GE
   nem no grafo de posições (filtro de `modality="reference"` no backend-core): serve para cruzar com os nossos adapters
   e para cobrir casas que não raspamos. `AdapterInfo.kind="fintech"` porque `SourceKind` não tem valor para agregador.
 
+## Casas de Foz do Iguaçu (adicionadas 2026-11-04)
+
+Cidade `FOZ` (`channel=physical`, `city=FOZ`). Quatro fontes, todas sem chave e com um `GET` por coleta.
+
+| id | casa | transporte | captura usada como fixture | observação |
+|---|---|---|---|---|
+| `iguassu` | Iguassu Câmbio | `html` (tabela `table.icambio-table` na home) | `iguassu_icambio.html` (trecho do widget) | rodapé "Atualizado em" 03/11/2026 10:52; tenant iCâmbio 7 |
+| `cataratas` | Cataratas Câmbio | JSON `icambio.com.br/Cliente/api/cotacoes.php?tenant=10` | `cataratas_cotacoes.json` | 03/11/2026 15:36:13 (America/Sao_Paulo) |
+| `atlas` | Atlas Câmbio | JSON `...?tenant=9` | `atlas_cotacoes.json` | IOF +3,5% na venda, registrado como `Fee` |
+| `scappini` | Scappini Câmbio | `html` (seção "Câmbio do dia") | `scappini_cambio_dia.html` (trecho) | 03/11/2026 15:40:15; Matriz e Muffato JK com a mesma tabela |
+
+- **Plataforma iCâmbio** (Iguassu, Cataratas, Atlas): um módulo `icambio.py` com `HOUSES` parametrizado (tenant, transporte, IOF).
+  O widget do Atlas e da Cataratas chama `cotacoes.php?tenant=N` (JSON com `moeda_codigo`, `valor_compra`, `valor_venda`,
+  `data_cotacao`); o da Iguassu vem no HTML. Três casas no mesmo sistema: se o fornecedor errar, as três erram juntas.
+- **Convenção do guarani**: nessas casas o PYG vem como guaranis por R$ 1 com rótulos invertidos ("compra" > "venda").
+  `buy` = rótulo "venda" (o que o cliente recebe ao vender R$ 1); `sell` = rótulo "compra" (o que paga para ter R$ 1).
+  Os testes travam isso com os números das fixtures (Iguassu 1.050 / 1.280; Atlas 1.085 / 1.250).
+- **USB ("Dólar Branco")**: ignorado com motivo (definição não confirmada); aparece em `message` como nota.
+- **IOF da Atlas**: `Fee(label="IOF +3,5% sobre a venda (por unidade)")` com o valor por unidade na moeda da cotação
+  (USD: 5,49 x 0,035 = 0,1922 BRL). No PYG, o rótulo "venda" é o campo `buy` do adaptador; o engine deve tratar isso.
+- **Limites de sanidade**: USD/BRL entre 3 e 15; BRL/PYG entre 500 e 3.000. Fora disso: `DEGRADED` "implausible".
+- **Robots e termos**: `robots.txt` da Scappini permite `/` (bloqueia só `/admin` e `/api/`); as outras três não têm
+  `robots.txt` (404) e as páginas não trazem proibição de automação. O endpoint `cotacoes.php` é interno do fornecedor.
+
 ## Variáveis de ambiente
 
 | variável | efeito |
@@ -160,3 +184,62 @@ na 1.x) já constam em `pyproject.toml`.
   send_amount}`, `receiver{cty_iso2_ext:"PY",curr_iso3:"PYG"}`, `visitor{fingerprint_id}`) devolve `services_groups[].pay_groups[]`
   com os preços por combinação fund_in/fund_out; exige fingerprint/cookies da sessão — candidato a adapter HTTP se se provar estável.
 - ueno: o AJAX devolve também EUR; se a página passar a publicar BRL, o adapter o captura sem mudanças.
+
+`integration` (`api_oficial` | `endpoint_interno` | `html` | `navegador`) diz como cada fonte é alcançada; é exposto em `GET /v1/sources`, em `list_sources` do MCP e como selo na tela Fontes. Para criar um adaptador novo a partir de um site, veja `docs/integracoes.md` (ferramenta `fx-discover`).
+
+## Bancos paraguaios digitais (adicionados 2026-11-04)
+
+Canal `digital`, `city=None`, `kind="bank"`. Cotações PYG por 1 unidade da moeda base; compra = o que o banco paga, venda = o que cobra.
+Capturas reais de 2026-11-04 (uma chamada por fonte) em `backend/tests/adapters/fixtures/`; testes offline em `tests/adapters/test_py_banks.py`.
+
+| provider | URL lida | o que é emitido | leitura real (2026-11-04) | fora do escopo / limitações |
+|---|---|---|---|---|
+| `basa` Banco Basa | `https://www.bancobasa.com.py/` (bloco "Cotización de monedas": `img[src*=/cotizacion/]` com alt `Compra X / Venta Y`) | USD/PYG, BRL/PYG (`modality=account`) | USD 5880/6250; BRL 1050/1180 | sem horário; EUR e pesos ignorados |
+| `familiar` Banco Familiar | `https://www.familiar.com.py/cambios` (card "Dólar Americano Cheque / Transf.") | USD/PYG (`modality=transfer`) | USD 5910/6250 | Efectivo sem cidade não emitido; card "Real" sem modalidade é noticiado, não emitido |
+
+Robots.txt lido: Familiar permite tudo (Crawl-delay 10 só para ClaudeBot); Basa não tem robots.txt.
+
+Termos de uso lidos em 2026-11-04 (um GET por página, fora da sondagem; a busca web estava indisponível):
+
+| banco | página lida | cláusula sobre automação/cópia | conclusão |
+|---|---|---|---|
+| Basa | `https://www.bancobasa.com.py/politicas` | nenhuma nas páginas lidas. O link "Términos y condiciones de uso" é do Token Digital (app), não do site; a política de privacidade é PDF e não foi lida | **parcial**: termos gerais do site não localizados |
+| Familiar | `https://www.familiar.com.py/informacion-contratos` ("Términos y Condiciones Generales") | a captura trouxe só a navegação (sem corpo de texto; contratos em PDF) | **parcial**: nada lido que proíba ou permita |
+| GNB | `https://www.bancognb.com.py/aviso-legal.jsp` (Aviso Legal) | "Se prohíbe la copia, duplicación, redistribución, comercialización o cualquier otra actividad que se pueda realizar con los contenidos de sus páginas web, ni aún citando fuentes, salvo consentimiento por escrito" | **proibido**: adaptador removido |
+
+Antes da primeira sondagem agendada de Basa e Familiar, ler os termos de uso completos (ou registrar a data e a conclusão).
+
+### Sem adaptador nesta rodada (registrado, nada criado)
+
+- Sudameris: `GET /` retornou HTTP 403 (bloqueio); não contornado.
+- Banco Atlas: `GET /web` retornou HTTP 403 (bloqueio); idem.
+- Interfisa: página de desafio Incapsula (WAF); `BLOCKED` pelo critério do projeto.
+- Itaú Paraguay: a home não publica cotação; `/cotizaciones` redireciona a 404.
+- Continental: conexão recusada pelo proxy de saída (CONNECT 502) nesta sessão; tentar em outra rodada.
+- Visión Banco: conexão resetada pelo peer nesta sessão; tentar em outra rodada.
+- Eko: não sondada; a discovery indica que não publica cotação própria (usa o Banco Familiar).
+- ueno bank: em resolução pelo BCP desde 03/11/2026; nada novo.
+- Banco GNB: adaptador criado e removido em 2026-11-04. O Aviso Legal (`/aviso-legal.jsp`) proíbe copiar ou redistribuir o conteúdo das páginas "ni aún citando fuentes" sem consentimento por escrito; a cópia automatizada das cotações e a fixture versionada ficam vedadas. Para retomar, pedir consentimento por escrito ao banco.
+
+## Extensão PJC/ENC (2026-11-04)
+
+- **Cidade `ENC` (Encarnación)** entrou em `City` (`adapters/base.py`, `schemas.py`, `schemas_candles.py`; `_common.city_from_text`
+  reconhece "Encarnación", "ENC" e "ENC." com ponto). Filiais com `city="ENC"`: `chaco-23` (Super 6), `chaco-24` (Mcal. Estigarribia),
+  `alberdi-encarnacion`. Salto del Guairá segue `city=None` (fora das seis cidades rastreadas). Chaco passou a sondar as filiais ENC
+  (`default_branch_ids`), o que adiciona 2 requisições por coleta.
+- **Cruzamentos USD•BRL** (`QuoteDraft` com `base="USD"`, `quote="BRL"`, `unit_note="BRL por 1 USD ..."`, `context={"board": ..., "pair": "USD x BRL"}`,
+  canal `physical`, cidade da filial). Compra = o que a casa paga por USD em BRL, venda = o que cobra:
+  - `alberdi`: linha `bcp == "USD -> BRL"` (cheques excluídos; zero = sem cotação).
+  - `chaco`: nos itens BRL com `arbitrage` truthy, `purchaseArbitrage`/`saleArbitrage` (BRL por 1 USD).
+  - `norte`: linha do quadro com rótulo `BRL•USD` (último `span`, versão mobile). Os demais cruzamentos (EUR, ARS) seguem ignorados.
+- **Norte Cambios**: a matriz em Pedro Juan Caballero já é `norte-1` com `city="PJC"`; nada a alterar.
+- **Ceteg Cambios (PJC)**: não criado. A página só renderiza as cotações via `GET /cotizacion/api?idsucursal=<id>`, e essa
+  chamada responde 403 "Acceso no autorizado" a um cliente não autenticado (uma única tentativa, sem retry, sem cookies de sessão).
+  Não há restrição explícita de automação nos termos (o link "Términos y Condiciones" é `#`; robots.txt retorna 404), mas o
+  acesso é negado pelo próprio site, então o adaptador não contorna esse controle. Revisitar se a Ceteg publicar uma fonte pública.
+
+## Requisições condicionais (2026-11-04)
+
+- `alberdi`: a sondagem agendada faz GET condicional de `ws/getTablero.json.php` (`conditional_get`, `conditional_url`); um 304 não é parseado.
+- `maxicambios` e `myd`: GET condicional de `info.url` (HTML renderizado no servidor).
+- `chaco` e `norte` **ainda não** têm requisição condicional. A Chaco faz uma requisição por filial (`/api/branch_office/{id}/exchange`) e a Norte troca de filial por `POST /livewire/update`; o watch guarda um único par ETag/Last-Modified por fonte, então um 304 não cobriria as demais requisições. Pendente: validadores por URL (migração de `watch_states`).

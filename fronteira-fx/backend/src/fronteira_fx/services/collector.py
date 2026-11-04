@@ -73,11 +73,11 @@ class RateLimited(CollectorError):
 
 def load_registry() -> dict[str, Adapter]:
     try:
-        from ..adapters.registry import ADAPTERS  # type: ignore[import-not-found]
+        from ..adapters.registry import active_adapters  # type: ignore[import-not-found]
     except Exception as exc:  # registry not ready yet or broken: run with no adapters
         log.warning("adapter registry unavailable: %s", exc)
         return {}
-    return dict(ADAPTERS)
+    return active_adapters()
 
 
 @dataclass(slots=True)
@@ -162,6 +162,7 @@ class Collector:
         src.name = info.name
         src.kind = info.kind
         src.method = info.method
+        src.integration = info.integration
         src.url = info.url
         src.capabilities = list(info.capabilities)
         src.limitations = list(info.limitations)
@@ -325,6 +326,9 @@ class Collector:
             source.last_success_at = now
         real_changes = [c for c in changes if c.kind == "quote_change" and c.before]
         changed: bool | None = None if (not previous and not real_changes) else bool(real_changes) and new_capture
+        # Only content that parsed OK may be revalidated: a 304 skips the parser, so a validator kept after a failed
+        # or partial parse would hide a parser fix until the site changes. Otherwise the watch forgets them.
+        revalidate = result.status == AdapterStatus.OK
         watch_svc.after_run(
             ws,
             now=now,
@@ -332,10 +336,13 @@ class Collector:
             changed=changed,
             status=str(result.status),
             content_hash=content_hash,
-            etag=etag,
-            last_modified=last_modified,
+            etag=etag if revalidate else None,
+            last_modified=last_modified if revalidate else None,
             backoff_max_s=self.settings.backoff_max_s,
         )
+        if not revalidate:
+            ws.etag = None
+            ws.last_modified = None
         if failed:  # classic exponential backoff on the Source schedule too
             ws.next_run_at = now + backoff_delay(
                 source.poll_interval_s, source.consecutive_failures, self.settings.backoff_max_s
@@ -377,6 +384,7 @@ class Collector:
             changes=changes,
             opportunities=opp_rows,
             new_opportunity_ids=new_ids,
+            cycles=alerts_svc.cycles_for_rules(session, data_mode=self.data_mode),
         )
         outcome.alert_event_ids = [e.id for e in alerts_svc.evaluate_rules(session, ctx, data_mode=self.data_mode)]
         session.flush()
@@ -412,16 +420,20 @@ class Collector:
 
     # -- conditional GET (B8/B9) --------------------------------------------------------------
     @staticmethod
+    def _conditional_url(adapter: Adapter) -> str:
+        """The single document the collector polls conditionally: `conditional_url` when the adapter declares
+        one (e.g. a JSON endpoint behind a home page), otherwise `info.url`."""
+        return getattr(adapter, "conditional_url", None) or adapter.info.url
+
+    @staticmethod
     def _uses_conditional_get(adapter: Adapter, params: Mapping[str, Any] | None) -> bool:
-        """Scheduled polls of html adapters that opt in (`conditional_get = True`) are fetched by the
-        collector with If-None-Match / If-Modified-Since; the adapter only parses. On-demand requests
-        with parameters always go through the adapter's own `fetch` (forms, amounts, sessions)."""
-        info = adapter.info
+        """Scheduled polls of adapters that opt in (`conditional_get = True`) are fetched by the collector
+        with If-None-Match / If-Modified-Since; the adapter only parses. On-demand requests with parameters
+        always go through the adapter's own `fetch` (forms, amounts, sessions)."""
         return (
             bool(getattr(adapter, "conditional_get", False))
             and params is None
-            and info.method == "html"
-            and bool(info.url)
+            and bool(Collector._conditional_url(adapter))
         )
 
     def _store_raw(self, source_id: str, fetched: FetchOutcome, *, now: datetime, sha256: str) -> str | None:
@@ -516,7 +528,12 @@ class Collector:
             validators = (ws.etag, ws.last_modified)
         fetched: FetchOutcome | None = None
         if self._uses_conditional_get(adapter, params):
-            fetched = await conditional_get(info.url, etag=validators[0], last_modified=validators[1])
+            fetched = await conditional_get(
+                self._conditional_url(adapter),
+                etag=validators[0],
+                last_modified=validators[1],
+                headers=dict(getattr(adapter, "conditional_headers", None) or {}) or None,
+            )
             if fetched.not_modified:
                 return self._record_not_modified(info, fetched)
             result = self._parse_fetched(adapter, fetched, now=self.now_fn())

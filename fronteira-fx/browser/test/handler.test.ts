@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import handler from "../api/westernunion.js";
-import { handleWesternUnion, type HandlerDeps } from "../src/handler.js";
+import {
+  budgetFromEnv,
+  captureAtDeadline,
+  handleWesternUnion,
+  MAX_FLOW_BUDGET_MS,
+  type HandlerDeps,
+} from "../src/handler.js";
 import type { OpenedPage } from "../src/playwright-page.js";
 import { FakeWuPage, type FakeOptions } from "./fake-page.js";
 
@@ -19,6 +25,7 @@ function deps(opts: FakeOptions = {}, extra: Partial<HandlerDeps> = {}) {
       state.page = page;
       return {
         page,
+        counters: { blocked: 3, allowed: 7 },
         close: async () => {
           state.closed += 1;
         },
@@ -131,6 +138,55 @@ describe("handleWesternUnion: execução", () => {
     expect(res.body.status).toBe("degraded");
     expect(String(res.body.message)).toContain("deadline");
     expect(state.closed).toBe(1);
+  });
+
+  it("no prazo devolve trilha com tempos, URL sem query e título, sem captura quando não pedida", async () => {
+    const { d } = deps({ hang: true }, { budgetMs: 20 });
+    const res = await handleWesternUnion({ method: "POST", ...auth, body: GOOD_BODY }, ENV, d);
+    expect(res.body.page).toEqual({
+      url: "https://www.westernunion.com/br/pt/web/send-money/start",
+      title: "Western Union - Envie dinheiro",
+    });
+    expect(Array.isArray(res.body.trail)).toBe(true);
+    expect(res.body).not.toHaveProperty("screenshot_png_b64");
+    expect(JSON.stringify(res.body)).not.toContain("session=");
+  });
+
+  it("no prazo com screenshot: true devolve a captura da página", async () => {
+    const { d } = deps({ hang: true }, { budgetMs: 20 });
+    const res = await handleWesternUnion({ method: "POST", ...auth, body: { ...GOOD_BODY, screenshot: true } }, ENV, d);
+    const b64 = res.body.screenshot_png_b64 as string;
+    expect(Buffer.from(b64, "base64").subarray(0, 4).toString("hex")).toBe("89504e47");
+  });
+
+  it("informa a contagem de bloqueios do roteamento (sem URLs)", async () => {
+    const { d } = deps();
+    const res = await handleWesternUnion({ method: "POST", ...auth, body: GOOD_BODY }, ENV, d);
+    expect(res.body.routing).toEqual({ blocked: 3, allowed: 7 });
+    expect(res.body.source).toBe("clicks");
+  });
+});
+
+describe("budgetFromEnv e captureAtDeadline", () => {
+  it.each([
+    [undefined, null],
+    ["", null],
+    ["abc", null],
+    ["-5", null],
+    ["60000", 60_000],
+    ["999999", MAX_FLOW_BUDGET_MS],
+    ["100", 5_000],
+  ])("FLOW_BUDGET_MS=%s -> %s", (raw, expected) => {
+    expect(budgetFromEnv(raw)).toBe(expected);
+  });
+
+  it("não espera uma leitura da página que não responde", async () => {
+    const hung = { url: () => "https://www.westernunion.com/x?y=1", title: () => new Promise<string>(() => undefined), screenshot: async () => new Uint8Array([1]) } as never;
+    const page = hung as unknown as FakeWuPage;
+    const started = Date.now();
+    const snap = await captureAtDeadline(page, false, 30);
+    expect(Date.now() - started).toBeLessThan(2_000);
+    expect(snap).toEqual({ url: "https://www.westernunion.com/x", title: null, screenshot: null });
   });
 });
 

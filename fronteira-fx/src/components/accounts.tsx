@@ -2,7 +2,8 @@
 import * as React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
-import { useAccounts } from "@/lib/queries";
+import { useAccounts, useInstitutions } from "@/lib/queries";
+import { institutionCurrencies, sourceLabel, type Institution, type SourcedFigure } from "@/lib/api/institutions";
 import { api } from "@/lib/api/client";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,14 +78,50 @@ export function Accounts() {
       </div>
       {mode === "demo" && (
         <Card>
-          <CardHeader><CardTitle>Cenário “Pagar uma compra” (cartão ueno) — demonstração</CardTitle><CardDescription>Até validar a moeda efetivamente debitada e os encargos, o resultado é exibido como estimativa incompleta. O saldo USD não é presumido como usado automaticamente.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>Cenário “Pagar uma compra” (cartão banco demo PY) — demonstração</CardTitle><CardDescription>Até validar a moeda efetivamente debitada e os encargos, o resultado é exibido como estimativa incompleta. O saldo USD não é presumido como usado automaticamente.</CardDescription></CardHeader>
           <CardContent className="grid gap-2 text-sm sm:grid-cols-3">
-            <Scenario title="BRL → Western Union → saldo ueno → compra com cartão" items={["moeda da compra: PYG", "conta debitada: ueno PYG", "conversão: não (saldo PYG)", "tarifas: pendentes", "benefícios elegíveis: a confirmar"]} />
-            <Scenario title="Saldo ueno → conversão PYG/USD → compra" items={["moeda da compra: USD", "conta debitada: ueno USD", "conversão: ueno venda USD", "tarifas: pendentes", "lançamento final: estimado"]} />
-            <Scenario title="Saldo ueno → pagamento de fatura de crédito" items={["cartão: crédito", "fatura em PYG", "pagamento: saldo PYG", "juros/encargos: pendentes", "cálculo da fatura incluído"]} />
+            <Scenario title="BRL → Western Union → saldo banco demo PY → compra com cartão" items={["moeda da compra: PYG", "conta debitada: banco demo PY PYG", "conversão: não (saldo PYG)", "tarifas: pendentes", "benefícios elegíveis: a confirmar"]} />
+            <Scenario title="Saldo banco demo PY → conversão PYG/USD → compra" items={["moeda da compra: USD", "conta debitada: banco demo PY USD", "conversão: banco demo PY venda USD", "tarifas: pendentes", "lançamento final: estimado"]} />
+            <Scenario title="Saldo banco demo PY → pagamento de fatura de crédito" items={["cartão: crédito", "fatura em PYG", "pagamento: saldo PYG", "juros/encargos: pendentes", "cálculo da fatura incluído"]} />
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+/** Percentual decimal da API ("0.035") em texto pt-BR ("3,5%"); só para exibição. */
+function percentText(value: string): string {
+  return `${(Number(value) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%`;
+}
+
+/** Dados do cadastro com a fonte e a data de cada número. Sem fonte confirmada aparece "não confirmado". */
+function InstitutionFacts({ inst }: { inst: Institution }) {
+  const pct = (f: SourcedFigure) => (f.value === null ? "" : percentText(f.value));
+  const costs: [string, SourcedFigure, (fig: SourcedFigure) => string][] = [
+    ["Spread", inst.fx_cost.spread_pct, pct],
+    ["IOF", inst.fx_cost.iof_pct, pct],
+    ["Taxa variável", inst.fx_cost.fee_pct, pct],
+    ["Taxa fixa", inst.fx_cost.fee_fixed, (f) => `${f.value ?? ""} ${f.currency ?? ""}`.trim()],
+  ];
+  const entrySource = sourceLabel({ value: null, currency: null, source_url: inst.source_url, checked_at: inst.checked_at, note: null });
+  return (
+    <div className="grid gap-2 rounded-md border border-border p-3 text-xs" data-testid="institution-facts">
+      {inst.status === "discontinued" && <Badge variant="warn">{inst.discontinued_note ?? "descontinuada"}</Badge>}
+      <p>Moedas: <span className="tnum">{inst.currencies_held?.join(" · ") ?? "não confirmado"}</span></p>
+      <p>Abre pelo celular: {inst.opens_remotely === null ? "não confirmado" : inst.opens_remotely ? "sim" : "não"}</p>
+      {inst.requires && <p>Exige: {inst.requires}</p>}
+      {entrySource && <Badge variant="outline">{entrySource}</Badge>}
+      <dl className="grid gap-1.5">
+        {costs.map(([label, fig, text]) => (
+          <div key={label} className="flex flex-wrap items-center gap-2">
+            <dt className="w-24 text-muted">{label}</dt>
+            <dd className="tnum">{fig.value === null ? "não confirmado" : text(fig)}</dd>
+            {fig.value !== null && sourceLabel(fig) && <Badge variant="outline">{sourceLabel(fig)}</Badge>}
+            {fig.note && <span className="text-muted">{fig.note}</span>}
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -110,6 +147,17 @@ function NewAccountDialog({ onCreate }: { onCreate: (f: AccountForm) => Promise<
   const [form, setForm] = React.useState<AccountForm>(EMPTY_ACCOUNT_FORM);
   const { pending, error, run, clear } = useSubmitState();
   const [touched, setTouched] = React.useState(false);
+  const catalog = useInstitutions();
+  const [catalogId, setCatalogId] = React.useState("");
+  const selected = catalog.data?.find((i) => i.id === catalogId) ?? null;
+  /** Escolher do cadastro preenche o nome e a moeda padrão; o rótulo e o saldo continuam digitados. */
+  const pickInstitution = (id: string) => {
+    setCatalogId(id);
+    const inst = catalog.data?.find((i) => i.id === id);
+    if (!inst) return;
+    const held = institutionCurrencies(inst);
+    setForm({ ...form, institution: inst.name, currency: held[0] ?? form.currency });
+  };
   const validation = validateAccountForm(form);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,7 +175,15 @@ function NewAccountDialog({ onCreate }: { onCreate: (f: AccountForm) => Promise<
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Nova conta ou cartão</DialogTitle><DialogDescription>Instituição, conta e moeda. O saldo é guardado como texto decimal, sem arredondar.</DialogDescription></DialogHeader>
         <form onSubmit={submit} className="grid gap-3" noValidate>
-          <div className="grid gap-1"><Label htmlFor="inst">Instituição</Label><Input id="inst" value={form.institution} onChange={(e) => setForm({ ...form, institution: e.target.value })} required /></div>
+          <div className="grid gap-1">
+            <Label htmlFor="inst-catalog">Cadastro de instituições</Label>
+            <select id="inst-catalog" className={SELECT_CLASS} value={catalogId} onChange={(e) => pickInstitution(e.target.value)} disabled={catalog.isLoading}>
+              <option value="">{catalog.isError ? "Cadastro indisponível: digite abaixo" : "Digitar manualmente"}</option>
+              {(catalog.data ?? []).map((i) => <option key={i.id} value={i.id}>{i.name}{i.status === "discontinued" ? " (descontinuada)" : ""}</option>)}
+            </select>
+          </div>
+          {selected && <InstitutionFacts inst={selected} />}
+          <div className="grid gap-1"><Label htmlFor="inst">Instituição</Label><Input id="inst" value={form.institution} onChange={(e) => { setCatalogId(""); setForm({ ...form, institution: e.target.value }); }} required /></div>
           <div className="grid gap-1"><Label htmlFor="label">Rótulo</Label><Input id="label" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></div>
           <div className="grid grid-cols-3 gap-2">
             <div className="grid gap-1"><Label htmlFor="cur">Moeda</Label><select id="cur" className={SELECT_CLASS} value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}><option>BRL</option><option>USD</option><option>PYG</option></select></div>

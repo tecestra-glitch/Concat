@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { NAV, isActive, splitNav } from "./nav";
 
 describe("NAV", () => {
+  it("a home é Início (candles + oportunidades) e não existe mais Visão geral", () => {
+    expect(NAV[0]).toMatchObject({ href: "/", label: "Início" });
+    expect(NAV.map((n) => n.label)).not.toContain("Visão geral");
+  });
+
   it("inclui as telas de conhecimento e memória", () => {
     const hrefs = NAV.map((n) => n.href);
     expect(hrefs).toContain("/conhecimento");
@@ -13,6 +18,15 @@ describe("NAV", () => {
     expect(NAV[i - 1]?.href).toBe("/mercados");
     expect(NAV[i]).toMatchObject({ label: "Pregão", short: "Pregão" });
     expect(splitNav(NAV).primary.map((n) => n.href)).toContain("/pregao");
+  });
+});
+
+describe("Economia e cripto (módulo market)", () => {
+  it("tem rota própria, distinta de /mercados (que é a tela das casas), sem casar por prefixo", () => {
+    const item = NAV.find((n) => n.href === "/economia");
+    expect(item).toMatchObject({ label: "Economia e cripto" });
+    expect(isActive("/economia", "/mercados")).toBe(false);
+    expect(isActive("/mercados", "/economia")).toBe(false);
   });
 });
 

@@ -258,7 +258,9 @@ describe("fonte de candle-chart", () => {
   });
 
   it("marca a raiz com data-testid e a faixa de demonstração", () => {
-    expect(source).toContain('data-testid="pregao-chart"');
+    // O prefixo é `testIdPrefix` (padrão "pregao"; a home usa "home"), para não duplicar testids na mesma tela.
+    expect(source).toContain("data-testid={`${testIdPrefix}-chart`}");
+    expect(source).toContain('testIdPrefix = "pregao"');
     expect(source).toContain("DEMONSTRAÇÃO");
   });
 

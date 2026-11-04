@@ -12,8 +12,8 @@ function q(p: Partial<Quote> & Pick<Quote, "id" | "source_id" | "base" | "quote"
 const quotes: Quote[] = [
   q({ id: "a", source_id: "chaco", city: "CDE", base: "USD", quote: "PYG", buy: "5905", sell: "5975", modality: "cash", kind: "indicative", channel: "physical" }),
   q({ id: "b", source_id: "alberdi", city: "CDE", base: "USD", quote: "PYG", buy: "5915", sell: "5965", modality: "cash", kind: "indicative", channel: "physical" }),
-  // ueno (conta digital) venderia mais barato: contexto diferente, não pode vencer o cartão de balcão.
-  q({ id: "c", source_id: "ueno", base: "USD", quote: "PYG", buy: "5880", sell: "5940", modality: "account", kind: "indicative" }),
+  // banco demo PY (conta digital) venderia mais barato: contexto diferente, não pode vencer o cartão de balcão.
+  q({ id: "c", source_id: "banco-demo-py", base: "USD", quote: "PYG", buy: "5880", sell: "5940", modality: "account", kind: "indicative" }),
   q({ id: "ref", source_id: "bcp", base: "USD", quote: "PYG", buy: "5944.76", sell: "5944.76", modality: "transfer", kind: "market_reference" }),
   // simulador por montante: contexto próprio, fora dos cartões
   q({ id: "wu", source_id: "westernunion", base: "USD", quote: "PYG", buy: null, sell: "5990", modality: "account", kind: "indicative", amount_base: "5000" }),

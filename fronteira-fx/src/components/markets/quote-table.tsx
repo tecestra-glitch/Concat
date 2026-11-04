@@ -8,7 +8,9 @@ import { formatAge, formatPercent, ageSeconds } from "@/lib/format";
 import { formatRateFixed } from "@/components/ui/rate";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { FlagIcon } from "@/components/ui/currency-flag";
 import { EmptyState } from "@/components/ui/empty-state";
+import { sourceCountry } from "@/lib/api/source-country";
 import { cn } from "@/lib/utils";
 import { useNow } from "@/lib/use-now";
 
@@ -44,14 +46,25 @@ function RateCell({ q, value }: { q: Quote; value: string | null }) {
 export function QuoteTable({ quotes, sources, onSelect, selectedId, compact = false, caption, emptyKind = "no-match" }: { quotes: Quote[]; sources: Source[]; onSelect?: (q: Quote) => void; selectedId?: string | null; compact?: boolean; caption?: string; emptyKind?: "no-match" | "no-data" }) {
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "source", desc: false }]);
   const srcName = React.useCallback((id: string) => sources.find((s) => s.id === id)?.name ?? id, [sources]);
+  // País pela cobertura (ME3): fonte paraguaia ganha a bandeira PY; sem país não há bandeira (nunca quebra).
+  const countryOf = React.useCallback((id: string) => {
+    const s = sources.find((x) => x.id === id);
+    return s ? sourceCountry(s) : null;
+  }, [sources]);
   const columns = React.useMemo(
     () => [
       col.accessor((q) => srcName(q.source_id), {
         id: "source",
         header: "Fonte",
         cell: (c) => (
-          <span className="inline-flex items-center gap-1 font-medium">
+          <span className="inline-flex items-center gap-1.5 font-medium">
             {isReference(c.row.original) && <Landmark className="size-3 text-muted" aria-hidden />}
+            {countryOf(c.row.original.source_id) === "PY" && (
+              <>
+                <FlagIcon country="PY" />
+                <span className="sr-only">Paraguai, </span>
+              </>
+            )}
             {c.getValue()}
           </span>
         ),
@@ -89,7 +102,7 @@ export function QuoteTable({ quotes, sources, onSelect, selectedId, compact = fa
         cell: (c) => <AgeCell iso={c.row.original.captured_at} declared={c.row.original.declared_updated_at} />,
       }),
     ],
-    [srcName],
+    [srcName, countryOf],
   );
   const columnVisibility = compact ? COMPACT_HIDDEN : ALL_VISIBLE;
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table gerencia a própria memoização
@@ -106,7 +119,7 @@ export function QuoteTable({ quotes, sources, onSelect, selectedId, compact = fa
           <TableRow key={hg.id} className="hover:bg-transparent">
             {hg.headers.map((h) => (
               <TableHead key={h.id} className={cn(RIGHT.has(h.id) && "text-right", h.id === "source" && "sticky left-0 z-10 bg-surface")} aria-sort={h.column.getIsSorted() === "asc" ? "ascending" : h.column.getIsSorted() === "desc" ? "descending" : "none"}>
-                <button type="button" className="inline-flex items-center gap-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring" onClick={h.column.getToggleSortingHandler()}>
+                <button type="button" className="inline-flex items-center gap-1 py-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring" onClick={h.column.getToggleSortingHandler()}>
                   {flexRender(h.column.columnDef.header, h.getContext())}
                   <ArrowUpDown className="size-3 opacity-50" aria-hidden />
                 </button>

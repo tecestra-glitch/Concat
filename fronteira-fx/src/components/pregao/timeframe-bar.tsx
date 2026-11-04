@@ -68,7 +68,7 @@ export function TimeframeBar({ value, onChange, disabled = false, className }: T
             disabled={disabled}
             onClick={() => onChange(tf)}
             className={cn(
-              "tnum h-8 max-sm:h-10 min-w-10 rounded-sm px-2.5 text-[13px] transition-colors",
+              "tnum h-8 max-sm:h-11 min-w-10 max-sm:min-w-11 rounded-sm px-2.5 text-[13px] transition-colors",
               "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
               "disabled:pointer-events-none disabled:opacity-50",
               checked ? "bg-surface-2 font-medium text-foreground" : "text-muted hover:text-foreground",

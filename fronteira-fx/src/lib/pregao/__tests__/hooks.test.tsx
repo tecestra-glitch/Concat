@@ -172,7 +172,7 @@ describe("modo demo: sem rede", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("sessions demo devolve as sete casas do pregão demo", async () => {
+  it("sessions demo devolve as sete casas do pregão demo (sem o banco fechado)", async () => {
     const sessions = await new QueryClient().fetchQuery(sessionsQueryOptions("demo"));
     expect(sessions).toHaveLength(7);
     expect(fetchMock).not.toHaveBeenCalled();

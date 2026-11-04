@@ -3,21 +3,22 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 
 from .decimal_utils import fmt
 
 DecStr = Annotated[Decimal, PlainSerializer(lambda v: fmt(v), return_type=str, when_used="json-unless-none")]
 
 Currency = Literal["BRL", "USD", "PYG"]
-City = Literal["CDE", "ASU", "PJC"]
+City = Literal["CDE", "ASU", "PJC", "FOZ", "ENC"]
 Channel = Literal["digital", "physical", "aggregator"]
 Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]
 QuoteKind = Literal["market_reference", "indicative", "executable"]
 SourceMethod = Literal["official_api", "html", "browser", "manual"]
+Integration = Literal["api_oficial", "endpoint_interno", "html", "navegador"]
 SourceKind = Literal["exchange_house", "remittance", "bank", "fintech", "central_bank"]
 Health = Literal["ok", "degraded", "blocked", "stale", "unknown"]
 Confidence = Literal["quoted", "estimated", "incomplete"]
@@ -50,6 +51,7 @@ class SourceOut(ApiModel):
     name: str
     kind: str
     method: str
+    integration: Integration = "html"
     url: str
     health: str
     last_success_at: datetime | None = None
@@ -59,14 +61,20 @@ class SourceOut(ApiModel):
     coverage: Coverage = Field(default_factory=Coverage)
     poll_interval_s: int = 300
     data_mode: str = "real"
+    # fonte descontinuada (ex.: ueno, em resolução desde 03/11/2026): fora de novos ciclos e do monitor; histórico fica
+    discontinued: bool = False
 
     @classmethod
     def from_row(cls, row: Any) -> SourceOut:
+        from .adapters.registry import discontinued_ids
+
         return cls(
             id=row.id,
+            discontinued=row.id in discontinued_ids(),
             name=row.name,
             kind=row.kind,
             method=row.method,
+            integration=row.integration,
             url=row.url or "",
             health=row.health,
             last_success_at=row.last_success_at,
@@ -369,30 +377,78 @@ class RouteResultOut(ApiModel):
 
 # ---- position graph / cycles (D1: snake_case, money as decimal strings) -------------------------
 
-EdgeKind = Literal["quote", "transfer", "deposit", "withdraw"]
+EdgeKind = Literal["quote", "transfer", "deposit", "withdraw", "travel"]
+LegKind = Literal["exchange", "transfer", "travel", "deposit", "withdraw"]
+# presencial: casa, dinheiro vivo, deslocamento; assistida: o usuário faz pelo app do banco; automatizavel: nenhuma hoje
+ChannelKind = Literal["presencial", "assistida", "automatizavel"]
+
+
+CostKey = Literal["spread", "fees", "iof", "transport"]
 
 
 class EdgeOut(ApiModel):
+    """Aresta do ciclo. Aplicar os campos reproduz `amount_out`: `x * (1 - fee_pct - iof_pct) * rate - fee_fixed
+    - transport_fixed`. `unknown_costs` lista os custos que o motor não consegue precificar (nunca zero)."""
+
     from_: str = Field(alias="from", serialization_alias="from")
     to: str
     kind: EdgeKind
     rate: DecStr
     fee_pct: DecStr = Decimal(0)
     fee_fixed: DecStr = Decimal(0)
+    iof_pct: DecStr = Decimal(0)
+    transport_fixed: DecStr = Decimal(0)
     minutes: int = 0
     via: str
     confidence: Confidence
     evidence_id: str | None = None
+    channel: ChannelKind = "presencial"
+    border: bool = False
+    # balcão (ida ao caixa de uma casa na mesma cidade): não conta em `max_len`
+    counter: bool = False
+    # instante da cotação que originou a aresta (null em aresta sem cotação: balcão, trilho, deslocamento)
+    quoted_at: datetime | None = None
+    # taxa de referência na mesma direção de `rate`; null = sem referência (spread desconhecido)
+    ref_rate: DecStr | None = None
+    unknown_costs: list[CostKey] = []
+
+
+class LegCostsOut(ApiModel):
+    """Custos de uma perna, na moeda em que foram pagos (`currency`). `spread` null = sem taxa de referência."""
+
+    currency: Currency
+    spread: DecStr | None = None
+    fees: DecStr | None
+    iof: DecStr | None
+    transport: DecStr | None
+
+
+class LegOut(ApiModel):
+    kind: LegKind
+    channel: ChannelKind
+    from_: str = Field(alias="from", serialization_alias="from")
+    to: str
+    via: str
+    minutes: int
+    border: bool = False
+    amount_in: DecStr
+    amount_out: DecStr
+    costs: LegCostsOut
 
 
 class CycleOut(ApiModel):
     start: str
     path: list[str]
     edges: list[EdgeOut]
+    legs: list[LegOut] = []
     amount_in: DecStr
     amount_out: DecStr
     gain: DecStr
     roi: DecStr
+    # ganho líquido em BRL, USD e PYG (null quando falta taxa de valoração); custos na moeda de partida
+    gain_by_currency: dict[Currency, DecStr | None] | None = None
+    costs: dict[CostKey, DecStr | None] | None = None
+    requires_declaration: bool = False
     minutes: int
     confidence: Confidence
     data_mode: DataMode
@@ -441,7 +497,7 @@ class ChangeOut(ApiModel):
 
 # ---- alerts --------------------------------------------------------------------------------------
 
-AlertKind = Literal["cycle_roi", "quote_move", "source_down", "opportunity_new"]
+AlertKind = Literal["cycle_roi", "quote_move", "source_down", "opportunity_new", "cycle_net_gain"]
 AlertChannel = Literal["ui", "telegram", "webhook", "email"]
 
 
@@ -467,6 +523,18 @@ class AlertRuleCreate(ApiModel):
     target: str | None = None
     cooldown_s: int = Field(default=600, ge=0)
     enabled: bool = True
+
+    @model_validator(mode="after")
+    def _check_net_gain(self) -> AlertRuleCreate:
+        # cycle_net_gain: threshold é o ganho líquido mínimo, na moeda de params.currency
+        if self.kind != "cycle_net_gain":
+            return self
+        currency = (self.params or {}).get("currency")
+        if currency not in ("BRL", "USD", "PYG"):
+            raise ValueError("cycle_net_gain exige params.currency: BRL, USD ou PYG")
+        if self.threshold is None or self.threshold < 0:
+            raise ValueError("cycle_net_gain exige threshold (ganho líquido mínimo) maior ou igual a zero")
+        return self
 
 
 class AlertRulePatch(ApiModel):
@@ -552,3 +620,76 @@ class MemorySummary(ApiModel):
     """One line per kind (`Preferências`, `Decisões`, `Fatos`, `Resultados`), newest first; `""` when empty."""
 
     summary: str
+
+
+# ---- planos de execução (fase A: sem execução) -----------------------------------------------------
+
+PlanStatus = Literal["proposed", "approved", "in_progress", "done", "rejected", "expired"]
+StepStatus = Literal["pending", "done"]
+
+
+class PlanCreateIn(ApiModel):
+    """Plano a partir de um ciclo: o `start` e o `path` (nós, o último igual ao primeiro) de `/opportunities/cycles`.
+
+    Até 21 nós: 6 pernas (o máximo de `max_len`), com no máximo dois balcões entre pernas consecutivas."""
+
+    start: str = Field(min_length=1, max_length=120)
+    path: list[str] = Field(min_length=2, max_length=21)
+
+
+class StepDoneIn(ApiModel):
+    """Passo concluído: valor realizado (string decimal, na moeda de saída do passo) e nota opcional."""
+
+    actual_out: str = Field(min_length=1, max_length=40)
+    note: str | None = Field(default=None, max_length=500)
+
+    @field_validator("actual_out")
+    @classmethod
+    def _decimal(cls, value: str) -> str:
+        try:
+            out = Decimal(value)
+        except (InvalidOperation, ValueError):
+            raise ValueError("actual_out deve ser uma string decimal") from None
+        if not out.is_finite() or out < 0:
+            raise ValueError("actual_out deve ser finito e não negativo")
+        return value
+
+
+class PlanStepOut(ApiModel):
+    n: int
+    kind: LegKind
+    channel: ChannelKind
+    text: str
+    from_: str = Field(alias="from", serialization_alias="from")
+    to: str
+    amount_in: DecStr
+    amount_out_expected: DecStr
+    minutes: int
+    status: StepStatus
+    actual_out: DecStr | None = None
+    note: str | None = None
+    done_at: datetime | None = None
+
+
+class PlanOut(ApiModel):
+    id: str
+    status: PlanStatus
+    start: str
+    path: list[str]
+    currency: Currency
+    amount_in: DecStr
+    amount_out_expected: DecStr
+    gain_expected: DecStr
+    gain_by_currency: dict[Currency, DecStr | None] | None = None
+    # custos do ciclo na moeda de partida (null = desconhecido): a tela nomeia o que falta no plano
+    costs: dict[CostKey, DecStr | None] | None = None
+    confidence: Confidence
+    minutes: int
+    requires_declaration: bool = False
+    quotes_as_of: datetime
+    quote_max_age_s: int
+    created_at: datetime
+    decided_at: datetime | None = None
+    completed_at: datetime | None = None
+    data_mode: DataMode
+    steps: list[PlanStepOut] = []

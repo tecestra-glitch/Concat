@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { formatAge } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
 
-const LABEL = { connected: "Conectado", reconnecting: "Reconectando", offline: "Offline", demo: "Demonstração" } as const;
+const LABEL = { connected: "Conectado", reconnecting: "Reconectando…", offline: "Offline", demo: "Demonstração" } as const;
 
 export function ConnectionStatus() {
   const { state, lastEventAt, eventsReceived } = useLive();
@@ -25,7 +25,7 @@ export function ConnectionStatus() {
             className={cn(
               "size-2 rounded-full",
               state === "connected" && "bg-gain",
-              state === "reconnecting" && "bg-warn animate-pulse",
+              state === "reconnecting" && "bg-warn",
               state === "offline" && "bg-loss",
               state === "demo" && "bg-warn",
             )}

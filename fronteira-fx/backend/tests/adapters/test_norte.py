@@ -19,7 +19,7 @@ def test_parse_home_active_branch(captured_at: datetime) -> None:
     fresh = datetime(2026, 10, 31, 16, 0, tzinfo=UTC)
     res = norte.adapter.parse(load("norte.html"), captured_at=fresh, url=URL)
     assert res.status == AdapterStatus.OK, res.message
-    assert len(res.quotes) == 2
+    assert len(res.quotes) == 3  # USD, BRL e cruzamento BRL•USD
     usd = next(q for q in res.quotes if q.base == "USD")
     brl = next(q for q in res.quotes if q.base == "BRL")
     assert (usd.buy, usd.sell) == (Decimal("5760"), Decimal("5950"))
@@ -29,8 +29,9 @@ def test_parse_home_active_branch(captured_at: datetime) -> None:
     assert usd.declared_updated_at == datetime(2026, 10, 31, 14, 24, 14, tzinfo=UTC)
     assert usd.modality == "cash" and usd.channel == "physical"
     assert res.evidence is not None and res.evidence.kind == "html"
-    # cross rates like "BRL•USD" (5,22 / 5,44) must not become PYG quotes
-    assert all(q.buy > 100 for q in res.quotes)
+    # o cruzamento "BRL•USD" (5,22 / 5,44) é USD/BRL, nunca uma cotação PYG
+    assert all(q.buy > 100 for q in res.quotes if q.quote == "PYG")
+    assert all(q.buy < 100 for q in res.quotes if (q.base, q.quote) == ("USD", "BRL"))
 
 
 def test_branch_tabs_and_cities() -> None:
@@ -59,7 +60,7 @@ def test_livewire_fragment_for_other_branch(captured_at: datetime) -> None:
 def test_stale(captured_at: datetime) -> None:
     # fixture declared 2026-10-31T14:24Z; captured 2026-11-02T06Z -> 39.6h > 36h
     res = norte.adapter.parse(load("norte.html"), captured_at=captured_at, url=URL)
-    assert res.status == AdapterStatus.STALE and len(res.quotes) == 2
+    assert res.status == AdapterStatus.STALE and len(res.quotes) == 3  # USD, BRL + cruzamento BRL•USD
 
 
 def test_layout_change(captured_at: datetime) -> None:

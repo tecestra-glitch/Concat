@@ -25,6 +25,7 @@ dependencies = [
 [project.scripts]
 fronteira-fx = "fronteira_fx:main"
 fronteira-fx-worker = "fronteira_fx.services.worker:main"
+fx-discover = "fronteira_fx.discover.cli:main"
 
 [project.optional-dependencies]
 browser = [

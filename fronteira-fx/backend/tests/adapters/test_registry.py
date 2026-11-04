@@ -9,7 +9,7 @@ from fronteira_fx.adapters.base import AdapterInfo
 
 EXPECTED = {
     "chaco", "alberdi", "bonanza", "norte", "bcp", "nomad", "revolut", "westernunion",
-    "maxicambios", "myd", "dolarpy",
+    "maxicambios", "myd", "dolarpy", "basa", "familiar", "iguassu", "cataratas", "atlas", "scappini",
 }
 
 
@@ -19,7 +19,7 @@ def test_ueno_is_retired() -> None:
 
 
 def test_registry_has_all_adapters() -> None:
-    assert set(registry.ADAPTERS) == EXPECTED and len(registry.ADAPTERS) == 11
+    assert set(registry.ADAPTERS) == EXPECTED and len(registry.ADAPTERS) == 17
     assert list(registry.ADAPTERS) == sorted(EXPECTED)  # deterministic order for the API/collector
     for aid, adapter in registry.ADAPTERS.items():
         assert isinstance(adapter.info, AdapterInfo) and adapter.info.id == aid

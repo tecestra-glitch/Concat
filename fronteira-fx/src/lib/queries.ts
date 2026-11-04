@@ -4,10 +4,11 @@
  * (`[name, mode, filters?]`): the live layer (`live-cache.ts`) relies on that shape to fill
  * only the active queries of the current mode, so modes never mix in the cache.
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api/client";
 import { setBackendStatus } from "./api/backend-status";
-import type { CycleFilters, EvidenceFilters, OpportunityFilters, QuoteFilters, SimulationRequest } from "./api/types";
+import type { CycleFilters, EvidenceFilters, OpportunityFilters, Plan, PlanCreate, QuoteFilters, SimulationRequest, StepDone } from "./api/types";
+import type { NewsFilters } from "./api/market";
 import { useSettings } from "./settings";
 
 export type { CycleFilters, EvidenceFilters, OpportunityFilters, QuoteFilters };
@@ -41,6 +42,46 @@ export function useCycles(filters: CycleFilters = {}) {
   const { mode } = useSettings();
   return useQuery({ queryKey: ["cycles", mode, filters], queryFn: () => api.cycles(mode, filters), staleTime: 30_000 });
 }
+/** Cadastro de instituições: muda raramente (arquivo versionado), então o cache é longo. */
+export function useInstitutions() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["institutions", mode], queryFn: () => api.institutions(mode), staleTime: 60 * 60_000 });
+}
+/** Planos deste modo, do mais recente. Só leitura da lista; decisões e passos vão pelas mutações abaixo. */
+export function usePlans() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["plans", mode], queryFn: () => api.plans(mode), staleTime: 5_000 });
+}
+export function usePlan(id: string) {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["plan", mode, id], queryFn: () => api.plan(mode, id), enabled: !!id, staleTime: 5_000 });
+}
+/** Gera o plano a partir de um ciclo atual. Não executa nada: só cria a proposta. */
+export function useCreatePlan() {
+  const { mode } = useSettings();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: PlanCreate) => api.createPlan(mode, body),
+    onSuccess: (plan) => {
+      qc.setQueryData(["plan", mode, plan.id], plan);
+      void qc.invalidateQueries({ queryKey: ["plans", mode] });
+    },
+  });
+}
+/** Aprovar, recusar e marcar passo: cada uma devolve o plano atualizado, que vai direto para o cache. */
+export function usePlanDecision(id: string) {
+  const { mode } = useSettings();
+  const qc = useQueryClient();
+  const store = (plan: Plan) => {
+    qc.setQueryData(["plan", mode, id], plan);
+    void qc.invalidateQueries({ queryKey: ["plans", mode] });
+  };
+  return {
+    approve: useMutation({ mutationFn: () => api.approvePlan(mode, id), onSuccess: store }),
+    reject: useMutation({ mutationFn: () => api.rejectPlan(mode, id), onSuccess: store }),
+    completeStep: useMutation({ mutationFn: ({ n, body }: { n: number; body: StepDone }) => api.completePlanStep(mode, id, n, body), onSuccess: (plan) => { store(plan); void qc.invalidateQueries({ queryKey: ["journal", mode] }); } }),
+  };
+}
 export function useAccounts() {
   const { mode } = useSettings();
   return useQuery({ queryKey: ["accounts", mode], queryFn: () => api.accounts(mode) });
@@ -62,6 +103,23 @@ export function useMemorySummary(limit?: number) {
   const { mode } = useSettings();
   return useQuery({ queryKey: ["memory-summary", mode, limit], queryFn: () => api.memorySummary(mode, limit), staleTime: 60_000 });
 }
+/**
+ * Módulo market (Economia e cripto). Chave `["market", mode, …]`: o stream invalida `["market", mode]` quando chega
+ * manchete nova ou alerta de volatilidade; o intervalo de 60 s é só a rede de segurança (o backend sonda no piso de 60 s).
+ */
+export function useMarketNews(f: NewsFilters = {}) {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["market", mode, "news", f], queryFn: () => api.marketNews(mode, f), refetchInterval: 60_000, staleTime: 30_000 });
+}
+export function useMarketQuotes() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["market", mode, "quotes"], queryFn: () => api.marketQuotes(mode), refetchInterval: 60_000, staleTime: 30_000 });
+}
+export function useMarketVolatility() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["market", mode, "volatility"], queryFn: () => api.marketVolatility(mode), refetchInterval: 60_000, staleTime: 30_000 });
+}
+
 /** Backend health for the current mode; in demo it is synthetic (`data_mode: "demo"`) and never hits the network. */
 export function useBackendHealth() {
   const { mode } = useSettings();

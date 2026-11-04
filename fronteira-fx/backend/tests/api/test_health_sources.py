@@ -1,4 +1,4 @@
-from tests.conftest import seed_market
+from tests.conftest import add_source, seed_market
 
 
 def test_health_reports_mode_and_db(client):
@@ -21,6 +21,17 @@ def test_sources_and_branches(client, db):
     r = client.get("/v1/sources/chaco/branches")
     assert [b["city"] for b in r.json()] == ["ASU", "CDE"]
     assert client.get("/v1/sources/nope/branches").status_code == 404
+
+
+def test_sources_expose_integration_seal(client, db):
+    add_source(db, "chaco", method="official_api", integration="endpoint_interno")
+    add_source(db, "wu", method="browser", integration="navegador")
+    by_id = {s["id"]: s for s in client.get("/v1/sources").json()}
+    assert by_id["chaco"]["integration"] == "endpoint_interno"
+    assert by_id["wu"]["integration"] == "navegador"
+    spec = client.get("/openapi.json").json()
+    prop = spec["components"]["schemas"]["SourceOut"]["properties"]["integration"]
+    assert set(prop["enum"]) == {"api_oficial", "endpoint_interno", "html", "navegador"}
 
 
 def test_openapi_title_and_mcp_operations(client, app):
@@ -57,6 +68,10 @@ def test_openapi_title_and_mcp_operations(client, app):
         "recall",
         "forget",
         "memory_summary",
+        "list_market_news",
+        "get_market_quotes",
+        "get_market_volatility",
+        "list_institutions",
     }
     assert set(tools) == contract_tools and len(tools) == len(contract_tools)
     assert any(getattr(r, "path", "") == "/mcp" for r in app.routes)

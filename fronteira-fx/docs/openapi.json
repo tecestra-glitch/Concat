@@ -174,7 +174,9 @@
                   "enum": [
                     "CDE",
                     "ASU",
-                    "PJC"
+                    "PJC",
+                    "FOZ",
+                    "ENC"
                   ],
                   "type": "string"
                 },
@@ -194,8 +196,8 @@
                 {
                   "enum": [
                     "BRL",
-                    "USD",
-                    "PYG"
+                    "PYG",
+                    "USD"
                   ],
                   "type": "string"
                 },
@@ -215,8 +217,8 @@
                 {
                   "enum": [
                     "BRL",
-                    "USD",
-                    "PYG"
+                    "PYG",
+                    "USD"
                   ],
                   "type": "string"
                 },
@@ -1164,6 +1166,66 @@
         }
       }
     },
+    "/v1/institutions": {
+      "get": {
+        "tags": [
+          "institutions"
+        ],
+        "summary": "Institutions where accounts can be opened, with the source of each figure",
+        "operationId": "list_institutions",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Institution"
+                  },
+                  "title": "Response List Institutions"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/simulations/routes": {
       "post": {
         "tags": [
@@ -1419,7 +1481,9 @@
                   "enum": [
                     "CDE",
                     "ASU",
-                    "PJC"
+                    "PJC",
+                    "FOZ",
+                    "ENC"
                   ],
                   "type": "string"
                 },
@@ -1519,11 +1583,11 @@
               "type": "integer",
               "maximum": 6,
               "minimum": 2,
-              "description": "máximo de arestas por ciclo",
+              "description": "máximo de pernas por ciclo (balcão não conta)",
               "default": 4,
               "title": "Max Len"
             },
-            "description": "máximo de arestas por ciclo"
+            "description": "máximo de pernas por ciclo (balcão não conta)"
           },
           {
             "name": "min_roi",
@@ -1958,6 +2022,549 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/JournalEntryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plans": {
+      "post": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "Plano de execução a partir de um ciclo atual (nada é executado)",
+        "operationId": "create_plan",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanCreateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "Planos deste modo, do mais recente para o mais antigo",
+        "operationId": "list_plans",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanOut"
+                  },
+                  "title": "Response List Plans"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plans/{plan_id}": {
+      "get": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "Um plano, com os passos",
+        "operationId": "get_plan",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Plan Id"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plans/{plan_id}/approve": {
+      "post": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "Aprova: só grava a decisão",
+        "operationId": "approve_plan",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Plan Id"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plans/{plan_id}/reject": {
+      "post": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "Recusa o plano",
+        "operationId": "reject_plan",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Plan Id"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plans/{plan_id}/steps/{n}/done": {
+      "post": {
+        "tags": [
+          "plans"
+        ],
+        "summary": "Marca um passo como feito, com o valor realizado",
+        "operationId": "complete_plan_step",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Plan Id"
+            }
+          },
+          {
+            "name": "n",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "N"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepDoneIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
                 }
               }
             }
@@ -3837,6 +4444,236 @@
           }
         }
       }
+    },
+    "/v1/market/news": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Manchetes de feeds públicos (sem texto da matéria)",
+        "operationId": "list_market_news",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 32
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "infomoney | agencia-brasil | bcb | mercopress | demo",
+              "title": "Source"
+            },
+            "description": "infomoney | agencia-brasil | bcb | mercopress | demo"
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "só manchetes publicadas (ou capturadas) a partir de",
+              "title": "Since"
+            },
+            "description": "só manchetes publicadas (ou capturadas) a partir de"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NewsOut"
+                  },
+                  "title": "Response List Market News"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/quotes": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Referências de mercado (cripto, câmbio de referência, BCB)",
+        "operationId": "get_market_quotes",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MarketQuoteOut"
+                  },
+                  "title": "Response Get Market Quotes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/volatility": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Volatilidade (EWMA, Parkinson, ATR) e selo normal / alta / muito alta",
+        "operationId": "get_market_volatility",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MarketVolatilityOut"
+                  },
+                  "title": "Response Get Market Volatility"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4143,7 +4980,8 @@
               "cycle_roi",
               "quote_move",
               "source_down",
-              "opportunity_new"
+              "opportunity_new",
+              "cycle_net_gain"
             ],
             "title": "Kind"
           },
@@ -4827,6 +5665,14 @@
             "type": "array",
             "title": "Edges"
           },
+          "legs": {
+            "items": {
+              "$ref": "#/components/schemas/LegOut"
+            },
+            "type": "array",
+            "title": "Legs",
+            "default": []
+          },
           "amount_in": {
             "type": "string",
             "title": "Amount In"
@@ -4842,6 +5688,68 @@
           "roi": {
             "type": "string",
             "title": "Roi"
+          },
+          "gain_by_currency": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "BRL",
+                    "USD",
+                    "PYG"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain By Currency"
+          },
+          "costs": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "spread",
+                    "fees",
+                    "iof",
+                    "transport"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costs"
+          },
+          "requires_declaration": {
+            "type": "boolean",
+            "title": "Requires Declaration",
+            "default": false
           },
           "minutes": {
             "type": "integer",
@@ -4951,7 +5859,8 @@
               "quote",
               "transfer",
               "deposit",
-              "withdraw"
+              "withdraw",
+              "travel"
             ],
             "title": "Kind"
           },
@@ -4967,6 +5876,16 @@
           "fee_fixed": {
             "type": "string",
             "title": "Fee Fixed",
+            "default": "0"
+          },
+          "iof_pct": {
+            "type": "string",
+            "title": "Iof Pct",
+            "default": "0"
+          },
+          "transport_fixed": {
+            "type": "string",
+            "title": "Transport Fixed",
             "default": "0"
           },
           "minutes": {
@@ -4997,6 +5916,63 @@
               }
             ],
             "title": "Evidence Id"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "presencial",
+              "assistida",
+              "automatizavel"
+            ],
+            "title": "Channel",
+            "default": "presencial"
+          },
+          "border": {
+            "type": "boolean",
+            "title": "Border",
+            "default": false
+          },
+          "counter": {
+            "type": "boolean",
+            "title": "Counter",
+            "default": false
+          },
+          "quoted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quoted At"
+          },
+          "ref_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref Rate"
+          },
+          "unknown_costs": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "spread",
+                "fees",
+                "iof",
+                "transport"
+              ]
+            },
+            "type": "array",
+            "title": "Unknown Costs",
+            "default": []
           }
         },
         "type": "object",
@@ -5008,7 +5984,8 @@
           "via",
           "confidence"
         ],
-        "title": "EdgeOut"
+        "title": "EdgeOut",
+        "description": "Aresta do ciclo. Aplicar os campos reproduz `amount_out`: `x * (1 - fee_pct - iof_pct) * rate - fee_fixed\n- transport_fixed`. `unknown_costs` lista os custos que o motor não consegue precificar (nunca zero)."
       },
       "EvidenceOut": {
         "properties": {
@@ -5198,6 +6175,88 @@
         ],
         "title": "FeeOut"
       },
+      "FixedFee": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FixedFee"
+      },
+      "FxCost": {
+        "properties": {
+          "spread_pct": {
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "iof_pct": {
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "fee_pct": {
+            "$ref": "#/components/schemas/Percentage"
+          },
+          "fee_fixed": {
+            "$ref": "#/components/schemas/FixedFee"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FxCost"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -5329,7 +6388,9 @@
                 "enum": [
                   "CDE",
                   "ASU",
-                  "PJC"
+                  "PJC",
+                  "FOZ",
+                  "ENC"
                 ]
               },
               {
@@ -5434,6 +6495,156 @@
         ],
         "title": "HouseSession"
       },
+      "Institution": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "title": "Name"
+          },
+          "country": {
+            "type": "string",
+            "enum": [
+              "BR",
+              "PY",
+              "INT"
+            ],
+            "title": "Country"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "bank",
+              "fintech",
+              "wallet",
+              "broker"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "discontinued"
+            ],
+            "title": "Status",
+            "default": "active"
+          },
+          "discontinued_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discontinued Note"
+          },
+          "currencies_held": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currencies Held"
+          },
+          "opens_remotely": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opens Remotely"
+          },
+          "requires": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requires"
+          },
+          "api": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "pf",
+                  "pj_contract"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api"
+          },
+          "api_source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Source Url"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "fx_cost": {
+            "$ref": "#/components/schemas/FxCost"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "country",
+          "kind"
+        ],
+        "title": "Institution"
+      },
       "JournalEntryCreate": {
         "properties": {
           "kind": {
@@ -5531,6 +6742,374 @@
           "text"
         ],
         "title": "JournalEntryOut"
+      },
+      "LegCostsOut": {
+        "properties": {
+          "currency": {
+            "type": "string",
+            "enum": [
+              "BRL",
+              "USD",
+              "PYG"
+            ],
+            "title": "Currency"
+          },
+          "spread": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread"
+          },
+          "fees": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fees"
+          },
+          "iof": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iof"
+          },
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transport"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currency",
+          "fees",
+          "iof",
+          "transport"
+        ],
+        "title": "LegCostsOut",
+        "description": "Custos de uma perna, na moeda em que foram pagos (`currency`). `spread` null = sem taxa de referência."
+      },
+      "LegOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "exchange",
+              "transfer",
+              "travel",
+              "deposit",
+              "withdraw"
+            ],
+            "title": "Kind"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "presencial",
+              "assistida",
+              "automatizavel"
+            ],
+            "title": "Channel"
+          },
+          "from": {
+            "type": "string",
+            "title": "From"
+          },
+          "to": {
+            "type": "string",
+            "title": "To"
+          },
+          "via": {
+            "type": "string",
+            "title": "Via"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "border": {
+            "type": "boolean",
+            "title": "Border",
+            "default": false
+          },
+          "amount_in": {
+            "type": "string",
+            "title": "Amount In"
+          },
+          "amount_out": {
+            "type": "string",
+            "title": "Amount Out"
+          },
+          "costs": {
+            "$ref": "#/components/schemas/LegCostsOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "channel",
+          "from",
+          "to",
+          "via",
+          "minutes",
+          "amount_in",
+          "amount_out",
+          "costs"
+        ],
+        "title": "LegOut"
+      },
+      "MarketQuoteOut": {
+        "properties": {
+          "instrument": {
+            "type": "string",
+            "title": "Instrument"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "crypto",
+              "fx_reference",
+              "bcb_series"
+            ],
+            "title": "Kind"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "price": {
+            "type": "string",
+            "title": "Price"
+          },
+          "change_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Pct"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "executable": {
+            "type": "boolean",
+            "const": false,
+            "title": "Executable",
+            "default": false
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "Referência de mercado. Não é preço executável nem cotação de casa de câmbio."
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrument",
+          "label",
+          "kind",
+          "source",
+          "price",
+          "change_pct",
+          "observed_at",
+          "captured_at",
+          "data_mode"
+        ],
+        "title": "MarketQuoteOut"
+      },
+      "MarketVolatilityOut": {
+        "properties": {
+          "instrument": {
+            "type": "string",
+            "title": "Instrument"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "insufficient_data",
+              "stale_input"
+            ],
+            "title": "Status"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "last_close": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Close"
+          },
+          "last_move_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Move Pct"
+          },
+          "ewma_pct_5m": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ewma Pct 5M"
+          },
+          "parkinson_1d_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parkinson 1D Pct"
+          },
+          "parkinson_20d_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parkinson 20D Pct"
+          },
+          "ratio_1d_20d": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ratio 1D 20D"
+          },
+          "atr_14_5m": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atr 14 5M"
+          },
+          "regime": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "normal",
+                  "alta",
+                  "muito_alta"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regime"
+          },
+          "alert": {
+            "type": "boolean",
+            "title": "Alert"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrument",
+          "status",
+          "as_of",
+          "last_close",
+          "last_move_pct",
+          "ewma_pct_5m",
+          "parkinson_1d_pct",
+          "parkinson_20d_pct",
+          "ratio_1d_20d",
+          "atr_14_5m",
+          "regime",
+          "alert",
+          "reasons",
+          "data_mode"
+        ],
+        "title": "MarketVolatilityOut"
       },
       "MemoryCreate": {
         "properties": {
@@ -5651,6 +7230,63 @@
         ],
         "title": "MemorySummary",
         "description": "One line per kind (`Preferências`, `Decisões`, `Fatos`, `Resultados`), newest first; `\"\"` when empty."
+      },
+      "NewsOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "feed": {
+            "type": "string",
+            "title": "Feed"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "link": {
+            "type": "string",
+            "title": "Link"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "feed",
+          "title",
+          "link",
+          "published_at",
+          "captured_at",
+          "data_mode"
+        ],
+        "title": "NewsOut"
       },
       "OpportunityOut": {
         "properties": {
@@ -5782,6 +7418,403 @@
           "computed_at"
         ],
         "title": "OpportunityOut"
+      },
+      "Percentage": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Percentage"
+      },
+      "PlanCreateIn": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Start"
+          },
+          "path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 21,
+            "minItems": 2,
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "path"
+        ],
+        "title": "PlanCreateIn",
+        "description": "Plano a partir de um ciclo: o `start` e o `path` (nós, o último igual ao primeiro) de `/opportunities/cycles`.\n\nAté 21 nós: 6 pernas (o máximo de `max_len`), com no máximo dois balcões entre pernas consecutivas."
+      },
+      "PlanOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved",
+              "in_progress",
+              "done",
+              "rejected",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Path"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "BRL",
+              "USD",
+              "PYG"
+            ],
+            "title": "Currency"
+          },
+          "amount_in": {
+            "type": "string",
+            "title": "Amount In"
+          },
+          "amount_out_expected": {
+            "type": "string",
+            "title": "Amount Out Expected"
+          },
+          "gain_expected": {
+            "type": "string",
+            "title": "Gain Expected"
+          },
+          "gain_by_currency": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "BRL",
+                    "USD",
+                    "PYG"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain By Currency"
+          },
+          "costs": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "propertyNames": {
+                  "enum": [
+                    "spread",
+                    "fees",
+                    "iof",
+                    "transport"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Costs"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "quoted",
+              "estimated",
+              "incomplete"
+            ],
+            "title": "Confidence"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "requires_declaration": {
+            "type": "boolean",
+            "title": "Requires Declaration",
+            "default": false
+          },
+          "quotes_as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Quotes As Of"
+          },
+          "quote_max_age_s": {
+            "type": "integer",
+            "title": "Quote Max Age S"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "data_mode": {
+            "type": "string",
+            "enum": [
+              "real",
+              "simulation",
+              "demo"
+            ],
+            "title": "Data Mode"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/PlanStepOut"
+            },
+            "type": "array",
+            "title": "Steps",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "start",
+          "path",
+          "currency",
+          "amount_in",
+          "amount_out_expected",
+          "gain_expected",
+          "confidence",
+          "minutes",
+          "quotes_as_of",
+          "quote_max_age_s",
+          "created_at",
+          "data_mode"
+        ],
+        "title": "PlanOut"
+      },
+      "PlanStepOut": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "exchange",
+              "transfer",
+              "travel",
+              "deposit",
+              "withdraw"
+            ],
+            "title": "Kind"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "presencial",
+              "assistida",
+              "automatizavel"
+            ],
+            "title": "Channel"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "from": {
+            "type": "string",
+            "title": "From"
+          },
+          "to": {
+            "type": "string",
+            "title": "To"
+          },
+          "amount_in": {
+            "type": "string",
+            "title": "Amount In"
+          },
+          "amount_out_expected": {
+            "type": "string",
+            "title": "Amount Out Expected"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "done"
+            ],
+            "title": "Status"
+          },
+          "actual_out": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Out"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "done_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "kind",
+          "channel",
+          "text",
+          "from",
+          "to",
+          "amount_in",
+          "amount_out_expected",
+          "minutes",
+          "status"
+        ],
+        "title": "PlanStepOut"
       },
       "PositionIn": {
         "properties": {
@@ -6905,6 +8938,17 @@
             "type": "string",
             "title": "Method"
           },
+          "integration": {
+            "type": "string",
+            "enum": [
+              "api_oficial",
+              "endpoint_interno",
+              "html",
+              "navegador"
+            ],
+            "title": "Integration",
+            "default": "html"
+          },
           "url": {
             "type": "string",
             "title": "Url"
@@ -6962,6 +9006,11 @@
             "type": "string",
             "title": "Data Mode",
             "default": "real"
+          },
+          "discontinued": {
+            "type": "boolean",
+            "title": "Discontinued",
+            "default": false
           }
         },
         "type": "object",
@@ -6974,6 +9023,34 @@
           "health"
         ],
         "title": "SourceOut"
+      },
+      "StepDoneIn": {
+        "properties": {
+          "actual_out": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Actual Out"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "actual_out"
+        ],
+        "title": "StepDoneIn",
+        "description": "Passo concluído: valor realizado (string decimal, na moeda de saída do passo) e nota opcional."
       },
       "StepSpecIn": {
         "properties": {

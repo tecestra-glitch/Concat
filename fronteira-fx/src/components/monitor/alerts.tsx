@@ -150,7 +150,7 @@ export function Alerts() {
 }
 
 function KindBadge({ kind }: { kind: AlertKind }) {
-  const tone: Record<AlertKind, "accent" | "warn" | "loss" | "gain"> = { cycle_roi: "gain", quote_move: "accent", source_down: "loss", opportunity_new: "warn" };
+  const tone: Record<AlertKind, "accent" | "warn" | "loss" | "gain"> = { cycle_roi: "gain", quote_move: "accent", source_down: "loss", opportunity_new: "warn", cycle_net_gain: "gain" };
   return <Badge variant={tone[kind] ?? "outline"}>{ALERT_KIND_LABEL[kind] ?? kind}</Badge>;
 }
 
@@ -217,7 +217,7 @@ function RuleList({ rules, onToggle, ...actions }: RuleListProps) {
               <TableRow key={r.id} data-testid="alert-rule" data-rule={r.id} data-enabled={r.enabled} className={cn(!r.enabled && "bg-surface-2/40 text-muted")}>
                 <TableCell className="font-medium">{r.name}</TableCell>
                 <TableCell><KindBadge kind={r.kind} /></TableCell>
-                <TableCell className="tnum text-right">{formatThreshold(r.kind, r.threshold)}</TableCell>
+                <TableCell className="tnum text-right">{formatThreshold(r.kind, r.threshold, r.params?.currency)}</TableCell>
                 <TableCell className="text-xs text-muted">{paramsText(r)}</TableCell>
                 <TableCell>
                   <div className="flex flex-col gap-0.5">
@@ -244,7 +244,7 @@ function RuleList({ rules, onToggle, ...actions }: RuleListProps) {
               <Switch checked={r.enabled} aria-label={`Ativar regra ${r.name}`} onCheckedChange={(on) => onToggle(r, on)} />
             </div>
             <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-              <div><dt className="text-muted">Limite</dt><dd className="tnum">{formatThreshold(r.kind, r.threshold)}</dd></div>
+              <div><dt className="text-muted">Limite</dt><dd className="tnum">{formatThreshold(r.kind, r.threshold, r.params?.currency)}</dd></div>
               <div><dt className="text-muted">Cooldown</dt><dd className="tnum">{formatInterval(r.cooldown_s)}</dd></div>
               <div><dt className="text-muted">Parâmetros</dt><dd>{paramsText(r)}</dd></div>
               <div className="min-w-0"><dt className="text-muted">Destino</dt><dd className="tnum truncate" title={r.target ?? undefined}>{r.target ?? "—"}</dd></div>

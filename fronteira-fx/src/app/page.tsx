@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Overview } from "@/components/overview";
+import { Home } from "@/components/home/home";
 
-export const metadata: Metadata = { title: "Visão geral" };
+export const metadata: Metadata = { title: "Início" };
 
 export default function Page() {
-  return <Overview />;
+  return <Home />;
 }

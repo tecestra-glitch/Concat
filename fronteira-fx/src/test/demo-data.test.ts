@@ -75,3 +75,14 @@ describe("demo simulation mirrors SimulationResponse (MED-02)", () => {
     }
   });
 });
+
+describe("demonstração sem o banco fechado (resolução pelo BCP em 03/11/2026)", () => {
+  it("o banco fechado não aparece em contas; Revolut e Nomad são contas digitais", async () => {
+    const { demoAccounts } = await import("@/lib/api/demo-data");
+    const revolut = demoAccounts.filter((a) => a.institution === "Revolut");
+    expect(revolut.map((a) => a.currency).sort()).toEqual(["BRL", "USD"]);
+    expect(revolut.every((a) => a.location === "digital")).toBe(true);
+    expect(demoAccounts.some((a) => a.institution === "Nomad" && a.currency === "USD")).toBe(true);
+    expect(demoAccounts.some((a) => a.currency === "PYG" && a.institution === "Revolut")).toBe(false);
+  });
+});

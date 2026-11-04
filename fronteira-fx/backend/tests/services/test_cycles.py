@@ -67,7 +67,8 @@ def test_reference_quotes_never_become_edges_or_conversions():
     ref_modality = quote(source_id="bcp", base="USD", modality="reference", kind="indicative", buy=D(7325), sell=D(7325))
     ref_kind = quote(source_id="bcp", base="USD", modality="transfer", kind="market_reference", buy=D(7325), sell=D(7325))
     graph, _ = build_graph([ref_modality, ref_kind], [])
-    assert graph.edges == []
+    # sem contas, o grafo só tem deslocamento entre cidades; nenhuma cotação de referência vira perna de troca
+    assert [e for e in graph.edges if e.kind == "quote"] == []
     assert conversions_from_quotes([ref_modality, ref_kind]) == []
 
 
@@ -75,20 +76,20 @@ def test_reference_quotes_never_become_edges_or_conversions():
 
 
 def test_pct_fee_feeds_edge_fee_pct_and_is_not_incomplete():
-    q = quote(fees=[{"label": "spread", "amount": None, "pct": "0.015", "currency": "BRL"}])
+    q = quote(source_id="chaco", fees=[{"label": "spread", "amount": None, "pct": "0.015", "currency": "BRL"}])
     graph, _ = build_graph([q], [])
-    (buy,) = edges_between(graph, "BRL@x", "PYG@x")
+    (buy,) = edges_between(graph, "BRL@chaco", "PYG@chaco")
     assert buy.fee_pct == D("0.015")
     assert buy.fee_fixed == 0
     assert buy.confidence == "quoted"
 
 
 def test_fixed_fee_is_expressed_in_the_output_currency():
-    q = quote(fees=[{"label": "tarifa", "amount": "9.9", "currency": "BRL"}])
+    q = quote(source_id="chaco", fees=[{"label": "tarifa", "amount": "9.9", "currency": "BRL"}])
     graph, _ = build_graph([q], [])
-    (buy,) = edges_between(graph, "BRL@x", "PYG@x")
+    (buy,) = edges_between(graph, "BRL@chaco", "PYG@chaco")
     assert buy.fee_fixed == D("9.9") * D("1370") and buy.fee_pct == 0 and buy.confidence == "quoted"
-    (sell,) = edges_between(graph, "PYG@x", "BRL@x")
+    (sell,) = edges_between(graph, "PYG@chaco", "BRL@chaco")
     assert sell.fee_fixed == D("9.9") and sell.confidence == "quoted"
 
 
@@ -100,9 +101,9 @@ def test_unknown_fee_amount_is_incomplete():
 
 
 def test_zero_fee_in_a_third_currency_is_a_known_cost():
-    q = quote(fees=[{"label": "tarifa", "amount": "0", "currency": "USD"}])
+    q = quote(source_id="chaco", fees=[{"label": "tarifa", "amount": "0", "currency": "USD"}])
     graph, _ = build_graph([q], [])
-    (buy,) = edges_between(graph, "BRL@x", "PYG@x")
+    (buy,) = edges_between(graph, "BRL@chaco", "PYG@chaco")
     assert buy.confidence == "quoted" and buy.fee_fixed == 0
 
 
@@ -165,10 +166,12 @@ def test_search_discards_edges_outside_their_window():
 def test_wu_tiers_from_the_market_keep_the_promo_tier_in_the_ladder(db):
     seed_market(db)
     quotes = latest_quotes(db, data_mode="real", lookback_s=None)
-    graph, _ = build_graph(quotes, [])
+    # ueno é descontinuado (fora do grafo por padrão): aqui só interessa a escada de faixas da WU
+    graph, _ = build_graph(quotes, [], excluded=frozenset())
     wu = {e.min_in: e for e in edges_between(graph, "BRL@wu", "PYG@ueno")}
     assert set(wu) == {D(5000), D(10000), D(25000), D(50000)}
     promo = wu[D(25000)]
     assert promo.accepts(D(30000)) and not promo.accepts(D(50000)) and "compra 1389.4" in promo.via
     assert wu[D(50000)].max_in is None
-    assert all(e.confidence == "quoted" for e in wu.values())
+    # WU paga BRL por Pix no Brasil: a conversão de BRL pode ter IOF, sem alíquota informada = incompleto
+    assert all(e.confidence == "incomplete" and "iof" in e.unknown for e in wu.values())

@@ -15,7 +15,7 @@ modo demonstração e descobre o modo da instância por `GET /v1/health` (que nu
 ## Enumerações
 
 - `Currency`: `BRL | USD | PYG`
-- `City`: `CDE` (Ciudad del Este) | `ASU` (Asunción) | `PJC` (Pedro Juan Caballero) | `null` (operação digital, sem cidade)
+- `City`: `CDE` (Ciudad del Este) | `ASU` (Asunción) | `PJC` (Pedro Juan Caballero) | `FOZ` (Foz do Iguaçu) | `ENC` (Encarnación) | `null` (operação digital, sem cidade)
 - `Channel`: `digital | physical | aggregator` (`aggregator` = agregador de terceiros, ex. dolarPy; nunca executável)
 - `Modality`: `cash | transfer | account | card_debit | card_credit | card_virtual | reference` (`reference` = cotação de referência, só comparação: nunca vira aresta nem entra no ranking)
 - `QuoteKind`: `market_reference | indicative | executable`
@@ -30,7 +30,7 @@ modo demonstração e descobre o modo da instância por `GET /v1/health` (que nu
 ```jsonc
 Source {
   "id": "chaco", "name": "Cambios Chaco", "kind": "exchange_house|remittance|bank|fintech|central_bank",
-  "method": "html", "url": "https://...", "health": "ok", "last_success_at": "...|null", "last_error": "string|null",
+  "method": "html", "integration": "endpoint_interno|api_oficial|html|navegador", "url": "https://...", "health": "ok", "last_success_at": "...|null", "last_error": "string|null",
   "capabilities": ["branch_table","buy_sell","usd_pyg","brl_pyg"],
   "limitations": ["sem API oficial", "cotação por filial requer navegador"],
   "coverage": { "cities": ["CDE","ASU"], "currencies": ["USD","BRL","PYG"] },
@@ -90,13 +90,15 @@ StepSpec {                                  // entrada de POST /v1/simulations/c
 }
 Evidence { "id": "uuid", "source_id": "chaco", "kind": "html|screenshot|json|manual", "url": "...", "captured_at": "...", "sha256": "...", "excerpt": "string", "rules": ["parser chaco v1"] }
 JournalEntry { "id": "uuid", "ts": "...", "kind": "note|operation|reconciliation", "text": "...", "amounts": [Fee], "account_ids": [] }
-StreamEvent { "id": "123", "type": "quote.updated|source.health|opportunity.updated|source.change|alert.fired|heartbeat", "ts": "...", "payload": {} }
+StreamEvent { "id": "123", "type": "quote.updated|source.health|opportunity.updated|source.change|alert.fired|market.news|market.volatility_alert|heartbeat", "ts": "...", "payload": {} }
 // payload por tipo (o stream já vem filtrado pelo data_mode da instância):
 //   quote.updated       → Quote
 //   source.health       → SourceHealth (atualização parcial por source_id; NÃO é um Source completo)
 //   opportunity.updated → { "count": 3, "main_ranking": 1, "capitals": ["5000"] } (resumo; o cliente recarrega a lista)
 //   source.change       → Change
 //   alert.fired         → AlertEvent
+//   market.news         → NewsItem (título, link, fonte, horários; nunca texto da matéria)
+//   market.volatility_alert → MarketVolatility (só na transição para alerta, uma vez por episódio)
 //   heartbeat           → {}
 SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|null", "consecutive_failures": 2, "next_poll_at": "...|null (opcional)" }
 ```
@@ -115,12 +117,19 @@ SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|
 | GET | `/v1/candles?key=&tf=15m\|1h\|4h\|1d&from=&to=&limit=300` | `CandleSeries` — velas OHLC do `mid` de uma série (ver "Pregão") |
 | GET | `/v1/pregao/stats?keys=a,b` | `SessionStats[]` — resumo do dia (00:00 Assunção) por chave, 1 a 20 chaves |
 | GET | `/v1/pregao/sessions` | `HouseSession[]` — status de funcionamento por fonte, inclui referências com `reference: true` |
+| GET | `/v1/institutions` | `Institution[]` — cadastro de instituições onde o titular abre conta, com a fonte de cada número (ver "Instituições") |
 | GET/POST **[chave]** | `/v1/accounts` | `Account[]` / cria `Account` (POST exige chave) |
 | PATCH **[chave]** | `/v1/accounts/{id}` | atualiza saldos informados manualmente |
 | POST **[chave]** | `/v1/simulations/routes` | body `{capital_brl, objective:"cycle|remittance|purchase", destination?:Position, valuation_currency:"BRL", channels:["digital","physical"], amounts?:["5000","10000","25000","50000"], persist?:false}` → `{opportunities: Opportunity[], search:{amounts_tested:[string], boundaries:[{low, high, low_winner, high_winner, low_roi_sign, high_roi_sign, reason, refined}]}, simulation_id:"uuid|null"}`. Com `persist`, as linhas são gravadas com `data_mode:"simulation"` (D3) |
 | POST **[chave]** | `/v1/simulations/cycle` | body `{capital:"5000", steps:[StepSpec], valuation_currency:"BRL", valuation_rates?:{"USD":"5.40"}}` → `RouteResult`. Aplica cada passo sobre o valor recebido no anterior; `422` se um passo não encadeia |
 | GET | `/v1/opportunities?capital=&channel=&city=&kind=` | `Opportunity[]` (ranking principal + secundário) |
-| GET | `/v1/opportunities/cycles?max_len=4&min_roi=&start=&limit=200` | `Cycle[]` — ciclos no grafo de posições a partir dos saldos estacionados (ver abaixo) |
+| GET | `/v1/opportunities/cycles?max_len=4&min_roi=&start=&limit=200` | `Cycle[]` — ciclos no grafo de posições a partir dos saldos estacionados; `max_len` conta pernas, balcão não conta (ver abaixo) |
+| GET | `/v1/plans?limit=50` | `PlanOut[]` — planos de execução deste modo, do mais recente (ver "Planos de execução") |
+| POST **[chave]** | `/v1/plans` | body `{start, path}` (nós de um ciclo atual de `/v1/opportunities/cycles`, até 21 nós: 6 pernas com balcões) → `201 PlanOut`; `404` se o ciclo não existe mais com as cotações e saldos atuais; `422` se o ciclo não tem ganho líquido positivo ou não tem data de cotação. Não executa nada |
+| GET | `/v1/plans/{id}` | `PlanOut` (com `steps`) |
+| POST **[chave]** | `/v1/plans/{id}/approve` | `PlanOut`; só grava a decisão. `409` se não estiver `proposed` ou se expirou |
+| POST **[chave]** | `/v1/plans/{id}/reject` | `PlanOut`; recusa um plano `proposed` ou `approved` (antes de qualquer passo) |
+| POST **[chave]** | `/v1/plans/{id}/steps/{n}/done` | body `{actual_out: "string decimal", note?: string}` → `PlanOut`. Passos em ordem, um de cada vez. Ao concluir o último, grava o resultado no diário (`kind: "result"`) |
 | GET | `/v1/evidence?source=&from=&q=&limit=100` / `/v1/evidence/{id}` | `Evidence[]` / `Evidence` (`q` = substring do `excerpt`; `limit` 1..500) |
 | GET/POST **[chave]** | `/v1/journal` | `JournalEntry[]` (POST exige chave) |
 | GET | `/v1/snapshot` | `{cursor, quotes, sources, opportunities, server_time, data_mode}` |
@@ -129,25 +138,112 @@ SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|
 
 ## Grafo de posições e ciclos (cruzamento ao vivo)
 
-Nó = `"<moeda>@<venue>"` (venue: id da fonte, `fonte:cidade` para casas de câmbio, id da conta, ou `cash:<cidade>`).
-Aresta = cotação (compra: base→quote a `buy`; venda: quote→base a `1/sell`), transferência ou depósito/saque,
-com `rate`, `fee_pct` (sobre a entrada), `fee_fixed` (na moeda de saída), `minutes`, `via`, `confidence`, `evidence_id`.
+Nó = `"<moeda>@<venue>"` (venue: id da fonte, `fonte:cidade` para casas de câmbio, id da conta, ou `cash:<cidade>`,
+com `<cidade>` em CDE, ASU, PJC, ENC, FOZ ou PPO).
+Aresta = cotação (compra: base→quote a `buy`; venda: quote→base a `1/sell`), transferência (entre contas e lugares
+digitais, ou entre contas e casas, priceada por `data/rails.json`), depósito/saque (balcão, ATM) ou deslocamento
+(`kind: travel`, entre cidades, priceado por `data/transport.json`). Campos: `rate`, `fee_pct` (sobre a entrada),
+`fee_fixed` (na moeda de saída), `iof_pct` (sobre a entrada), `transport_fixed` (deslocamento, na moeda de saída),
+`minutes`, `via`, `confidence`, `evidence_id`, `quoted_at` (instante da cotação que originou a aresta; `null` em balcão,
+trilho e deslocamento), `channel`, `border` (cruza BR↔PY), `ref_rate` (taxa de referência na
+mesma direção de `rate`; `null` = sem referência) e `counter` (balcão: não conta em `max_len`) e `unknown_costs` (lista de `spread|fees|iof|transport` que o motor
+não consegue precificar).
+Aplicar as arestas de `edges[]` em ordem reproduz `amount_out`: a cada aresta,
+`x = x * (1 - fee_pct - iof_pct) * rate - fee_fixed - transport_fixed`, começando em `amount_in`.
+Uma aresta com deslocamento usa `transport_fixed` (não `fee_fixed`).
+Balcão (ida ao caixa de uma casa na mesma cidade) é uma aresta de custo zero que **não conta** em `max_len`: comprar
+dólar numa casa e vender noutra da mesma cidade cabe em `max_len=4`, e levar dinheiro vivo de uma cidade para outra
+com troca nas duas pontas também.
+`channel`: `presencial` (casa, dinheiro vivo, deslocamento), `assistida` (app de banco), `automatizavel` (nenhuma hoje).
 Cotações com `kind: market_reference` ou `modality: reference` (BCP, PTAX) **não** viram aresta: servem só de comparação.
-Ciclos simples de 2 a `max_len` arestas são avaliados com o saldo livre do nó inicial; uma aresta cuja cotação depende
-do montante (`amount_base`) só é usada dentro da faixa em que foi cotada. Dinheiro em string decimal (D1).
+Ciclos simples com até `max_len` pernas (2 a 6, padrão 4) são avaliados com o saldo livre do nó inicial; uma aresta cuja
+cotação depende do montante (`amount_base`) só é usada dentro da faixa em que foi cotada. Dinheiro em string decimal (D1).
+Várias arestas podem ligar o mesmo par de nós (cartão e espécie, trilho e deslocamento). Todas entram no grafo e a busca
+escolhe uma por perna, conforme o montante que chega a ela: só alternativas que aceitam o montante competem, custo
+conhecido vence custo desconhecido, e depois vem a maior saída. Por isso um mesmo `path` aparece uma vez só na lista.
+Fontes descontinuadas (hoje o ueno, em resolução pelo BCP desde 03/11/2026) não entram no grafo nem na valoração: nem
+cotação da fonte, nem cotação com destino nela, nem conta nela. `GET /v1/sources` marca a fonte com `discontinued: true`.
 
-Parâmetros de `GET /v1/opportunities/cycles`: `max_len` (2..6, padrão 4), `min_roi` (string decimal, ex. `"0.001"`;
+**Custo desconhecido nunca vira zero.** Trilho ausente ou com valor `null`, rota de deslocamento sem `cost`, taxa
+de valoração que falta para converter, ou IOF de BRL convertido fora do lado paraguaio (instituição brasileira, fintech,
+fonte sem cidade no Paraguai ou casa de FOZ/PPO) sem alíquota conhecida, dá `confidence: "incomplete"` na aresta e no ciclo, e a categoria aparece em `unknown_costs`. Na
+perna e no ciclo essa categoria sai `null`, nunca `"0"`. Ciclo `incomplete` não é "lucro confirmado" e nunca dispara
+alerta de ganho. Sem taxa de referência, o `spread` da perna de câmbio é `null` (a taxa cotada é o preço total).
+
+**Pernas (`legs[]`)**, uma por aresta, na ordem do ciclo: `kind` (`exchange` (troca, a aresta `quote`) |
+`transfer` | `travel` | `deposit` | `withdraw`), `channel`, `from`, `to`, `via`, `minutes`, `border` (cruza BR↔PY),
+`amount_in`, `amount_out` e `costs` = `{currency, spread, fees, iof, transport}`, todos na moeda em que a perna
+começou; cada custo é `null` quando desconhecido. `spread` é a diferença entre a taxa usada e a taxa de valoração (null sem referência); `fees` tarifas; `iof`
+IOF de conversão de BRL por instituição brasileira; `transport` custo de deslocamento.
+
+**Ganhos e avisos do ciclo**: `gain_by_currency` = `{BRL, USD, PYG}` (ganho líquido convertido pelas taxas de
+valoração; `null` quando não dá para converter); `costs` = `{spread, fees, iof, transport}` somados na moeda de
+partida (`null` se algum custo for desconhecido); `requires_declaration: true` quando uma perna de fronteira move
+mais de US$ 10 000 (ou não dá para converter). É um aviso: não bloqueia.
+
+Parâmetros de `GET /v1/opportunities/cycles`: `max_len` (2..6, padrão 4; conta pernas, balcão não conta), `min_roi` (string decimal, ex. `"0.001"`;
 sem ele, ciclos com ganho ≤ 0 também aparecem como "quase lá"), `start` (nó de partida, ex. `BRL@nubank`),
 `limit` (1..500, padrão 200). Ordenação: melhor ROI primeiro.
 
 ```jsonc
-Edge  { "from": "BRL@brbank", "to": "PYG@ueno", "kind": "quote|transfer|deposit|withdraw", "rate": "1366.5",
-        "fee_pct": "0", "fee_fixed": "9.9", "minutes": 240, "via": "wu", "confidence": "quoted|estimated|incomplete",
-        "evidence_id": "uuid|null" }
-Cycle { "start": "BRL@brbank", "path": ["BRL@brbank","PYG@ueno","USD@ueno","BRL@brbank"], "edges": [Edge],
-        "amount_in": "25000", "amount_out": "25041.2", "gain": "41.2", "roi": "0.001648", "minutes": 4320,
+Edge  { "from": "BRL@brbank", "to": "PYG@banco_py", "kind": "quote|transfer|deposit|withdraw|travel", "rate": "1366.5",
+        "fee_pct": "0", "fee_fixed": "9.9", "iof_pct": "0", "transport_fixed": "0", "minutes": 240, "via": "wu",
+        "confidence": "quoted|estimated|incomplete", "evidence_id": "uuid|null", "channel": "presencial|assistida|automatizavel",
+        "border": false, "counter": false, "ref_rate": "1370.2|null", "unknown_costs": ["spread|fees|iof|transport"] }
+Leg   { "kind": "exchange|transfer|travel|deposit|withdraw", "channel": "presencial", "from": "PYG@chaco:CDE",
+        "to": "USD@chaco:CDE", "via": "chaco cash @CDE (venda 7300)", "minutes": 15, "border": false,
+        "amount_in": "7300000", "amount_out": "1000",
+        "costs": { "currency": "PYG", "spread": "0", "fees": "0", "iof": "0", "transport": "0" } }
+Cycle { "start": "BRL@brbank", "path": ["BRL@brbank","PYG@banco_py","USD@banco_py","BRL@brbank"], "edges": [Edge],
+        "legs": [Leg], "amount_in": "25000", "amount_out": "25041.2", "gain": "41.2", "roi": "0.001648",
+        "gain_by_currency": { "BRL": "41.2", "USD": "7.6", "PYG": "55000" }, "costs": { "spread": "0", "fees": "9.9",
+        "iof": "0", "transport": "0" }, "requires_declaration": false, "minutes": 4320,
         "confidence": "estimated", "data_mode": "real|simulation|demo" }
 ```
+
+## Planos de execução — módulo `plans` (fase A: sem execução)
+
+Um plano organiza os passos de um ciclo para o dono seguir. **Nada aqui movimenta dinheiro**: nenhuma rota chama banco,
+casa ou API. Aprovar grava a decisão; cada passo grava o valor realizado que o dono informou.
+
+```jsonc
+PlanOut { "id": "uuid", "status": "proposed|approved|in_progress|done|rejected|expired", "start": "PYG@cash:CDE",
+  "path": ["PYG@cash:CDE", "PYG@chaco:CDE", "USD@chaco:CDE", "USD@cash:CDE"], "currency": "PYG",
+  "amount_in": "7300000", "amount_out_expected": "7400000", "gain_expected": "100000",
+  "gain_by_currency": {"BRL": "70", "USD": "13.7", "PYG": "100000"},
+  "costs": {"spread": "0", "fees": null, "iof": "0", "transport": "0"} /* null = custo desconhecido */,
+  "confidence": "quoted", "minutes": 55,
+  "requires_declaration": false, "quotes_as_of": "2026-11-04T12:00:00Z", "quote_max_age_s": 900,
+  "created_at": "...", "decided_at": "...|null", "completed_at": "...|null", "data_mode": "real|simulation|demo",
+  "steps": [PlanStepOut] }
+PlanStepOut { "n": 1, "kind": "travel", "channel": "presencial", "text": "Leve o dinheiro de CDE para FOZ (≈ 40 min)",
+  "from": "BRL@cash:CDE", "to": "BRL@cash:FOZ", "amount_in": "10000", "amount_out_expected": "10000", "minutes": 40,
+  "status": "pending|done", "actual_out": "string|null", "note": "string|null", "done_at": "...|null" }
+```
+
+- **Ganho com custo pendente** (`confidence: incomplete`) é estimativa: a tela mostra "≈", sem sinal, em tom neutro, com
+  o rótulo "não confirmado" e os custos `null` pelo nome. Um ciclo sem ganho positivo não vira plano (`422`).
+- **Textos em pt-BR simples**: "Compre 1.000 USD na Cambios Chaco (CDE) pagando 7.300.000 PYG (cotação: 1 USD = 7.300 PYG)",
+  "Envie 5.000 BRL de banco brasileiro e receba ≈ 920 USD em Nomad (≈ 60 min)", "Leve o dinheiro de CDE para FOZ
+  (≈ 40 min)". A cotação segue a convenção do balcão: 1 unidade da moeda mais forte (USD > BRL > PYG) = quanto da
+  mais fraca, sem arredondar o preço para zero. Valores inteiros sem centavos; guarani sem centavos.
+- **Estados**: `proposed` → `approved` → `in_progress` → `done`; ou `rejected`; ou `expired`. Um plano que ainda não
+  começou expira quando a cotação mais velha dele passa de `quote_max_age_s` (900 s por padrão, `PLAN_QUOTE_MAX_AGE_S`).
+  A cotação mais velha é a menor data entre `quoted_at` das arestas de cotação do ciclo e a data da evidência (quando há).
+  Um ciclo sem nenhuma data de cotação não vira plano (`422`): nunca se usa "agora" como data da cotação.
+  Depois que o primeiro passo é feito, o plano não expira mais.
+- **Passos**: em ordem; `409` se pular um passo, repetir um passo já feito ou o plano não estiver aprovado.
+- **Resultado**: ao concluir o último passo, o plano grava no diário (`GET /v1/journal`) uma entrada `kind: "result"`
+  com `amounts` = `[{label: "esperado", ...}, {label: "realizado", ...}]` e o texto "Plano … concluído: esperado …,
+  realizado … (diferença …)".
+- **Escritas exigem a chave** de API, como as demais rotas de escrita.
+
+## Alertas — regra de ganho líquido por ciclo
+
+`kind: "cycle_net_gain"`: dispara quando o melhor ciclo tem ganho líquido **positivo** e não menor que `threshold`,
+na moeda `params.currency` (`BRL`, `USD` ou `PYG`). `threshold` é um valor absoluto na moeda escolhida (ex. `"20"` = R$ 20),
+não um ROI. Só dispara para ciclos com `confidence` `quoted` ou `estimated`; `incomplete` nunca dispara. Usa o cooldown
+das demais regras. Os ciclos só são calculados quando existe regra ativa desse tipo.
 
 ## Pregão — velas, resumo da sessão e horários das casas (módulo `pregao`)
 
@@ -172,14 +268,14 @@ SessionStats {
   "data_mode": "real|simulation|demo"
 }
 HouseSession {
-  "source_id": "string", "name": "string", "city": "CDE|ASU|PJC|null", "tz": "string|null",
+  "source_id": "string", "name": "string", "city": "CDE|ASU|PJC|FOZ|ENC|null", "tz": "string|null",
   "channel": "physical|digital|null", "reference": false,
   "status": "open|closed|pre|unknown",
   "opens_at": "ISO-8601 UTC|null", "closes_at": "ISO-8601 UTC|null", "next_change_at": "ISO-8601 UTC|null",
   "data_mode": "real|simulation|demo"
 }
 HouseHours {                                             // entrada de backend/src/fronteira_fx/data/market_hours.json; não é resposta de API
-  "name": "string|null", "city": "CDE|ASU|PJC|null", "channel": "physical|digital", "tz": "fuso IANA",
+  "name": "string|null", "city": "CDE|ASU|PJC|FOZ|ENC|null", "channel": "physical|digital", "tz": "fuso IANA",
   "days": [1, 2, 3, 4, 5, 6], "opens": "HH:MM", "closes": "HH:MM|24:00",
   "schedule": [{ "days": [7], "opens": "HH:MM", "closes": "HH:MM|24:00" }],  // opcional: janelas de outros dias
   "verified": true, "source_url": "https://...|null", "checked_at": "AAAA-MM-DD"  // opcionais: procedência
@@ -280,6 +376,24 @@ Exemplo de `HouseSession` para `GET /v1/pregao/sessions` (segunda-feira, 12:00Z,
 
 - A API devolve percentuais como string já multiplicada por 100: `"0.06816633"` representa 0,07 %. O cliente formata com `formatPercent(v / 100)`.
 
+## Instituições — `GET /v1/institutions`
+
+Cadastro versionado em `backend/src/fronteira_fx/data/institutions.json` (loader validado em `services/institutions.py`).
+Não depende de `data_mode`: é o mesmo em qualquer instância. Operação MCP: `list_institutions`.
+
+`Institution`: `id`, `name`, `country` (`BR` | `PY` | `INT`: país em que o titular abre a conta), `kind` (`bank` | `fintech` | `wallet` | `broker`),
+`status` (`active` | `discontinued`, com `discontinued_note`), `currencies_held` (lista ou `null`), `opens_remotely` (bool ou `null`),
+`requires` (texto ou `null`), `api` (`none` | `pf` | `pj_contract` ou `null`), `api_source_url`, `source_url`, `checked_at` (data `YYYY-MM-DD`),
+`fx_cost: {spread_pct, iof_pct, fee_pct, fee_fixed}`.
+
+Regras de proveniência:
+
+- Cada `Figure` tem `value` (string decimal ou `null`), `currency` (obrigatória em `fee_fixed` quando há valor), `source_url`, `checked_at` e `note`.
+  Percentuais são frações (`"0.035"` = 3,5 %). Valor `null` = não confirmado pela pesquisa, nunca zero.
+- Fato não nulo exige fonte: `currencies_held`, `opens_remotely` e `requires` usam `source_url` + `checked_at` da entrada; `api` usa `api_source_url`.
+- `checked_at` é a data da verificação registrada na pesquisa de 04/11/2026; não é uma nova consulta aos sites.
+- `ueno` está `discontinued` (resolução do BCP). Nenhuma instituição entra no cálculo de lucro sem a figura confirmada.
+
 ## Regras do ranking
 
 1. Digital com `net_gain > 0` (após custos conhecidos) entra no ranking principal, mesmo microganho.
@@ -337,7 +451,8 @@ MCP: `watch_status`, `list_changes`, `trigger_poll`.
 | POST **[chave]** | `/v1/alerts/test/{id}` | envia mensagem de teste pelo canal da regra |
 
 ```jsonc
-AlertRule { "id": "uuid", "name": "ciclo > 0,2 %", "kind": "cycle_roi|quote_move|source_down|opportunity_new",
+AlertRule { "id": "uuid", "name": "ciclo > 0,2 %", "kind": "cycle_roi|quote_move|source_down|opportunity_new|cycle_net_gain",
+  //   cycle_net_gain: params {"currency": "BRL|USD|PYG"} obrigatório; threshold = ganho líquido mínimo naquela moeda
   "threshold": "0.002", "params": { "pair": "USD/PYG", "city": "CDE|digital|null" } | null,   // quote_move compara com Change.after.pair/city;
   //   city "digital" = só cotações sem cidade; ausente/null = qualquer cidade; referências (modality=reference ou
   //   channel=aggregator, ex. dolarPy) nunca disparam quote_move
@@ -347,6 +462,34 @@ AlertEvent { "id": "uuid", "rule_id": "uuid", "ts": "...", "message": "...", "pa
   "delivered": true, "error": "string|null" }
 ```
 Segredos (token do bot, SMTP) só por variáveis de ambiente do backend. MCP: `list_alert_rules`, `create_alert_rule`.
+
+## Mercado: notícias, referências e volatilidade — módulo `market`
+
+Notícias de feeds públicos, referências de mercado (cripto, câmbio de referência, séries do BCB) e volatilidade.
+**Tudo aqui é referência de mercado: `executable` é sempre `false`, nunca é preço de casa de câmbio e nunca entra
+no grafo de posições nem no motor de ciclos.** Só o worker consulta provedores (piso de 60 s por fonte); a API só lê.
+Em `demo` os dados são semeados e marcados `demo` (manchetes ilustrativas, links `.invalid`); em `simulation` não há dados.
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/v1/market/news?source=&since=&limit=50` | `NewsItem[]`, mais recente primeiro (1..200). `source`: `infomoney`, `agencia-brasil`, `bcb`, `mercopress`, `demo` |
+| GET | `/v1/market/quotes` | `MarketQuote[]`, uma linha por instrumento (última referência) |
+| GET | `/v1/market/volatility` | `MarketVolatility[]`, um por instrumento cripto (BTC/USDT, ETH/USDT, USDT/BRL) |
+
+```jsonc
+NewsItem { "id": "uuid", "source": "infomoney", "feed": "infomoney-economia", "title": "string (≤300)", "link": "https://...",
+  "published_at": "...|null", "captured_at": "...", "data_mode": "real" }
+MarketQuote { "instrument": "USD/PYG", "label": "USD/PYG (guarani, via Frankfurter)", "kind": "crypto|fx_reference|bcb_series",
+  "source": "binance|frankfurter|bcb", "price": "5958", "change_pct": "0.12|null", "observed_at": "...", "captured_at": "...",
+  "executable": false, "note": "Referência de mercado. Não é preço executável nem cotação de casa de câmbio.", "data_mode": "real" }
+MarketVolatility { "instrument": "USDT/BRL", "status": "ok|insufficient_data|stale_input", "as_of": "...|null",
+  "last_close": "5.5179|null", "last_move_pct": "0.12|null", "ewma_pct_5m": "0.08|null", "parkinson_1d_pct": "...|null",
+  "parkinson_20d_pct": "...|null", "ratio_1d_20d": "...|null", "atr_14_5m": "...|null (em preço)",
+  "regime": "normal|alta|muito_alta|null", "alert": false, "reasons": ["movimento_acima_de_3x_ewma"], "data_mode": "real" }
+```
+Percentuais em `%`, valores em string decimal. `status` diferente de `ok` → `regime` e `alert` nulos/falsos (nunca um número inventado).
+Eventos no stream: `market.news` (uma por manchete nova) e `market.volatility_alert` (na transição para alerta).
+MCP: `list_market_news`, `get_market_quotes`, `get_market_volatility`.
 
 ## RAG (documentação, tarifas, horários, evidências) — módulo `rag`
 

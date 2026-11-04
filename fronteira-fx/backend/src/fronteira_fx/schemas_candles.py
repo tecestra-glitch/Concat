@@ -13,7 +13,7 @@ Timeframe = Literal["15m", "1h", "4h", "1d"]
 TF_SECONDS: dict[str, int] = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
 SessionStatus = Literal["open", "closed", "pre", "unknown"]
 Channel = Literal["physical", "digital"]
-HouseCity = Literal["CDE", "ASU", "PJC"]
+HouseCity = Literal["CDE", "ASU", "PJC", "FOZ", "ENC"]
 
 
 class Candle(ApiModel):
@@ -73,6 +73,8 @@ class HouseHours(ApiModel):
     verified: bool | None = None
     source_url: str | None = None
     checked_at: str | None = None
+    # fonte fora do monitor (histórico apenas); o horário fica para consulta, sem nova sondagem
+    discontinued: bool = False
 
 
 class HouseSession(ApiModel):

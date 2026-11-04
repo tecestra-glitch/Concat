@@ -14,13 +14,13 @@ export function DialogContent({ className, children, ...props }: React.Component
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-3xl max-h-[85vh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-xl",
+          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-2rem)] max-w-3xl max-h-[85vh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-surface border border-border bg-surface p-5 shadow-[var(--shadow-3)]",
           className,
         )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm p-1 opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-ring" aria-label="Fechar">
+        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-chip p-1 opacity-70 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-ring" aria-label="Fechar">
           <X className="size-4" aria-hidden />
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>

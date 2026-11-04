@@ -1,10 +1,17 @@
 import { bearerMatches, usableSecret } from "./auth.js";
-import { runWesternUnionFlow, type FlowResult, type FlowStatus } from "./flow.js";
+import { runWesternUnionFlow, type FlowPage, type FlowResult, type FlowStatus } from "./flow.js";
 import { openWesternUnionPage, type OpenedPage } from "./playwright-page.js";
 import { WesternUnionRequest } from "./request.js";
+import { startedClock, Trail } from "./trail.js";
 
-// The Vercel function has maxDuration 120 s; the flow gets a little less so the response always goes out.
+// The Vercel function has maxDuration 120 s. The flow gets 110 s, and what is left covers the capture at the
+// deadline (bounded) and closing the browser, so the response always goes out inside 120 s.
 export const FLOW_BUDGET_MS = 110_000;
+/** Ceiling for FLOW_BUDGET_MS: 120 s of maxDuration minus the capture and close margins. */
+export const MAX_FLOW_BUDGET_MS = 115_000;
+/** Each capture at the deadline (title and screenshot, in parallel) is cut at this time. */
+export const CAPTURE_TIMEOUT_MS = 5_000;
+const CLOSE_TIMEOUT_MS = 3_000;
 
 export interface HandlerRequest {
   method?: string | undefined;
@@ -30,18 +37,58 @@ export const defaultDeps: HandlerDeps = {
   budgetMs: FLOW_BUDGET_MS,
 };
 
-function deadline(ms: number, trail: string[]): Promise<FlowResult> {
+/** FLOW_BUDGET_MS from the environment, clamped to [5 s, MAX_FLOW_BUDGET_MS]; null when unset or not a number. */
+export function budgetFromEnv(raw: string | undefined): number | null {
+  if (raw === undefined || raw.trim() === "") return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(Math.max(Math.round(n), 5_000), MAX_FLOW_BUDGET_MS);
+}
+
+/** Only origin and path: the query string can carry session identifiers, so it is never reported. */
+export function safeUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.origin}${u.pathname}`;
+  } catch {
+    return "";
+  }
+}
+
+/** Resolves with `null` after `ms`, or with the value (or null on error) if `p` settles first. */
+function bounded<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        status: "degraded",
-        message: `deadline de ${Math.round(ms / 1000)} s atingido; steps: ${trail.join(" > ")}`,
-        trail: [...trail],
-        scenario: null,
-        screenshot: null,
-      });
-    }, ms).unref();
+    const timer = setTimeout(() => resolve(null), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
   });
+}
+
+/** Reads the page at the deadline: URL (without query), title and, if asked, a screenshot. Never cookies or headers. */
+export async function captureAtDeadline(
+  page: FlowPage,
+  withScreenshot: boolean,
+  ms: number = CAPTURE_TIMEOUT_MS,
+): Promise<{ url: string; title: string | null; screenshot: Uint8Array | null }> {
+  let url = "";
+  try {
+    url = safeUrl(page.url());
+  } catch {
+    url = "";
+  }
+  const [title, screenshot] = await Promise.all([
+    bounded(page.title(), ms),
+    withScreenshot ? bounded(page.screenshot(), ms) : Promise.resolve(null),
+  ]);
+  return { url, title: title ?? null, screenshot: screenshot ?? null };
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -50,8 +97,8 @@ function bytesToBase64(bytes: Uint8Array): string {
 
 /**
  * POST /api/westernunion. Pure with respect to the request: `env` carries BROWSER_SECRET (and the optional local
- * CHROMIUM_EXECUTABLE_PATH). The response carries only the status, the message, the trail, the scenario and, when
- * asked, the screenshot. It never carries cookies, headers or session data.
+ * CHROMIUM_EXECUTABLE_PATH and FLOW_BUDGET_MS). The response carries only the status, the message, the trail (with
+ * the time of each step), the scenario and, when asked, the screenshot. It never carries cookies, headers or session data.
  */
 export async function handleWesternUnion(
   req: HandlerRequest,
@@ -79,6 +126,9 @@ export async function handleWesternUnion(
     };
   }
   const input = parsed.data;
+  const wantShot = input.screenshot === true;
+  const budgetMs = budgetFromEnv(env.FLOW_BUDGET_MS) ?? deps.budgetMs;
+  const trail = new Trail(startedClock());
 
   let opened: OpenedPage;
   try {
@@ -91,15 +141,42 @@ export async function handleWesternUnion(
     };
   }
 
-  const trail: string[] = [];
   let result: FlowResult;
+  let pageAtDeadline: { url: string; title: string | null } | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    result = await Promise.race([
-      runWesternUnionFlow(opened.page, input, deps.now(), { trail }),
-      deadline(deps.budgetMs, trail),
-    ]);
+    const flow = runWesternUnionFlow(opened.page, input, deps.now(), { trail, screenshot: wantShot }).catch(
+      (err: unknown): FlowResult => ({
+        status: "error",
+        message: `erro inesperado: ${err instanceof Error ? err.name : "Error"}`,
+        trail: [...trail.steps],
+        scenario: null,
+        screenshot: null,
+        source: null,
+      }),
+    );
+    const deadline = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), budgetMs);
+    });
+    const outcome = await Promise.race([flow, deadline]);
+    if (outcome === null) {
+      // The flow is still running: read the page now, while the browser is open, then the caller closes it.
+      const snap = await captureAtDeadline(opened.page, wantShot);
+      pageAtDeadline = { url: snap.url, title: snap.title };
+      result = {
+        status: "degraded",
+        message: `deadline de ${Math.round(budgetMs / 1000)} s atingido; steps: ${trail.steps.join(" > ")}`,
+        trail: [...trail.steps],
+        scenario: null,
+        screenshot: snap.screenshot,
+        source: null,
+      };
+    } else {
+      result = outcome;
+    }
   } finally {
-    await opened.close();
+    if (timer !== undefined) clearTimeout(timer);
+    await Promise.race([opened.close(), new Promise((r) => setTimeout(r, CLOSE_TIMEOUT_MS).unref())]);
   }
 
   const body: Record<string, unknown> = {
@@ -107,8 +184,11 @@ export async function handleWesternUnion(
     message: result.message,
     trail: result.trail,
     scenario: result.scenario,
+    source: result.source,
+    routing: { blocked: opened.counters.blocked, allowed: opened.counters.allowed },
   };
-  if (input.screenshot && result.screenshot) {
+  if (pageAtDeadline) body.page = pageAtDeadline;
+  if (wantShot && result.screenshot) {
     body.screenshot_png_b64 = bytesToBase64(result.screenshot);
   }
   return { status: 200, body };
