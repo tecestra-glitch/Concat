@@ -5,7 +5,7 @@ import { API_KEY_STEPS } from "@/components/connections/api-key-dialog";
 import type { Connection } from "@/lib/api/connections";
 
 const noop = () => undefined;
-const conn: Connection = { id: "c1", institution_id: "binance", institution_name: "Binance", method: "api_key_readonly", status: "active", key_hint: "mnop", created_at: "2026-11-04T09:00:00.000Z", last_sync_at: null, data_mode: "demo" };
+const conn: Connection = { id: "c1", institution: "binance", label: "Binance", kind: "readonly_key", status: "active", data_mode: "demo", account_id: null, key_hint: "mnop", balances: null, last_error: null, last_synced_at: null, created_at: "2026-11-04T09:00:00.000Z", updated_at: "2026-11-04T09:00:00.000Z" };
 
 function render(aggregatorConfigured: boolean, connections: Connection[] = []) {
   return renderToStaticMarkup(

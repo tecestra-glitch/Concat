@@ -643,3 +643,19 @@ Objeto `Connection`:
 ### Modos de dados
 
 Conexões têm `data_mode` como o resto: a instância só enxerga as suas. `?data_mode=` diferente → `409`.
+
+### Decisões de tela (conexões)
+
+- **Segredo da API** é o único campo `type="password"` da tela de conexões (o login é outro campo, fora deste módulo).
+  Motivo: a máscara por CSS (`-webkit-text-security`) não é garantida em todos os navegadores, e o segredo não pode
+  ficar legível. `autocomplete="off"` e marcadores de gerenciador de senha (`data-lpignore`, `data-1p-ignore`,
+  `data-bwignore`) impedem o cofre de senhas de guardar o segredo. A chave pública segue em texto mascarado por CSS.
+  Nenhum campo de senha de banco existe; o teste e2e confere o campo.
+- **Extrato CSV** exige o mapeamento de colunas (`mapping`, obrigatório para CSV); a tela envia o conteúdo em JSON
+  para `POST /v1/connections/{id}/statement` e apaga a conexão recém-criada se o envio falhar.
+- **Agregador de Open Finance** ainda não aparece em `GET /v1/connections`: a tela trata como não configurado
+  (botão desabilitado). `POST /v1/connections/openfinance/consent` ainda não tem resposta de sucesso definida no
+  backend (o openapi diz `ConnectionOut`, sem `redirect_url`); a tela só redireciona quando receber `redirect_url` https.
+- **Contrato testado**: `src/test/connections-openapi.test.ts` confere campos de resposta, corpos enviados e rotas
+  contra `src/test/fixtures/connections-openapi.json` (subconjunto do openapi exportado em 3138bbd). Mudou o backend →
+  atualizar o fixture e os schemas no mesmo commit.

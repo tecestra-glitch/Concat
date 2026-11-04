@@ -34,7 +34,11 @@ test.describe("conexões (demonstração)", () => {
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText("O Fronteira FX nunca pede a senha do seu banco.");
     await expect(dialog.getByTestId("api-key-steps").getByText(/DESMARCADOS operar/)).toBeVisible();
-    await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
+    // Único campo de senha da tela: o segredo da API (nunca a senha do banco). A chave é texto.
+    await expect(dialog.locator('input[type="password"]')).toHaveCount(1);
+    await expect(dialog.getByLabel("Segredo da API")).toHaveAttribute("type", "password");
+    await expect(dialog.getByLabel("Segredo da API")).toHaveAttribute("autocomplete", "off");
+    await expect(dialog.getByLabel("Chave de API")).toHaveAttribute("type", "text");
     await dialog.getByRole("button", { name: "Validar chave" }).click();
     await expect(dialog.getByRole("alert").first()).toContainText("Informe a chave de API");
     await expect(dialog.getByRole("button", { name: "Salvar conexão" })).toBeDisabled();

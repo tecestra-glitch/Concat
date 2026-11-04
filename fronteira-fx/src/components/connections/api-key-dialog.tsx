@@ -1,9 +1,10 @@
 "use client";
 /**
- * Diálogo de chave de API só leitura. O segredo NÃO usa `type="password"` (a regra da tela é que o único campo de
- * senha do app é o de login); ele aparece mascarado por CSS (`fx-mask`) e nunca é mostrado de volta: depois de salvar
- * a tela só guarda os últimos 4 caracteres. A chave é validada no servidor antes de salvar, e uma chave que pode
- * operar ou sacar é recusada.
+ * Diálogo de chave de API só leitura. Decisão de segurança: o SEGREDO usa `type="password"`, porque a máscara por CSS
+ * (`-webkit-text-security`) não é garantida em todos os navegadores e deixaria o segredo em claro. Por isso o app tem,
+ * além do login, este campo de segredo (e só ele): nenhum campo de senha de banco existe. A chave pública fica em texto
+ * mascarado por CSS. Nada disso é guardado: depois de salvar a tela só mantém os últimos 4 caracteres. A chave é
+ * validada no servidor antes de salvar, e uma chave que pode operar ou sacar é recusada.
  */
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -59,14 +60,14 @@ function ApiKeyForm({ inst, mode, onDone }: { inst: CatalogInstitution; mode: Mo
     setAttempted(true);
     if (hasApiKeyErrors(errors)) return;
     await validate.run(async () => {
-      setValidation(await api.validateApiKey(mode, { institution_id: inst.id, api_key: form.apiKey.trim(), api_secret: form.apiSecret.trim() }));
+      setValidation(await api.validateApiKey(mode, { institution: inst.id, api_key: form.apiKey.trim(), api_secret: form.apiSecret.trim() }));
     }, "Não foi possível validar a chave.");
   };
 
   const onSave = async () => {
     if (!canSave) return;
     const ok = await save.run(async () => {
-      await api.createApiKeyConnection(mode, { institution_id: inst.id, institution_name: inst.name, api_key: form.apiKey.trim(), api_secret: form.apiSecret.trim() });
+      await api.createApiKeyConnection(mode, { institution: inst.id, label: `${inst.name} leitura`, api_key: form.apiKey.trim(), api_secret: form.apiSecret.trim() });
       await qc.invalidateQueries({ queryKey: ["connections", mode] });
     }, "Não foi possível salvar a conexão.");
     if (ok) {
@@ -114,19 +115,23 @@ function ApiKeyForm({ inst, mode, onDone }: { inst: CatalogInstitution; mode: Mo
           <Input
             id="api-key-segredo"
             name="api-secret"
-            type="text"
+            type="password"
             autoComplete="off"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
+            data-lpignore="true"
+            data-1p-ignore="true"
+            data-bwignore="true"
+            data-form-type="other"
             value={form.apiSecret}
             onChange={(e) => update({ apiSecret: e.target.value })}
             aria-invalid={!!showErr("apiSecret")}
             aria-describedby="api-key-segredo-erro"
-            className="fx-mask font-mono"
+            className="font-mono"
           />
           {showErr("apiSecret") && <p id="api-key-segredo-erro" role="alert" className="text-caption text-loss">{showErr("apiSecret")}</p>}
-          <p className="text-caption text-muted">O segredo aparece mascarado e não é mostrado de volta depois de salvo.</p>
+          <p className="text-caption text-muted">O segredo fica oculto pelo próprio navegador e não é mostrado de volta depois de salvo.</p>
         </div>
 
         <label className="flex items-start gap-2 text-body">

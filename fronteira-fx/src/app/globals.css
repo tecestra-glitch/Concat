@@ -419,7 +419,7 @@
   }
 }
 
-/* Segredo de API: aparece mascarado sem usar type="password" (a tela de login é o único campo de senha do app). */
+/* Chave pública de API: mascarada por CSS (o segredo usa type="password", que é garantido pelo navegador). */
 .fx-mask {
   -webkit-text-security: disc;
   text-security: disc;

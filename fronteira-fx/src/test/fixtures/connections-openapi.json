@@ -1,0 +1,1176 @@
+{
+  "source": "docs/openapi.json @ 3138bbd (fronteira-fx), subconjunto das rotas /v1/connections",
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/connections": {
+      "get": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "List Connections",
+        "operationId": "list_connections",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectionOut"
+                  },
+                  "title": "Response List Connections"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "Create Connection",
+        "operationId": "create_connection",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/connections/validate-key": {
+      "post": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "Validate Connection Key",
+        "description": "Confere a chave na corretora sem guardar nada. Chave com permissão de operar ou sacar vem com ok=false.",
+        "operationId": "validate_connection_key",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyValidationIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyCheckOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/connections/openfinance/consent": {
+      "post": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "Start Openfinance Consent",
+        "description": "Inicia o consentimento Open Finance. Hoje só responde 503 (não configurado) ou 501 (sem integração).\nNunca recebe credencial de banco: o titular conclui no fluxo do agregador.",
+        "operationId": "start_openfinance_consent",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/OpenFinanceConsentIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionOut"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "provedor configurado, sem integração nesta versão"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/connections/{connection_id}/sync": {
+      "post": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "Sync Connection",
+        "description": "Relê saldos com a chave guardada e confere de novo as permissões. Nenhuma ordem é enviada.",
+        "operationId": "sync_connection",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Connection Id"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/connections/{connection_id}/statement": {
+      "post": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "Import Connection Statement",
+        "description": "Importa extrato CSV (com mapeamento de colunas) ou OFX. Arquivo com erro é recusado por inteiro.",
+        "operationId": "import_connection_statement",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Connection Id"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatementImportIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatementImportOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/connections/{connection_id}": {
+      "delete": {
+        "tags": [
+          "connections"
+        ],
+        "summary": "Delete Connection",
+        "description": "Apaga a conexão, o ciphertext da chave e os lançamentos importados. A conta vinculada não muda.",
+        "operationId": "delete_connection",
+        "parameters": [
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Connection Id"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          },
+          {
+            "name": "X-API-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "schemas": {
+    "BalanceOut": {
+      "properties": {
+        "asset": {
+          "type": "string",
+          "title": "Asset"
+        },
+        "free": {
+          "type": "string",
+          "title": "Free"
+        },
+        "locked": {
+          "type": "string",
+          "title": "Locked"
+        }
+      },
+      "type": "object",
+      "required": [
+        "asset",
+        "free",
+        "locked"
+      ],
+      "title": "BalanceOut"
+    },
+    "ConnectionCreate": {
+      "properties": {
+        "institution": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Institution"
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Label"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "consent",
+            "readonly_key",
+            "statement",
+            "manual"
+          ],
+          "title": "Kind"
+        },
+        "account_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 36
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Account Id"
+        },
+        "api_key": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "password",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Api Key"
+        },
+        "api_secret": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "password",
+              "writeOnly": true
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Api Secret"
+        }
+      },
+      "type": "object",
+      "required": [
+        "institution",
+        "label",
+        "kind"
+      ],
+      "title": "ConnectionCreate"
+    },
+    "ConnectionOut": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "title": "Id"
+        },
+        "institution": {
+          "type": "string",
+          "title": "Institution"
+        },
+        "label": {
+          "type": "string",
+          "title": "Label"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "consent",
+            "readonly_key",
+            "statement",
+            "manual"
+          ],
+          "title": "Kind"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "active",
+            "error"
+          ],
+          "title": "Status"
+        },
+        "data_mode": {
+          "type": "string",
+          "title": "Data Mode"
+        },
+        "account_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Account Id"
+        },
+        "key_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Key Hint"
+        },
+        "balances": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/components/schemas/BalanceOut"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Balances"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Error"
+        },
+        "last_synced_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Synced At"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Created At"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Updated At"
+        }
+      },
+      "type": "object",
+      "required": [
+        "id",
+        "institution",
+        "label",
+        "kind",
+        "status",
+        "data_mode",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "ConnectionOut"
+    },
+    "CsvMappingIn": {
+      "properties": {
+        "date": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Date"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Description"
+        },
+        "amount": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Amount"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 64
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Currency"
+        },
+        "date_format": {
+          "type": "string",
+          "title": "Date Format",
+          "default": "%Y-%m-%d"
+        },
+        "delimiter": {
+          "type": "string",
+          "enum": [
+            ",",
+            ";",
+            "\t"
+          ],
+          "title": "Delimiter",
+          "default": ","
+        }
+      },
+      "type": "object",
+      "required": [
+        "date",
+        "description",
+        "amount"
+      ],
+      "title": "CsvMappingIn"
+    },
+    "KeyCheckOut": {
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "title": "Ok"
+        },
+        "institution": {
+          "type": "string",
+          "title": "Institution"
+        },
+        "flags": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": "object",
+          "title": "Flags"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "title": "Reasons"
+        },
+        "balances": {
+          "items": {
+            "$ref": "#/components/schemas/BalanceOut"
+          },
+          "type": "array",
+          "title": "Balances"
+        }
+      },
+      "type": "object",
+      "required": [
+        "ok",
+        "institution",
+        "flags",
+        "reasons",
+        "balances"
+      ],
+      "title": "KeyCheckOut"
+    },
+    "KeyValidationIn": {
+      "properties": {
+        "institution": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Institution"
+        },
+        "api_key": {
+          "type": "string",
+          "format": "password",
+          "title": "Api Key",
+          "writeOnly": true
+        },
+        "api_secret": {
+          "type": "string",
+          "format": "password",
+          "title": "Api Secret",
+          "writeOnly": true
+        }
+      },
+      "type": "object",
+      "required": [
+        "institution",
+        "api_key",
+        "api_secret"
+      ],
+      "title": "KeyValidationIn"
+    },
+    "OpenFinanceConsentIn": {
+      "properties": {
+        "institution": {
+          "type": "string",
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "title": "Institution"
+        }
+      },
+      "type": "object",
+      "required": [
+        "institution"
+      ],
+      "title": "OpenFinanceConsentIn"
+    },
+    "StatementImportIn": {
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": [
+            "csv",
+            "ofx"
+          ],
+          "title": "Format"
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 524288,
+          "minLength": 1,
+          "title": "Content"
+        },
+        "mapping": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/CsvMappingIn"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "default_currency": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "BRL",
+                "USD",
+                "PYG"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Default Currency"
+        }
+      },
+      "type": "object",
+      "required": [
+        "format",
+        "content"
+      ],
+      "title": "StatementImportIn"
+    },
+    "StatementImportOut": {
+      "properties": {
+        "connection_id": {
+          "type": "string",
+          "title": "Connection Id"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "csv",
+            "ofx"
+          ],
+          "title": "Format"
+        },
+        "imported": {
+          "type": "integer",
+          "title": "Imported"
+        },
+        "duplicates": {
+          "type": "integer",
+          "title": "Duplicates"
+        },
+        "account_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Account Id"
+        },
+        "balance_delta": {
+          "type": "string",
+          "title": "Balance Delta",
+          "default": "0"
+        },
+        "account_balance_free": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Account Balance Free"
+        }
+      },
+      "type": "object",
+      "required": [
+        "connection_id",
+        "format",
+        "imported",
+        "duplicates"
+      ],
+      "title": "StatementImportOut"
+    }
+  }
+}

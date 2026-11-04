@@ -48,6 +48,6 @@ export function statementFileError(file: { name: string; size: number } | null):
   const lower = file.name.toLowerCase();
   if (!STATEMENT_EXTENSIONS.some((ext) => lower.endsWith(ext))) return "Use um arquivo .csv ou .ofx.";
   if (file.size <= 0) return "O arquivo está vazio.";
-  if (file.size > STATEMENT_MAX_BYTES) return "Arquivo grande demais: o limite é 5 MB.";
+  if (file.size > STATEMENT_MAX_BYTES) return "Arquivo grande demais: o limite é 512 KB.";
   return null;
 }

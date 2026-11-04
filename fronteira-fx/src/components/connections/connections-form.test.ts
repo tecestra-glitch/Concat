@@ -36,7 +36,7 @@ describe("arquivo de extrato", () => {
   it("recusa outra extensão, vazio, grande demais ou ausente", () => {
     expect(statementFileError({ name: "x.pdf", size: 10 })).toMatch(/csv|ofx/);
     expect(statementFileError({ name: "x.csv", size: 0 })).toMatch(/vazio/);
-    expect(statementFileError({ name: "x.csv", size: 6 * 1024 * 1024 })).toMatch(/5 MB/);
+    expect(statementFileError({ name: "x.csv", size: 600 * 1024 })).toMatch(/512 KB/);
     expect(statementFileError(null)).toMatch(/Escolha/);
   });
 });

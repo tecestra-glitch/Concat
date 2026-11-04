@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FxChip, type FxChipTone } from "@/components/ui/fx/fx-chip";
-import { keyHintText, type Connection, type ConnectionStatus } from "@/lib/api/connections";
+import { keyHintText, type Connection, type ConnectionKind, type ConnectionStatus } from "@/lib/api/connections";
 import { CATALOG, PATH_LABEL, pathsFor, type CatalogGroup, type CatalogInstitution, type ConnectionPath } from "@/lib/api/connections-catalog";
 import type { Mode } from "@/lib/api/types";
 
@@ -19,7 +19,14 @@ const STATUS: Record<ConnectionStatus, { label: string; tone: FxChipTone }> = {
   pending: { label: "Aguardando", tone: "warn" },
   active: { label: "Ativa", tone: "gain" },
   error: { label: "Com erro", tone: "loss" },
-  revoked: { label: "Revogada", tone: "neutral" },
+};
+
+/** Caminho de conexão a partir do tipo de conexão do servidor (`kind`). */
+const PATH_OF_KIND: Record<ConnectionKind, ConnectionPath> = {
+  consent: "open_finance",
+  readonly_key: "api_key_readonly",
+  statement: "statement_import",
+  manual: "manual_balance",
 };
 
 const METHOD_NOTE: Record<ConnectionPath, string> = {
@@ -108,9 +115,9 @@ function ConnectionRow({ conn, onDelete, busy }: { conn: Connection; onDelete: (
     <li className="rounded-surface border border-border bg-surface p-3 text-body" data-testid="connection-row">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-medium">{conn.institution_name}</p>
+          <p className="font-medium">{conn.label}</p>
           <p className="text-caption text-muted">
-            {PATH_LABEL[conn.method]}
+            {PATH_LABEL[PATH_OF_KIND[conn.kind]]}
             {hint && <> · chave <span className="tnum">{hint}</span></>}
           </p>
         </div>
@@ -119,12 +126,12 @@ function ConnectionRow({ conn, onDelete, busy }: { conn: Connection; onDelete: (
       <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
         {confirming ? (
           <>
-            <span className="mr-auto text-caption text-muted">Desconectar {conn.institution_name}?</span>
+            <span className="mr-auto text-caption text-muted">Desconectar {conn.label}?</span>
             <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={busy}>Cancelar</Button>
             <Button variant="destructive" size="sm" onClick={() => onDelete(conn)} disabled={busy}>Confirmar desconexão</Button>
           </>
         ) : (
-          <Button variant="ghost" size="sm" onClick={() => setConfirming(true)} disabled={busy} aria-label={`Desconectar ${conn.institution_name}`}>Desconectar</Button>
+          <Button variant="ghost" size="sm" onClick={() => setConfirming(true)} disabled={busy} aria-label={`Desconectar ${conn.label}`}>Desconectar</Button>
         )}
       </div>
     </li>
