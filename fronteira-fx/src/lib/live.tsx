@@ -13,10 +13,13 @@ import type { AlertEvent } from "./api/watch";
 import { alertToasts } from "./alert-toasts";
 import { applyQuoteUpdate, applySnapshot, applySourceHealthEvent, parseStreamFrame, shouldResetCursor } from "./live-cache";
 import { useSettings } from "./settings";
+import { probeStreamOff } from "./stream-probe";
 
 /**
- * `scheduled`: a conexão abriu e foi fechada pelo servidor (API serverless: o SSE fecha a cada ~4 s e volta
- * em ~30 s). Não é erro: o selo diz "Ao vivo · atualiza a cada 30 s". `reconnecting` só vale para falha sem abrir.
+ * `scheduled`: atualização por consulta periódica, sem stream aberto. Vale quando o servidor fecha a conexão
+ * depois de abrir e quando a API desligou o stream (404 na Vercel): o site passa a consultar o snapshot a cada
+ * `pollFallbackSeconds`. Não é erro: o selo diz "Ao vivo · atualiza a cada 30 s". `reconnecting` só vale para
+ * falha real sem abrir.
  */
 export type ConnState = "connected" | "scheduled" | "reconnecting" | "offline" | "demo";
 
@@ -49,10 +52,12 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const attemptRef = React.useRef(0);
   const openedRef = React.useRef(false); // a conexão atual chegou a abrir (onopen)
+  const streamOffRef = React.useRef(false); // a API respondeu 404 no stream: só consulta periódica
 
   React.useEffect(() => {
     if (mode === "demo") return;
     let disposed = false;
+    streamOffRef.current = false;
 
     const closeEs = () => {
       esRef.current?.close();
@@ -109,15 +114,20 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
     const connect = async (fresh: boolean) => {
       if (disposed || esRef.current) return; // never open duplicate connections
       try {
-        if (fresh || !cursorRef.current) await takeSnapshot();
+        if (fresh || !cursorRef.current || streamOffRef.current) await takeSnapshot();
         if (disposed) return;
       } catch {
         if (disposed) return;
         setState("offline");
-        schedule();
+        if (!streamOffRef.current) schedule();
         return;
       }
-      const es = new EventSource(api.streamUrl(mode, cursorRef.current));
+      if (streamOffRef.current) {
+        setState("scheduled"); // sem stream nesta API: o intervalo abaixo consulta o snapshot
+        return;
+      }
+      const url = api.streamUrl(mode, cursorRef.current);
+      const es = new EventSource(url);
       esRef.current = es;
       es.onopen = () => {
         attemptRef.current = 0;
@@ -138,8 +148,22 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
         // Caiu depois de abrir: fechamento programado do servidor, não erro. Sem abrir: falha real.
         const wasOpen = openedRef.current;
         openedRef.current = false;
-        setState(wasOpen ? "scheduled" : "reconnecting");
-        schedule();
+        if (wasOpen) {
+          setState("scheduled");
+          schedule();
+          return;
+        }
+        // Nem abriu: pergunta à API se o stream foi desligado (404) antes de entrar no recuo de reconexão.
+        void probeStreamOff(url).then((off) => {
+          if (disposed) return;
+          if (off) {
+            streamOffRef.current = true;
+            setState("scheduled");
+            return;
+          }
+          setState("reconnecting");
+          schedule();
+        });
       };
     };
 
@@ -158,9 +182,13 @@ export function LiveProvider({ children }: { children: React.ReactNode }) {
     // Polling is only a fallback: while the stream is open the snapshot is skipped.
     const fallback = setInterval(() => {
       if (disposed || esRef.current) return;
-      takeSnapshot().catch(() => {
-        if (!disposed) setState((s) => (s === "connected" ? s : "offline"));
-      });
+      takeSnapshot()
+        .then(() => {
+          if (!disposed && streamOffRef.current) setState("scheduled"); // volta de "offline" quando a API responde
+        })
+        .catch(() => {
+          if (!disposed) setState((s) => (s === "connected" ? s : "offline"));
+        });
     }, Math.max(10, settings.pollFallbackSeconds) * 1000);
 
     const onVisibility = () => {
