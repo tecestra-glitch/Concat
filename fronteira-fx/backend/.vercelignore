@@ -1,0 +1,19 @@
+# Fora do pacote da função (ver docs/deploy.md, "Modo grátis").
+tests/
+evals/
+scripts/
+alembic/
+.venv/
+.local/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+**/__pycache__/
+dist/
+var/
+Dockerfile
+Dockerfile.worker
+.dockerignore
+# Segredos nunca entram no pacote: o backend lê as variáveis do painel da Vercel.
+.env
+.env.*
