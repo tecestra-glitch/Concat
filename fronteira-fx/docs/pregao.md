@@ -198,7 +198,31 @@ Regras:
 - O resumo do topo conta só as casas físicas do par atual (as que aparecem na Lista): "1 de 6 casas físicas abertas". As digitais aparecem à parte ("2 de 2 digitais abertas"). O selo "aberto" (verde) exige casa física aberta; sem física aberta, digitais abertas mostram "só digitais" neutro. Senão mostra "pré-abertura", depois "fechado" e, por fim, "sem horário".
 - `next_change_at` alimenta a contagem regressiva até a próxima mudança, no formato "N min" ou "N h NN min".
 - Status é o **horário publicado** da casa. Ele não garante que a cotação esteja atual. Para isso, veja a idade ao lado de cada linha.
-- Os horários do arquivo `src/fronteira_fx/data/market_hours.json` (backend) são **ilustrativos** e precisam ser confirmados com cada casa. A tela depende só do formato.
+- Os horários do arquivo `backend/src/fronteira_fx/data/market_hours.json` vieram de pesquisa com checagem (2026-11-04). Só entram horários **confirmados** ou **corrigidos**; os demais são removidos ou marcados `verified: false`. A tabela de procedência está abaixo.
+- **Referência BCP**: a janela 08:30–13:00 é a **apuração** do câmbio de referência (média ponderada das operações spot), não a hora de publicação. A hora de publicação não foi encontrada. Por isso a tela diz "Referência BCP: próxima mudança às HH:MM", e não "próxima às".
+- **dolarPy** é referência de terceiros e nunca executável. O README traz um crontab de exemplo (`*/10`, 06–20 seg–sex), que não é horário de operação do serviço: sem entrada no arquivo, aparece como "sem horário".
+
+### Procedência dos horários (checagem de 2026-11-04)
+
+| Casa (`source_id`) | Horário usado | Fonte | Checagem | Situação |
+|---|---|---|---|---|
+| chaco (Cambios Chaco, CDE) | seg–sex 07:15–16:00; sáb 07:15–13:00; dom fechado. Sucursal Adrián Jara (1ª unidade de CDE na lista oficial) | https://www.cambioschaco.com.py/en/sucursales/ (página oficial, 21 unidades) | 2026-11-04 | confirmado |
+| maxicambios (MaxiCambios, ASU) | seg–sáb 08:00–21:00; dom 10:00–20:00. Shopping Multiplaza, Casa Central | https://www.maxicambios.com.py/ (seção Sucursales) | 2026-11-04 | corrigido |
+| bcp (BCP referência) | seg–sex 08:30–13:00 = janela de apuração (publicação não encontrada) | https://www.bcp.gov.py/webapps/web/cotizacion/monedas | 2026-11-04 | corrigido |
+| ueno, nomad, revolut | 24 h (digitais; não pesquisadas nesta rodada) | — | — | `verified: false` |
+| alberdi (CDE) | sem horário | site sem horários; só redes, sem horário de CDE | 2026-11-04 | inconclusivo: removido |
+| norte (ASU) | sem horário | site HTTP 503 em três tentativas; sem outra fonte | 2026-11-04 | não encontrado: removido |
+| bonanza (ASU) | sem horário | site sem sucursais nem horários | 2026-11-04 | não encontrado: removido |
+| myd (M&D, não cadastrada) | sem horário | página oficial só com horários de redes; verificação com tela de espera | 2026-11-04 | inconclusivo: não cadastrada |
+| dolarpy (referência) | sem horário | README: crontab de exemplo, não horário de operação | 2026-11-04 | corrigido só como exemplo: não cadastrada |
+
+Diferenças de horário entre fontes, não cobertas pelo formato (uma entrada por casa):
+
+- **chaco**: a sede (Casa Central) é ASU, mas o projeto cadastra a casa em CDE. Outras unidades têm horários diferentes (Casa Central seg–sex 08:30–17:00, sáb 09:00–12:00; Itá Ybate, Noblesse, Km7 etc.). O Instagram oficial diz "08:00 a 18:00, sábado até o mediodía" para El Pueblo, enquanto a página oficial diz 08:30–17:00 (Paseo Lambaré). Post do Facebook da "Plaza City CDE" diz 07:30–15:30, e essa unidade não consta da lista oficial. Prevalece a página oficial.
+- **maxicambios**: o Facebook da Casa Central diz "08:00 a 18:00" seg–sex e "08:00 a 14:00" sáb, contra 08–21 do site. Facebook de CDE diz 07:30–17:00. Prevalece o site. O site lista 22 unidades; o arquivo guarda só a Casa Central. Pedro Juan Caballero não aparece no site.
+- **bcp**: a página não informa a hora de publicação nem o fuso. Fuso `America/Asuncion` (UTC−3), sem fonte oficial contrária.
+
+Pendências antes de publicar com mais casas: confirmar alberdi, norte, bonanza e myd com cada casa (telefone ou canal oficial) e incluí-las só com horário confirmado; checar o horário de publicação do BCP; decidir se o chaco deve ficar em ASU (sede).
 
 ## Atalhos
 

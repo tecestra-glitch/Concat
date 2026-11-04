@@ -1,7 +1,8 @@
 """Horários de funcionamento das casas e status da sessão (aberta, fechada, pré-abertura, sem horário).
 
-Os horários vêm de `data/market_hours.json` (§0.7) e são interpretados no fuso de cada casa. Casa sem horário,
-fuso inválido ou `hours` nulo → `unknown`: nunca se inventa horário. `house_status` devolve sempre datetimes UTC.
+Os horários vêm de `data/market_hours.json` (§0.7) e são interpretados no fuso de cada casa. Janelas de
+outros dias vão em `schedule`. Casa sem horário, fuso inválido ou `hours` nulo → `unknown`: nunca se inventa
+horário. `house_status` devolve sempre datetimes UTC.
 """
 
 from __future__ import annotations
@@ -26,6 +27,8 @@ _ALL_DAYS = frozenset(range(1, 8))
 _UNKNOWN: StatusTuple = ("unknown", None, None, None)
 _HHMM = re.compile(r"[0-9]{2}:[0-9]{2}")
 
+Window = tuple[int, int]  # (abertura, fechamento) em minutos desde 00:00 local
+
 
 def _read_text() -> str:
     return resources.files("fronteira_fx").joinpath("data/market_hours.json").read_text("utf-8")
@@ -39,20 +42,34 @@ def _is_hhmm(value: str) -> bool:
     return minutes < 60 and (hours < 24 or (hours == 24 and minutes == 0))
 
 
-def _validate(source_id: str, hours: HouseHours) -> None:
+def _check_window(source_id: str, where: str, days: list[int], opens: str, closes: str) -> None:
     def fail(message: str) -> ValueError:
-        return ValueError(f"market_hours[{source_id}]: {message}")
+        return ValueError(f"market_hours[{source_id}]: {where}{message}")
 
-    if source_id.startswith("demo-"):
-        raise fail("chave com prefixo demo- (o arquivo não tem prefixo)")
-    if len(set(hours.days)) != len(hours.days) or not set(hours.days) <= _ALL_DAYS:
-        raise fail(f"days deve ter dias ISO de 1 a 7, sem repetição: {hours.days}")
-    if not _is_hhmm(hours.opens) or minutes_of(hours.opens) >= 1440:
-        raise fail(f"opens deve estar entre 00:00 e 23:59 (HH:MM): {hours.opens!r}")
-    if not _is_hhmm(hours.closes) or not 1 <= minutes_of(hours.closes) <= 1440:
-        raise fail(f"closes deve estar entre 00:01 e 24:00 (HH:MM): {hours.closes!r}")
-    if minutes_of(hours.closes) <= minutes_of(hours.opens):
+    if len(set(days)) != len(days) or not set(days) <= _ALL_DAYS:
+        raise fail(f"days deve ter dias ISO de 1 a 7, sem repetição: {days}")
+    if not _is_hhmm(opens) or minutes_of(opens) >= 1440:
+        raise fail(f"opens deve estar entre 00:00 e 23:59 (HH:MM): {opens!r}")
+    if not _is_hhmm(closes) or not 1 <= minutes_of(closes) <= 1440:
+        raise fail(f"closes deve estar entre 00:01 e 24:00 (HH:MM): {closes!r}")
+    if minutes_of(closes) <= minutes_of(opens):
         raise fail("closes deve ser posterior a opens")
+
+
+def _validate(source_id: str, hours: HouseHours) -> None:
+    if source_id.startswith("demo-"):
+        raise ValueError(f"market_hours[{source_id}]: chave com prefixo demo- (o arquivo não tem prefixo)")
+    _check_window(source_id, "", hours.days, hours.opens, hours.closes)
+    covered = set(hours.days)
+    for index, window in enumerate(hours.schedule or []):
+        where = f"schedule[{index}]: "
+        if not window.days:
+            raise ValueError(f"market_hours[{source_id}]: {where}days não pode ser vazio")
+        _check_window(source_id, where, window.days, window.opens, window.closes)
+        overlap = covered & set(window.days)
+        if overlap:
+            raise ValueError(f"market_hours[{source_id}]: {where}dias {sorted(overlap)} já têm janela")
+        covered |= set(window.days)
 
 
 def parse_market_hours(text: str) -> dict[str, HouseHours]:
@@ -97,11 +114,21 @@ def local_midnight_utc(day: datetime, tz: ZoneInfo) -> datetime:
     return datetime(day.year, day.month, day.day, tzinfo=tz).astimezone(UTC)
 
 
-def _window_utc(local_midnight: datetime, hours: HouseHours) -> tuple[datetime, datetime]:
+def windows_by_day(hours: HouseHours) -> dict[int, Window]:
+    """Janela `(abertura, fechamento)` em minutos de cada dia ISO em que a casa abre. Dia ausente = fechado."""
+    windows: dict[int, Window] = {day: (minutes_of(hours.opens), minutes_of(hours.closes)) for day in hours.days}
+    for extra in hours.schedule or []:
+        for day in extra.days:
+            windows[day] = (minutes_of(extra.opens), minutes_of(extra.closes))
+    return windows
+
+
+def _window_utc(local_midnight: datetime, window: Window) -> tuple[datetime, datetime]:
     """Abertura e fechamento do dia (meia-noite local, com fuso) em UTC; `24:00` cai no dia seguinte."""
+    opens, closes = window
     return (
-        (local_midnight + timedelta(minutes=minutes_of(hours.opens))).astimezone(UTC),
-        (local_midnight + timedelta(minutes=minutes_of(hours.closes))).astimezone(UTC),
+        (local_midnight + timedelta(minutes=opens)).astimezone(UTC),
+        (local_midnight + timedelta(minutes=closes)).astimezone(UTC),
     )
 
 
@@ -117,24 +144,30 @@ def house_status(hours: HouseHours | None, now: datetime) -> StatusTuple:
     if is_always_open(hours):
         return ("open", None, None, None)
 
+    windows = windows_by_day(hours)
+    if not windows:
+        return ("closed", None, None, None)
     local = now.astimezone(tz)
     weekday = local.isoweekday()
     minute = local.hour * 60 + local.minute
-    op, cl = minutes_of(hours.opens), minutes_of(hours.closes)
     today = datetime(local.year, local.month, local.day, tzinfo=tz)
+    window = windows.get(weekday)
 
-    if weekday in hours.days and op <= minute < cl:
-        opens_at, closes_at = _window_utc(today, hours)
-        return ("open", opens_at, closes_at, closes_at)
-    if weekday in hours.days and op - PRE_OPEN_MIN <= minute < op:
-        opens_at, closes_at = _window_utc(today, hours)
-        return ("pre", opens_at, closes_at, opens_at)
+    if window is not None:
+        opens, closes = window
+        if opens <= minute < closes:
+            opens_at, closes_at = _window_utc(today, window)
+            return ("open", opens_at, closes_at, closes_at)
+        if opens - PRE_OPEN_MIN <= minute < opens:
+            opens_at, closes_at = _window_utc(today, window)
+            return ("pre", opens_at, closes_at, opens_at)
 
-    first = 0 if minute < op - PRE_OPEN_MIN else 1
+    first = 0 if window is not None and minute < window[0] - PRE_OPEN_MIN else 1
     for offset in range(first, first + 8):
         day = today + timedelta(days=offset)
-        if day.isoweekday() in hours.days:
-            opens_at, closes_at = _window_utc(day, hours)
+        day_window = windows.get(day.isoweekday())
+        if day_window is not None:
+            opens_at, closes_at = _window_utc(day, day_window)
             return ("closed", opens_at, closes_at, opens_at - timedelta(minutes=PRE_OPEN_MIN))
     return ("closed", None, None, None)
 

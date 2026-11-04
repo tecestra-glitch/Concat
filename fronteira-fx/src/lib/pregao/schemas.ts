@@ -43,14 +43,24 @@ export const SessionStatsSchema = z.object({
   data_mode: DataModeSchema,
 });
 export const SessionStatsListSchema = z.array(SessionStatsSchema);
+const HhmmSchema = z.string().regex(/^\d{2}:\d{2}$/);
+export const HouseWindowSchema = z.object({
+  days: z.array(z.int().min(1).max(7)).min(1),
+  opens: HhmmSchema,
+  closes: HhmmSchema,
+});
 export const HouseHoursSchema = z.object({
   name: z.string().nullable().optional(),
   city: HouseCitySchema.nullable().optional(),
   channel: HouseChannelSchema.optional(),
   tz: z.string().min(1),
   days: z.array(z.int().min(1).max(7)),
-  opens: z.string().regex(/^\d{2}:\d{2}$/),
-  closes: z.string().regex(/^\d{2}:\d{2}$/),
+  opens: HhmmSchema,
+  closes: HhmmSchema,
+  schedule: z.array(HouseWindowSchema).optional(),
+  verified: z.boolean().optional(),
+  source_url: z.string().nullable().optional(),
+  checked_at: z.string().nullable().optional(),
 });
 export const HouseSessionSchema = z.object({
   source_id: z.string().min(1),

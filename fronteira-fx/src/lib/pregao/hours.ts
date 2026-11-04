@@ -91,38 +91,49 @@ function minutesOf(hhmm: string): number {
   return Number(h) * 60 + Number(m);
 }
 
-/** Implementa os passos 1–7 de §0.7. `now` é um instante (UTC). */
+/** Janela `[abertura, fechamento]` em minutos desde 00:00 local, por dia ISO em que a casa abre. Dia ausente = fechado. */
+export function windowsByDay(hours: HouseHours): Map<number, [number, number]> {
+  const windows = new Map<number, [number, number]>();
+  for (const day of hours.days) windows.set(day, [minutesOf(hours.opens), minutesOf(hours.closes)]);
+  for (const extra of hours.schedule ?? []) {
+    for (const day of extra.days) windows.set(day, [minutesOf(extra.opens), minutesOf(extra.closes)]);
+  }
+  return windows;
+}
+
+/** Implementa os passos 1–7 de §0.7 com janelas por dia (`schedule`). `now` é um instante (UTC). */
 export function houseStatus(hours: HouseHours | null | undefined, now: Date): StatusResult {
   if (!hours) return { status: "unknown", ...NONE };
   const lp = localParts(now, hours.tz);
   if (lp === null) return { status: "unknown", ...NONE };
   if (isAlwaysOpen(hours)) return { status: "open", ...NONE };
 
-  const op = minutesOf(hours.opens);
-  const cl = minutesOf(hours.closes);
-  const [opH, opM] = [Math.floor(op / 60), op % 60];
-  const [clH, clM] = [Math.floor(cl / 60), cl % 60];
+  const windows = windowsByDay(hours);
+  if (windows.size === 0) return { status: "closed", ...NONE };
   const { isoWeekday: wd, minutes: m } = lp;
-  const times = (dayOffset: number) => ({
-    opens_at: zonedToUtc(lp.year, lp.month, lp.day + dayOffset, opH, opM, hours.tz),
-    closes_at: zonedToUtc(lp.year, lp.month, lp.day + dayOffset, clH, clM, hours.tz),
+  const timesOn = (dayOffset: number, [op, cl]: [number, number]) => ({
+    opens_at: zonedToUtc(lp.year, lp.month, lp.day + dayOffset, Math.floor(op / 60), op % 60, hours.tz),
+    closes_at: zonedToUtc(lp.year, lp.month, lp.day + dayOffset, Math.floor(cl / 60), cl % 60, hours.tz),
   });
 
-  if (hours.days.includes(wd)) {
+  const today = windows.get(wd);
+  if (today) {
+    const [op, cl] = today;
     if (op <= m && m < cl) {
-      const t = times(0);
+      const t = timesOn(0, today);
       return { status: "open", opens_at: t.opens_at.toISOString(), closes_at: t.closes_at.toISOString(), next_change_at: t.closes_at.toISOString() };
     }
     if (op - PRE_OPEN_MIN <= m && m < op) {
-      const t = times(0);
+      const t = timesOn(0, today);
       return { status: "pre", opens_at: t.opens_at.toISOString(), closes_at: t.closes_at.toISOString(), next_change_at: t.opens_at.toISOString() };
     }
   }
 
-  const first = m < op - PRE_OPEN_MIN ? 0 : 1;
-  for (let d = first; d <= 8; d++) {
-    if (!hours.days.includes(((wd - 1 + d) % 7) + 1)) continue;
-    const t = times(d);
+  const first = today && m < today[0] - PRE_OPEN_MIN ? 0 : 1;
+  for (let d = first; d <= first + 7; d++) {
+    const window = windows.get(((wd - 1 + d) % 7) + 1);
+    if (!window) continue;
+    const t = timesOn(d, window);
     return {
       status: "closed",
       opens_at: t.opens_at.toISOString(),

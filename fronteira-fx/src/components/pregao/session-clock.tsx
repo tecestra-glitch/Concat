@@ -37,7 +37,8 @@ function referenceText(referenceNext: string | null): string {
   if (!referenceNext) return "sem horário";
   const at = Date.parse(referenceNext);
   if (Number.isNaN(at)) return "sem horário";
-  return `próxima às ${clockText(at, REFERENCE_TZ)}`;
+  // A referência BCP é apurada numa janela (08:30–13:00); a hora de publicação não foi confirmada.
+  return `próxima mudança às ${clockText(at, REFERENCE_TZ)}`;
 }
 
 export interface SessionClockProps {

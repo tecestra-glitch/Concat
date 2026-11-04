@@ -50,6 +50,13 @@ export interface SessionStats {
   data_mode: DataMode;
 }
 
+/** Janela extra de outros dias (`schedule`); os dias não repetem `HouseHours.days`. */
+export interface HouseWindow {
+  days: number[];
+  opens: string;
+  closes: string;
+}
+
 export interface HouseHours {
   name?: string | null;
   city?: HouseCity | null;
@@ -58,6 +65,10 @@ export interface HouseHours {
   days: number[];
   opens: string;
   closes: string;
+  schedule?: HouseWindow[];
+  verified?: boolean;
+  source_url?: string | null;
+  checked_at?: string | null;
 }
 
 export interface HouseSession {

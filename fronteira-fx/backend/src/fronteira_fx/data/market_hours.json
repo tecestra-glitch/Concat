@@ -4,36 +4,30 @@
     "city": "CDE",
     "channel": "physical",
     "tz": "America/Asuncion",
-    "days": [1, 2, 3, 4, 5, 6],
-    "opens": "07:30",
-    "closes": "17:00"
-  },
-  "alberdi": {
-    "name": "Cambios Alberdi",
-    "city": "CDE",
-    "channel": "physical",
-    "tz": "America/Asuncion",
-    "days": [1, 2, 3, 4, 5, 6],
-    "opens": "07:30",
-    "closes": "17:30"
-  },
-  "norte": {
-    "name": "Cambios Norte",
-    "city": "ASU",
-    "channel": "physical",
-    "tz": "America/Asuncion",
     "days": [1, 2, 3, 4, 5],
-    "opens": "08:00",
-    "closes": "17:00"
+    "opens": "07:15",
+    "closes": "16:00",
+    "schedule": [
+      { "days": [6], "opens": "07:15", "closes": "13:00" }
+    ],
+    "verified": true,
+    "source_url": "https://www.cambioschaco.com.py/en/sucursales/",
+    "checked_at": "2026-11-04"
   },
-  "bonanza": {
-    "name": "Bonanza Cambios",
+  "maxicambios": {
+    "name": "MaxiCambios",
     "city": "ASU",
     "channel": "physical",
     "tz": "America/Asuncion",
     "days": [1, 2, 3, 4, 5, 6],
     "opens": "08:00",
-    "closes": "18:00"
+    "closes": "21:00",
+    "schedule": [
+      { "days": [7], "opens": "10:00", "closes": "20:00" }
+    ],
+    "verified": true,
+    "source_url": "https://www.maxicambios.com.py/",
+    "checked_at": "2026-11-04"
   },
   "ueno": {
     "name": "ueno",
@@ -42,7 +36,8 @@
     "tz": "America/Asuncion",
     "days": [1, 2, 3, 4, 5, 6, 7],
     "opens": "00:00",
-    "closes": "24:00"
+    "closes": "24:00",
+    "verified": false
   },
   "nomad": {
     "name": "Nomad",
@@ -51,7 +46,8 @@
     "tz": "America/Sao_Paulo",
     "days": [1, 2, 3, 4, 5, 6, 7],
     "opens": "00:00",
-    "closes": "24:00"
+    "closes": "24:00",
+    "verified": false
   },
   "revolut": {
     "name": "Revolut",
@@ -60,7 +56,8 @@
     "tz": "UTC",
     "days": [1, 2, 3, 4, 5, 6, 7],
     "opens": "00:00",
-    "closes": "24:00"
+    "closes": "24:00",
+    "verified": false
   },
   "bcp": {
     "name": "BCP (referência)",
@@ -68,7 +65,10 @@
     "channel": "digital",
     "tz": "America/Asuncion",
     "days": [1, 2, 3, 4, 5],
-    "opens": "08:00",
-    "closes": "17:00"
+    "opens": "08:30",
+    "closes": "13:00",
+    "verified": true,
+    "source_url": "https://www.bcp.gov.py/webapps/web/cotizacion/monedas",
+    "checked_at": "2026-11-04"
   }
 }

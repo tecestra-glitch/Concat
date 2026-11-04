@@ -179,7 +179,9 @@ HouseSession {
 }
 HouseHours {                                             // entrada de backend/src/fronteira_fx/data/market_hours.json; não é resposta de API
   "name": "string|null", "city": "CDE|ASU|PJC|null", "channel": "physical|digital", "tz": "fuso IANA",
-  "days": [1, 2, 3, 4, 5, 6], "opens": "HH:MM", "closes": "HH:MM|24:00"
+  "days": [1, 2, 3, 4, 5, 6], "opens": "HH:MM", "closes": "HH:MM|24:00",
+  "schedule": [{ "days": [7], "opens": "HH:MM", "closes": "HH:MM|24:00" }],  // opcional: janelas de outros dias
+  "verified": true, "source_url": "https://...|null", "checked_at": "AAAA-MM-DD"  // opcionais: procedência
 }
 ```
 
@@ -246,6 +248,8 @@ Exemplo de `HouseSession` para `GET /v1/pregao/sessions` (segunda-feira, 12:00Z,
 ### Horários das casas — `GET /v1/pregao/sessions`
 
 - Arquivo: `backend/src/fronteira_fx/data/market_hours.json`, com chaves iguais ao `source_id` sem o prefixo `demo-`. Há um horário por fonte, com os campos de `HouseHours`. `days` usa dias ISO (1 = segunda … 7 = domingo); lista vazia significa sempre fechada. `opens` e `closes` são `HH:MM`, e `closes` aceita `24:00`.
+- `schedule` (opcional) dá janela própria a outros dias, por exemplo sábado mais curto ou domingo com horário. Os dias de `schedule` não podem repetir `days` nem outra janela, senão é erro ao carregar. Dia fora de `days` e de `schedule` é fechado. Ex.: `days: [1..5]` com `08:30–17:00` e `schedule: [{days: [6], 09:00–12:00}]` abre sábado até 12:00 e fecha domingo.
+- Campos de procedência, opcionais e ignorados pelo status: `verified` (`true` só com horário confirmado ou corrigido na checagem), `source_url` e `checked_at` (data da checagem). Casa sem horário verificado não entra no arquivo: aparece como `unknown`.
 - `closes ≤ opens` é erro ao carregar o arquivo, com o `source_id` na mensagem: não existe horário que atravesse a meia-noite. Fonte sem horário cadastrado → `unknown`.
 - `PRE_OPEN_MIN = 30`: a pré-abertura são os 30 minutos antes de `opens`.
 - Rótulos da tela: `open` = "aberta", `closed` = "fechada", `pre` = "pré-abertura", `unknown` = "sem horário".
@@ -253,9 +257,9 @@ Exemplo de `HouseSession` para `GET /v1/pregao/sessions` (segunda-feira, 12:00Z,
   1. Sem horário ou com `tz` inválido → `unknown`, com os três campos de horário `null`.
   2. Sete dias e `00:00`–`24:00` (casa digital sempre aberta) → `open`, com os três campos `null`.
   3. `now` é convertido para o fuso da casa; daí saem o dia da semana e o minuto do dia local.
-  4. Dia de funcionamento e `opens ≤ agora < closes` → `open`; `opens_at` e `closes_at` são de hoje; `next_change_at = closes_at`.
+  4. Dia de funcionamento (janela de `days` ou de `schedule`) e `opens ≤ agora < closes` → `open`; `opens_at` e `closes_at` são de hoje; `next_change_at = closes_at`.
   5. Dia de funcionamento e até 30 minutos antes de `opens` → `pre`; `opens_at` e `closes_at` são de hoje; `next_change_at = opens_at`.
-  6. Nos demais casos → `closed`. Procura-se o próximo dia de funcionamento, começando por hoje se a pré-abertura de hoje ainda não começou, senão por amanhã, até 8 dias à frente. Encontrado, `opens_at` e `closes_at` são desse dia e `next_change_at = opens_at − 30 min`. Não encontrado (ex.: `days` vazio) → `closed` com os três campos `null`.
+  6. Nos demais casos → `closed`. Procura-se o próximo dia de funcionamento (com a janela desse dia), começando por hoje se a pré-abertura de hoje ainda não começou, senão por amanhã, até 8 dias à frente. Encontrado, `opens_at` e `closes_at` são desse dia e `next_change_at = opens_at − 30 min`. Não encontrado (ex.: `days` vazio) → `closed` com os três campos `null`.
   7. Horário local vira UTC pelo fuso da casa; `24:00` é 00:00 do dia seguinte.
 - `name` vem de `HouseHours.name`; sem ele, usa `Source.name` e, na falta deste, o `source_id`.
 - `reference: true` para fontes `central_bank` (BCP) e para as que declaram a capacidade `reference_only` ou `market_reference` (dolarPy, `kind: fintech`). Referências aparecem na resposta, mas o resumo da tela as deixa fora do total e das casas abertas.

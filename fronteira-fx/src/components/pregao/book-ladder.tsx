@@ -88,6 +88,7 @@ function BookRow({ level, side, best, quote, selected, now, onSelect }: BookRowP
   const price = side === "buy" ? level.buy : level.sell;
   const agio = side === "buy" ? level.agio_buy_pct : level.agio_sell_pct;
   const closed = level.status === "closed";
+  const noHours = level.status === "unknown";
 
   function onKeyDown(ev: KeyboardEvent<HTMLTableRowElement>) {
     if (ev.key === "Enter" || ev.key === " ") {
@@ -120,7 +121,7 @@ function BookRow({ level, side, best, quote, selected, now, onSelect }: BookRowP
               {level.house}
             </span>
           </span>
-          {level.city !== null || best || closed || level.incomplete ? (
+          {level.city !== null || best || closed || noHours || level.incomplete ? (
             // Uma linha só: cidade e selos não quebram (quebrar deixava a linha melhor ~1,5× mais alta que as outras).
             <span className="flex min-w-0 flex-nowrap items-center gap-1">
               <HouseCity city={level.city} />
@@ -131,6 +132,7 @@ function BookRow({ level, side, best, quote, selected, now, onSelect }: BookRowP
                 </Badge>
               )}
               {closed && <Badge variant="outline">fechada</Badge>}
+              {noHours && <Badge variant="outline">sem horário</Badge>}
               {level.incomplete && <Badge variant="warn">incompleta</Badge>}
             </span>
           ) : null}

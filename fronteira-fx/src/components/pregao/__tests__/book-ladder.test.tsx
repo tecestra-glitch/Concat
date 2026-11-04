@@ -155,6 +155,16 @@ describe("BookLadder", () => {
     expect(incompleteRow?.body).toContain("incompleta");
   });
 
+  it("casa sem horário leva o rótulo sem horário (não fica sem status), sem opacidade", () => {
+    const unknown = mkLevel({ key: "u", house: "Casa Sem Horário", source_id: "u", buy: "7310", sell: "7390", status: "unknown" });
+    const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={[unknown]} />);
+    const row = rowsOf(html, "pregao-book-row").find((r) => r.open.includes('data-key="u"'));
+    expect(row?.open).toContain('data-status="unknown"');
+    expect(row?.open).not.toContain("opacity-");
+    expect(row?.body).toContain("sem horário");
+    expect(row?.body).not.toContain("fechada");
+  });
+
   it("selectedKey marca aria-selected só na linha da chave selecionada", () => {
     const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={levels} selectedKey="b" />);
     const rows = rowsOf(html, "pregao-book-row");

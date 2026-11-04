@@ -52,6 +52,14 @@ class SessionStats(ApiModel):
     data_mode: DataMode
 
 
+class ScheduleWindow(ApiModel):
+    """Janela extra de um conjunto de dias (ex.: sábado mais curto). Os dias não podem repetir `HouseHours.days`."""
+
+    days: list[int]
+    opens: str
+    closes: str
+
+
 class HouseHours(ApiModel):
     name: str | None = None
     city: HouseCity | None = None
@@ -60,6 +68,11 @@ class HouseHours(ApiModel):
     days: list[int]
     opens: str
     closes: str
+    # Opcionais: janelas de outros dias, e procedência (`source_url`, `checked_at` AAAA-MM-DD, `verified`).
+    schedule: list[ScheduleWindow] | None = None
+    verified: bool | None = None
+    source_url: str | None = None
+    checked_at: str | None = None
 
 
 class HouseSession(ApiModel):

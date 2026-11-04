@@ -54,7 +54,7 @@ describe("SessionClock", () => {
   it("mostra a próxima referência BCP no horário de Assunção", () => {
     const html = renderToStaticMarkup(<SessionClock now={now} referenceNext="2026-11-03T11:00:00Z" />);
     expect(html).toContain("Referência BCP");
-    expect(html).toContain("próxima às 08:00");
+    expect(html).toContain("próxima mudança às 08:00");
   });
 
   it("mostra 'sem horário' quando não há próxima referência", () => {

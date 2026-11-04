@@ -36,15 +36,24 @@ export const DEMO_HOUSES: readonly DemoHouse[] = [
   { id: "bcp", name: "BCP (referência)", city: null, channel: "digital", reference: true, pairs: ["USD/PYG", "BRL/PYG"] },
 ];
 
-/** Mesmo conteúdo de `data/market_hours.json` (§0.7) para as casas de `DEMO_HOUSES`. Horários ilustrativos. */
+/**
+ * Mesmo conteúdo de `data/market_hours.json` (§0.7) para as casas de `DEMO_HOUSES` que têm horário.
+ * alberdi, norte e bonanza não têm horário verificado: ficam sem entrada (status "sem horário").
+ */
 export const DEMO_HOURS: Record<string, HouseHours> = {
-  chaco: { name: "Cambios Chaco", city: "CDE", channel: "physical", tz: "America/Asuncion", days: [1, 2, 3, 4, 5, 6], opens: "07:30", closes: "17:00" },
-  alberdi: { name: "Cambios Alberdi", city: "CDE", channel: "physical", tz: "America/Asuncion", days: [1, 2, 3, 4, 5, 6], opens: "07:30", closes: "17:30" },
-  norte: { name: "Cambios Norte", city: "ASU", channel: "physical", tz: "America/Asuncion", days: [1, 2, 3, 4, 5], opens: "08:00", closes: "17:00" },
-  bonanza: { name: "Bonanza Cambios", city: "ASU", channel: "physical", tz: "America/Asuncion", days: [1, 2, 3, 4, 5, 6], opens: "08:00", closes: "18:00" },
-  ueno: { name: "ueno", city: null, channel: "digital", tz: "America/Asuncion", days: [1, 2, 3, 4, 5, 6, 7], opens: "00:00", closes: "24:00" },
-  nomad: { name: "Nomad", city: null, channel: "digital", tz: "America/Sao_Paulo", days: [1, 2, 3, 4, 5, 6, 7], opens: "00:00", closes: "24:00" },
-  bcp: { name: "BCP (referência)", city: null, channel: "digital", tz: "America/Asuncion", days: [1, 2, 3, 4, 5], opens: "08:00", closes: "17:00" },
+  chaco: {
+    name: "Cambios Chaco", city: "CDE", channel: "physical", tz: "America/Asuncion",
+    days: [1, 2, 3, 4, 5], opens: "07:15", closes: "16:00",
+    schedule: [{ days: [6], opens: "07:15", closes: "13:00" }],
+    verified: true, source_url: "https://www.cambioschaco.com.py/en/sucursales/", checked_at: "2026-11-04",
+  },
+  ueno: { name: "ueno", city: null, channel: "digital", tz: "America/Asuncion", days: [1, 2, 3, 4, 5, 6, 7], opens: "00:00", closes: "24:00", verified: false },
+  nomad: { name: "Nomad", city: null, channel: "digital", tz: "America/Sao_Paulo", days: [1, 2, 3, 4, 5, 6, 7], opens: "00:00", closes: "24:00", verified: false },
+  bcp: {
+    name: "BCP (referência)", city: null, channel: "digital", tz: "America/Asuncion",
+    days: [1, 2, 3, 4, 5], opens: "08:30", closes: "13:00",
+    verified: true, source_url: "https://www.bcp.gov.py/webapps/web/cotizacion/monedas", checked_at: "2026-11-04",
+  },
 };
 
 /** Filtro de `demoQuotesAt` (D37): só cotações das casas do pregão demo. */
