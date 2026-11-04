@@ -7,13 +7,14 @@ values stay exact everywhere. Every business row carries `data_mode` ("real" | "
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -551,3 +552,42 @@ class ExecutionStep(Base):
     data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
 
     plan: Mapped[ExecutionPlan] = relationship(back_populates="steps")
+
+
+class Connection(Base):
+    """Conexão de conta. Nunca guarda senha de banco. A chave de corretora (só leitura) fica cifrada em `ciphertext`
+    (AES-256-GCM, chave em FX_CONNECTIONS_KEY); `key_hint` guarda só os 4 últimos caracteres para exibição."""
+
+    __tablename__ = "connections"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    institution: Mapped[str] = mapped_column(String(64), index=True)
+    label: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(16))  # consent | readonly_key | statement | manual
+    status: Mapped[str] = mapped_column(String(16), default="active")  # pending | active | error
+    account_id: Mapped[str | None] = mapped_column(ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    key_hint: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    ciphertext: Mapped[str | None] = mapped_column(Text, nullable=True)
+    balances: Mapped[list[dict[str, str]] | None] = mapped_column(JSONType, nullable=True)  # snapshot, sem segredo
+    last_error: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class StatementEntry(Base):
+    """Lançamento importado de extrato (CSV ou OFX). `fingerprint` deduplica reimportações do mesmo arquivo."""
+
+    __tablename__ = "connection_statement_entries"
+    __table_args__ = (UniqueConstraint("connection_id", "fingerprint", name="uq_connection_entries_fingerprint"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    connection_id: Mapped[str] = mapped_column(ForeignKey("connections.id", ondelete="CASCADE"), index=True)
+    occurred_on: Mapped[date] = mapped_column(Date)
+    description: Mapped[str] = mapped_column(String(200))
+    amount: Mapped[Decimal] = mapped_column(Money)  # positivo = crédito, negativo = débito
+    currency: Mapped[str] = mapped_column(String(3))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    imported_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)

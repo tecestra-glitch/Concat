@@ -8,6 +8,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.20.1",
+    "cryptography>=50.0.2",
     "fastapi-mcp>=0.4.0",
     "fastapi[standard]>=0.162.0",
     "httpx>=0.28.1",

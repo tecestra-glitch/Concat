@@ -82,6 +82,17 @@ class Settings(BaseSettings):
     browser_secret: str | None = Field(default=None, validation_alias=AliasChoices("FX_BROWSER_SECRET"))
     remote_browser_min_interval_s: int = 7200  # Western Union at most every 2 h (Vercel free-plan CPU budget)
 
+    # Conexões de contas (módulo connections). FX_CONNECTIONS_KEY é a chave mestra do cofre (AES-256-GCM, 32 bytes em
+    # base64); sem ela o cofre fica desligado e as rotas que tocam em chaves respondem 503. Nunca vai para o frontend.
+    connections_key: str | None = Field(default=None, validation_alias=AliasChoices("FX_CONNECTIONS_KEY"))
+    # Open Finance por consentimento: desligado por padrão. Exige um agregador autorizado (ex.: pluggy) e as credenciais
+    # dele; sem provedor a rota de consentimento responde "não configurado".
+    openfinance_provider: str | None = Field(default=None, validation_alias=AliasChoices("FX_OPENFINANCE_PROVIDER"))
+    openfinance_client_id: str | None = Field(default=None, validation_alias=AliasChoices("FX_OPENFINANCE_CLIENT_ID"))
+    openfinance_client_secret: str | None = Field(
+        default=None, validation_alias=AliasChoices("FX_OPENFINANCE_CLIENT_SECRET")
+    )
+
     # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
     # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).
     # One-off alternative: `python -m fronteira_fx.cli seed-knowledge`.
@@ -100,6 +111,10 @@ class Settings(BaseSettings):
                 "POSTGRES_PASSWORD (DATABASE_URL) ainda é o placeholder do .env.example; "
                 "gere com `openssl rand -hex 32`"
             )
+        if self.connections_key and self.connections_key.strip().upper().startswith(PLACEHOLDER_PREFIX):
+            raise ValueError(
+                "FX_CONNECTIONS_KEY ainda é o placeholder do .env.example; gere com `openssl rand -base64 32`"
+            )
         if self.browser_secret and self.browser_secret.strip().upper().startswith(PLACEHOLDER_PREFIX):
             raise ValueError("FX_BROWSER_SECRET ainda é o placeholder do .env.example; gere com `openssl rand -hex 32`")
         return self
@@ -115,6 +130,15 @@ class Settings(BaseSettings):
             local = parts.hostname in ("localhost", "127.0.0.1", "::1")
             if parts.scheme != "https" and not (parts.scheme == "http" and local):
                 raise ValueError("FX_BROWSER_URL precisa ser https:// (http só é aceito para localhost)")
+        return self
+
+    @model_validator(mode="after")
+    def _normalise_connection_settings(self) -> Self:
+        """Empty values count as unset (a blank line in `.env` must not enable anything)."""
+        self.connections_key = (self.connections_key or "").strip() or None
+        self.openfinance_provider = (self.openfinance_provider or "").strip().lower() or None
+        self.openfinance_client_id = (self.openfinance_client_id or "").strip() or None
+        self.openfinance_client_secret = (self.openfinance_client_secret or "").strip() or None
         return self
 
     @property
