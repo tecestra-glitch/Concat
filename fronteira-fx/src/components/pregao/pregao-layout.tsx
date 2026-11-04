@@ -148,6 +148,8 @@ export function PregaoLayout({
 
         <div
           id="pregao-panel-grafico"
+          role="tabpanel"
+          aria-labelledby="pregao-tab-grafico"
           className={cn(
             "grid grid-cols-1 content-start gap-3 min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-2 xl:row-span-1",
             tab !== "grafico" && "max-md:hidden",
@@ -169,7 +171,8 @@ export function PregaoLayout({
 
         <section
           id="pregao-panel-livro"
-          aria-labelledby="pregao-h-livro"
+          role="tabpanel"
+          aria-labelledby="pregao-tab-livro"
           className={cn("min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-3 xl:row-start-2", tab !== "livro" && "max-md:hidden")}
         >
           <h3 id="pregao-h-livro" className="text-sm font-medium">
@@ -181,6 +184,8 @@ export function PregaoLayout({
         {/* Mapa de spread e cruzado: aba Livro no celular; em lg+ sob o gráfico, ao lado do livro. */}
         <div
           id="pregao-panel-livro-extra"
+          role="tabpanel"
+          aria-labelledby="pregao-tab-livro"
           data-testid="pregao-book-extra"
           className={cn("min-w-0 lg:col-start-1 lg:row-start-4 xl:row-start-3", tab !== "livro" && "max-md:hidden")}
         >
@@ -197,7 +202,8 @@ export function PregaoLayout({
 
           <section
             id="pregao-panel-ultimas"
-            aria-labelledby="pregao-h-ultimas"
+            role="tabpanel"
+            aria-labelledby="pregao-tab-ultimas"
             className={cn(
               "min-w-0 lg:col-span-2 lg:col-start-1 lg:row-start-5 xl:flex xl:min-h-[18rem] xl:flex-1 xl:flex-col xl:[contain:size]",
               tab !== "ultimas" && "max-md:hidden",
@@ -211,7 +217,7 @@ export function PregaoLayout({
         </div>
       </div>
 
-      <section id="pregao-panel-lista" aria-labelledby="pregao-h-lista" className={cn("min-w-0", tab !== "lista" && "max-md:hidden")}>
+      <section id="pregao-panel-lista" role="tabpanel" aria-labelledby="pregao-tab-lista" className={cn("min-w-0", tab !== "lista" && "max-md:hidden")}>
         <h3 id="pregao-h-lista" className="text-sm font-medium">
           Lista
         </h3>

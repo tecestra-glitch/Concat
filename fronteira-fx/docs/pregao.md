@@ -195,7 +195,7 @@ Regras:
 - **Desconhecido nunca vira fechado.** Uma casa sem horário aparece como "sem horário", não como "fechada".
 - Casas digitais com horário de 24 horas (no arquivo: ueno, Nomad e Revolut) ficam sempre abertas, sem contagem regressiva.
 - Referências (BCP) ficam fora do total e da contagem de abertas.
-- O resumo do topo mostra "aberto" se alguma casa está aberta. Senão mostra "pré-abertura", depois "fechado" e, por fim, "sem horário".
+- O resumo do topo conta só as casas físicas do par atual (as que aparecem na Lista): "1 de 6 casas físicas abertas". As digitais aparecem à parte ("2 de 2 digitais abertas"). O selo "aberto" (verde) exige casa física aberta; sem física aberta, digitais abertas mostram "só digitais" neutro. Senão mostra "pré-abertura", depois "fechado" e, por fim, "sem horário".
 - `next_change_at` alimenta a contagem regressiva até a próxima mudança, no formato "N min" ou "N h NN min".
 - Status é o **horário publicado** da casa. Ele não garante que a cotação esteja atual. Para isso, veja a idade ao lado de cada linha.
 - Os horários do arquivo `src/fronteira_fx/data/market_hours.json` (backend) são **ilustrativos** e precisam ser confirmados com cada casa. A tela depende só do formato.
@@ -229,7 +229,7 @@ Regras:
 - **Contraste**: texto com pelo menos 4,5:1 e marcas gráficas com pelo menos 3:1, nos dois temas.
 - **Estrutura**: cada bloco é uma `section` com `aria-labelledby`. A página tem um só `h2` ("Pregão").
 - **Seleção única** (intervalo e par) é um `radiogroup`, com setas, Home e End. Os indicadores são uma `toolbar` de botões `aria-pressed`.
-- **Abas no celular**: `tablist` com setas, Home e End. Os painéis continuam `section`, sem `role="tabpanel"`, porque a mesma árvore serve ao desktop.
+- **Abas no celular**: `tablist` com setas, Home e End. Cada painel é `role="tabpanel"` com `aria-labelledby` apontando para a sua aba (o livro tem dois painéis, o livro e o mapa + cruzado, ambos ligados à aba Livro). Em md+ o `tablist` some e os painéis ficam visíveis, com o nome da aba oculta.
 - **Tabelas** têm `th scope="col"`. A ordenação é um botão com `aria-sort` dentro do cabeçalho. Linhas selecionáveis respondem a Enter e Espaço.
 - **Gráfico** é uma `figure` com `figcaption` em `sr-only` (resumo textual), sem papel de imagem: a biblioteca põe um link de atribuição dentro do gráfico e o estado de erro tem o botão "Tentar de novo", e controles dentro de uma imagem ficariam inacessíveis. A legenda é uma lista rotulada.
 - **Casa fechada** leva o rótulo "fechada" (e `data-status="closed"`); no mapa de spread, a célula ganha contorno tracejado. Nada é esmaecido com opacidade, que derrubaria o contraste do texto abaixo de 4,5:1.

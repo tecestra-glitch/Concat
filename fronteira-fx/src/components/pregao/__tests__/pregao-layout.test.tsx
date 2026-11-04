@@ -223,8 +223,9 @@ describe("PregaoLayout — painéis", () => {
 describe("PregaoLayout — títulos de seção e landmarks", () => {
   it("cada section[aria-labelledby] aponta para um h3 com esse id", () => {
     const html = render();
-    const labelledBy = [...html.matchAll(/<section[^>]*aria-labelledby="([^"]+)"/g)].map((m) => m[1]);
-    expect(labelledBy).toHaveLength(8);
+    // Seções de aba (role=tabpanel) são nomeadas pela aba, não por um h3: ficam de fora desta conta.
+    const labelledBy = [...html.matchAll(/<section(?![^>]*role="tabpanel")[^>]*aria-labelledby="([^"]+)"/g)].map((m) => m[1]);
+    expect(labelledBy).toHaveLength(5);
     for (const id of labelledBy) {
       expect(html).toMatch(new RegExp(`<h3 id="${id}"[^>]*>`));
     }
@@ -257,8 +258,28 @@ describe("PregaoLayout — títulos de seção e landmarks", () => {
 });
 
 describe("PregaoLayout — semântica das abas", () => {
-  it("não renderiza role=tabpanel (D38)", () => {
-    expect(render()).not.toContain("tabpanel");
+  it("cada painel das abas é role=tabpanel e aponta para a sua aba (aria-labelledby)", () => {
+    const html = render();
+    const paineis: [string, string[]][] = [
+      ["grafico", ["pregao-panel-grafico"]],
+      ["livro", ["pregao-panel-livro", "pregao-panel-livro-extra"]],
+      ["lista", ["pregao-panel-lista"]],
+      ["ultimas", ["pregao-panel-ultimas"]],
+    ];
+    for (const [aba, ids] of paineis) {
+      for (const id of ids) {
+        const tag = tagWith(html, `id="${id}"`);
+        expect(tag, id).toContain('role="tabpanel"');
+        expect(tag, id).toContain(`aria-labelledby="pregao-tab-${aba}"`);
+      }
+    }
+    expect(html.match(/role="tabpanel"/g)?.length).toBe(5);
+  });
+
+  it("o painel de aba tem a própria aba como nome; o título h3 continua visível dentro dele", () => {
+    const html = render();
+    expect(tagWith(html, 'id="pregao-panel-livro"')).not.toContain('aria-labelledby="pregao-h-livro"');
+    expect(html).toContain('<h3 id="pregao-h-livro" class="text-sm font-medium">Livro de casas</h3>');
   });
 
   it("o tablist fica oculto em md e acima", () => {
