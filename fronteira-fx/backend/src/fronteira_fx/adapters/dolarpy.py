@@ -36,6 +36,8 @@ from ._http import (
 from .base import AdapterInfo, AdapterResult, QuoteDraft
 
 URL = "https://dolar.melizeche.com/api/1.0/"
+# ueno bank entered resolution by the BCP on 2026-11-03: dolarPy still lists it; we do not show it.
+DISCONTINUED_HOUSES = frozenset({"ueno"})
 RULE = (
     "dolarpy json v1 (dolarpy.<house>.compra/venta -> one reference quote per house; "
     "updated 'YYYY-MM-DD HH:MM:SS' America/Asuncion; referencial_diario ignored)"
@@ -120,6 +122,8 @@ class DolarPyAdapter:
         quotes: list[QuoteDraft] = []
         for house, entry in houses.items():
             name = str(house).strip()
+            if name.lower() in DISCONTINUED_HOUSES:  # closed institutions the aggregator still lists
+                continue
             if not isinstance(entry, dict):
                 issues.append(f"{name}: entry is not an object")
                 continue

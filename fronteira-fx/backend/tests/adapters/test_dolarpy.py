@@ -19,7 +19,7 @@ URL = dolarpy.URL
 FRESH = datetime(2026, 10, 31, 6, 0, tzinfo=UTC)
 HOUSES = {
     "bcp", "bonanza", "cambiosalberdi", "cambioschaco", "continental", "eurocambios", "familiar",
-    "gnbfusion", "lamoneda", "maxicambios", "mundialcambios", "mydcambios", "set", "ueno",
+    "gnbfusion", "lamoneda", "maxicambios", "mundialcambios", "mydcambios", "set",  # ueno: banco fechado, pulado
 }
 
 
@@ -44,7 +44,7 @@ def test_parse_one_quote_per_house() -> None:
     assert maxi.unit_note.startswith("PYG por 1 USD") and "não executável" in maxi.unit_note
     bcp = _house(res, "bcp")
     assert bcp.buy == Decimal("5908.35") and bcp.sell == Decimal("5922.67")  # never the referencial_diario column
-    assert len(res.quotes) == 14 and {q.context["house"] for q in res.quotes} == HOUSES
+    assert len(res.quotes) == 13 and {q.context["house"] for q in res.quotes} == HOUSES
 
 
 def test_every_quote_is_reference_only() -> None:
@@ -60,7 +60,7 @@ def test_stale_after_24h(captured_at: datetime) -> None:
     # 23h49m after "updated" -> still OK; 24h09m -> STALE (quotes kept so the collector can store them as stale)
     assert _parse(payload, datetime(2026, 10, 31, 23, 40, tzinfo=UTC)).status == AdapterStatus.OK
     res = _parse(payload, datetime(2026, 11, 1, 0, 0, tzinfo=UTC))
-    assert res.status == AdapterStatus.STALE and len(res.quotes) == 14 and "old" in (res.message or "")
+    assert res.status == AdapterStatus.STALE and len(res.quotes) == 13 and "old" in (res.message or "")
     assert _parse(payload, captured_at).status == AdapterStatus.STALE  # the shared 2026-11-02 instant: 54h
 
 
@@ -126,7 +126,7 @@ async def test_fetch_ok() -> None:
     res = await dolarpy.adapter.fetch()
     assert route.called
     assert res.status == AdapterStatus.OK, res.message
-    assert _house(res, "maxicambios").buy == Decimal("5700.0") and len(res.quotes) == 14
+    assert _house(res, "maxicambios").buy == Decimal("5700.0") and len(res.quotes) == 13
     assert res.evidence is not None and res.evidence.url == URL and res.evidence.kind == "json"
     assert "json" in route.calls[0].request.headers["accept"]
 
@@ -137,7 +137,7 @@ async def test_fetch_uses_injectable_clock_for_staleness() -> None:
     respx.get(URL).mock(return_value=httpx.Response(200, text=load("dolarpy.json")))
     late = datetime(2026, 11, 2, 6, 0, tzinfo=UTC)
     res = await dolarpy.DolarPyAdapter(clock=lambda: late).fetch()
-    assert res.status == AdapterStatus.STALE and len(res.quotes) == 14
+    assert res.status == AdapterStatus.STALE and len(res.quotes) == 13
     assert res.evidence is not None and res.evidence.captured_at == late
     fresh = await dolarpy.DolarPyAdapter(clock=lambda: FRESH).fetch()
     assert fresh.status == AdapterStatus.OK and fresh.evidence is not None and fresh.evidence.captured_at == FRESH
@@ -148,7 +148,7 @@ async def test_fetch_uses_injectable_clock_for_staleness() -> None:
 async def test_fetch_old_updated_is_stale_with_real_clock() -> None:
     respx.get(URL).mock(return_value=httpx.Response(200, text=load("dolarpy.json")))  # updated 2026-10-30
     res = await dolarpy.adapter.fetch()
-    assert res.status == AdapterStatus.STALE and len(res.quotes) == 14
+    assert res.status == AdapterStatus.STALE and len(res.quotes) == 13
 
 
 @pytest.mark.asyncio
@@ -187,3 +187,16 @@ def test_info() -> None:
     assert set(info.currencies) == {"USD", "PYG"}
     assert any("executável" in lim for lim in info.limitations)
     assert info.poll_interval_s >= 60
+
+
+def test_discontinued_houses_are_skipped():
+    import json
+    from datetime import UTC, datetime
+
+    from fronteira_fx.adapters import dolarpy
+
+    raw = json.dumps({"dolarpy": {"ueno": {"compra": 5800, "venta": 6070}, "cambioschaco": {"compra": 5990, "venta": 6140}},
+                      "updated": "2026-11-04 03:00:00"})
+    result = dolarpy.adapter.parse(raw, captured_at=datetime(2026, 11, 4, 7, 0, tzinfo=UTC), url=dolarpy.adapter.info.url)
+    houses = {(q.context or {}).get("house") for q in result.quotes}
+    assert "ueno" not in houses and "cambioschaco" in houses
