@@ -12,8 +12,9 @@ from tests.conftest import make_settings
 # `/v1/pregao/stats` and `/v1/pregao/sessions`, + `internal_collect` (POST /v1/internal/collect, agendador),
 # + the market module's `/v1/market/news`, `/quotes`, `/volatility`, `/sentiment` (Fear & Greed), + the execution plans (`create_plan`, `list_plans`,
 # `get_plan`, `approve_plan`, `reject_plan`, `complete_plan_step`; fase A, sem movimentação), + `list_institutions` (cadastro), + as sete operações de `connections` (conexões de conta, chave só leitura, extrato,
-# consentimento Open Finance). Bump deliberately when adding an endpoint.
-EXPECTED_OPERATIONS = 59
+# consentimento Open Finance), + as cinco leituras de `api/market_reads.py` (`get_crypto_quotes`, `get_triangles`,
+# `list_fx_references`, `get_macro_series`, `get_market_indicators`). Bump deliberately when adding an endpoint.
+EXPECTED_OPERATIONS = 64
 MODULE_ONLY_OPERATIONS = {"rag_add_document", "rag_list_documents", "watch_update_source"}
 
 
@@ -42,4 +43,4 @@ def test_mcp_operations_exist_in_the_spec():
     ids = {op_id for _, _, op_id in _operations(app)}
     missing = set(MCP_OPERATIONS) - ids
     assert not missing, f"MCP expõe operações que não existem: {sorted(missing)}"
-    assert len(MCP_OPERATIONS) == len(set(MCP_OPERATIONS)) == 22
+    assert len(MCP_OPERATIONS) == len(set(MCP_OPERATIONS)) == 28

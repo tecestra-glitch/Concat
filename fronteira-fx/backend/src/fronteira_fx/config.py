@@ -126,6 +126,9 @@ class Settings(BaseSettings):
     crypto_slippage_pct: Decimal = Field(
         default=Decimal("0.0005"), ge=0, le=Decimal("0.05"), validation_alias=AliasChoices("FX_CRYPTO_SLIPPAGE_PCT")
     )
+    # cache em memória das rotas de leitura (/v1/market/*). Curto de propósito: a Vercel tem 4 h de CPU por mês.
+    # 0 desliga o cache. O mesmo valor vai no Cache-Control (private, max-age) das respostas.
+    read_cache_ttl_s: int = Field(default=60, ge=0, le=3600, validation_alias=AliasChoices("READ_CACHE_TTL_S"))
 
     # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
     # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).

@@ -54,8 +54,9 @@ class PollResult:
     error: str | None = None
 
 
-def build_scheduler(clock: Callable[[], datetime] | None = None, *, oxr_enabled: bool = False,
-                    fred_enabled: bool = False) -> Scheduler:
+def build_scheduler(
+    clock: Callable[[], datetime] | None = None, *, oxr_enabled: bool = False, fred_enabled: bool = False
+) -> Scheduler:
     """Piso 60 s; mercado de cripto e de câmbio não têm horário comercial, então sem fator fora do expediente.
 
     Open Exchange Rates entra só com chave (`OXR_APP_ID`), de hora em hora (teto de 1.000 por mês no contador).
@@ -97,9 +98,10 @@ class MarketPoller:
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(tz=UTC))
         self._fred_key = settings.fred_api_key.get_secret_value() if settings.fred_api_key else None
+        self.scheduler = build_scheduler(
+            self.clock, oxr_enabled=bool(settings.oxr_app_id), fred_enabled=bool(self._fred_key)
+        )
         self._fred_limiter = SlidingWindowLimiter(macro.FRED_MAX_PER_MINUTE)
-        self.scheduler = build_scheduler(self.clock, oxr_enabled=bool(settings.oxr_app_id),
-                                         fred_enabled=bool(self._fred_key))
         self._client = client
         self._owns_client = client is None
         self._validators: dict[str, tuple[str | None, str | None]] = {}

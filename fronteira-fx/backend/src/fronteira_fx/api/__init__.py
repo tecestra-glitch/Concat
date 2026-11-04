@@ -14,6 +14,7 @@ from . import (
     internal,
     journal,
     market,
+    market_reads,
     memory,
     opportunities,
     plans,
@@ -50,6 +51,7 @@ for module in (
     memory,
     internal,
     market,
+    market_reads,
 ):
     # SEC-01: `?data_mode=` that differs from the instance mode → 409. Health stays open: it is how a
     # client discovers which mode this instance serves.
