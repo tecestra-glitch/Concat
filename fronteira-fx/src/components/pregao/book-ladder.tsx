@@ -1,6 +1,6 @@
 "use client";
 import type { KeyboardEvent, ReactElement } from "react";
-import { Landmark, Store } from "lucide-react";
+import { Landmark, Star, Store } from "lucide-react";
 import { AgioBadge } from "@/components/pregao/agio-badge";
 import { HouseCity } from "@/components/pregao/house-city";
 import { ReferenceBadge } from "@/components/pregao/reference-badge";
@@ -121,9 +121,15 @@ function BookRow({ level, side, best, quote, selected, now, onSelect }: BookRowP
             </span>
           </span>
           {level.city !== null || best || closed || level.incomplete ? (
-            <span className="flex flex-wrap items-center gap-1">
+            // Uma linha só: cidade e selos não quebram (quebrar deixava a linha melhor ~1,5× mais alta que as outras).
+            <span className="flex min-w-0 flex-nowrap items-center gap-1">
               <HouseCity city={level.city} />
-              {best && <Badge variant="accent">melhor</Badge>}
+              {best && (
+                <Badge variant="accent" title={side === "buy" ? "Melhor preço de compra" : "Melhor preço de venda"} className="px-1">
+                  <Star size={12} aria-hidden />
+                  <span className="sr-only">melhor</span>
+                </Badge>
+              )}
               {closed && <Badge variant="outline">fechada</Badge>}
               {level.incomplete && <Badge variant="warn">incompleta</Badge>}
             </span>

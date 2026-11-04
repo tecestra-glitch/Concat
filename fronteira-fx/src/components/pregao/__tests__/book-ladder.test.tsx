@@ -108,6 +108,16 @@ describe("BookLadder", () => {
     expect(buyRows[1].body).not.toContain("melhor");
   });
 
+  it("a linha melhor mantém cidade e selos numa linha só (flex-nowrap) e 'melhor' é ícone com texto só para leitor", () => {
+    const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={levels} />);
+    const buyRows = rowsOf(between(html, "pregao-book-side-buy", "pregao-book-side-sell"), "pregao-book-row");
+    expect(buyRows[0].body).toContain("flex min-w-0 flex-nowrap items-center gap-1");
+    expect(buyRows[0].body).not.toContain("flex-wrap");
+    expect(buyRows[0].body.replace('<span class="sr-only">melhor</span>', "")).not.toContain("melhor");
+    expect(buyRows[0].body).toMatch(/<span class="sr-only">melhor<\/span>/);
+    expect(buyRows[0].body).toMatch(/title="Melhor preço de compra"/);
+  });
+
   it("lados não contêm referência; bloco de referência tem linha sem tabindex e com ≈", () => {
     const html = renderToStaticMarkup(<BookLadder {...baseProps} levels={levels} />);
     const buySide = between(html, "pregao-book-side-buy", "pregao-book-side-sell");
