@@ -27,11 +27,13 @@ from ..watch.fetcher import DEFAULT_TIMEOUT_S, conditional_get, default_headers
 from ..watch.scheduler import Scheduler, SchedulerConfig
 from . import news as news_mod
 from . import quotes as q
+from . import reference as ref
 from . import vol
 
 log = logging.getLogger("fronteira_fx.market")
 
 EVENT_VOLATILITY_ALERT = "market.volatility_alert"
+EVENT_REFERENCE_DEVIATION = "market.reference_deviation"
 BINANCE_SOURCES = ("binance-ticker", "binance-candles")
 FX_SOURCE = "frankfurter"
 BCB_SOURCE = "bcb-sgs"
@@ -53,8 +55,11 @@ class PollResult:
     error: str | None = None
 
 
-def build_scheduler(clock: Callable[[], datetime] | None = None) -> Scheduler:
-    """Piso 60 s; mercado de cripto e de câmbio não têm horário comercial, então sem fator fora do expediente."""
+def build_scheduler(clock: Callable[[], datetime] | None = None, *, oxr_enabled: bool = False) -> Scheduler:
+    """Piso 60 s; mercado de cripto e de câmbio não têm horário comercial, então sem fator fora do expediente.
+
+    Open Exchange Rates entra só com chave (`OXR_APP_ID`), de hora em hora (teto de 1.000 por mês no contador).
+    """
     config = SchedulerConfig(
         min_interval_s=60,
         max_interval_s=900,
@@ -69,6 +74,8 @@ def build_scheduler(clock: Callable[[], datetime] | None = None) -> Scheduler:
     scheduler.add_source(BCB_SOURCE, 900)
     scheduler.add_source("binance-ticker", 60)
     scheduler.add_source("binance-candles", 300)
+    if oxr_enabled:
+        scheduler.add_source(ref.OXR_SOURCE, ref.OXR_POLL_INTERVAL_S, max_interval_s=ref.OXR_POLL_INTERVAL_S)
     return scheduler
 
 
@@ -84,11 +91,12 @@ class MarketPoller:
         self.factory = session_factory
         self.settings = settings
         self.clock = clock or (lambda: datetime.now(tz=UTC))
-        self.scheduler = build_scheduler(self.clock)
+        self.scheduler = build_scheduler(self.clock, oxr_enabled=bool(settings.oxr_app_id))
         self._client = client
         self._owns_client = client is None
         self._validators: dict[str, tuple[str | None, str | None]] = {}
         self._alert_state: dict[str, bool] = {}
+        self._deviation_state: dict[tuple[str, str, str], bool] = {}
 
     @property
     def enabled(self) -> bool:
@@ -139,6 +147,8 @@ class MarketPoller:
             return await self._poll_binance_ticker(now)
         if source_id == "binance-candles":
             return await self._poll_binance_candles(now)
+        if source_id == ref.OXR_SOURCE:
+            return await self._poll_oxr(now)
         raise KeyError(f"fonte de mercado desconhecida: {source_id}")
 
     async def _get_json(self, url: str, params: dict[str, str] | None = None) -> Any:
@@ -198,15 +208,73 @@ class MarketPoller:
         )
         drafts = q.parse_frankfurter(data)
         with session_scope(self.factory) as session:
-            return self._upsert_quotes(session, drafts, now)
+            changed = self._upsert_quotes(session, drafts, now)
+            self._store_references(session, ref.from_frankfurter_drafts(drafts, collected_at=now), now)
+            return changed
 
     async def _poll_bcb(self, now: datetime) -> bool:
         drafts: list[q.QuoteDraft] = []
+        start, end = q.bcb_window(now)
         for code, instrument, label in q.BCB_SERIES:
-            data = await self._get_json(q.BCB_SGS_URL.format(code=code, n=2))
+            data = await self._get_json(q.BCB_SGS_URL.format(code=code, start=start, end=end))
             drafts.append(q.parse_bcb_series(data, instrument, label))
         with session_scope(self.factory) as session:
-            return self._upsert_quotes(session, drafts, now)
+            changed = self._upsert_quotes(session, drafts, now)
+            self._store_references(session, ref.from_bcb_drafts(drafts, collected_at=now), now)
+            return changed
+
+    # ----------------------------------------------------------------- referências de câmbio (U03)
+    def _store_references(self, session: Session, quotes: list[ref.ReferenceQuote], now: datetime) -> None:
+        """Grava as referências e compara as fontes. Nada aqui é executável."""
+        ref.upsert_reference_quotes(session, quotes, data_mode=self.settings.data_mode)
+        self._check_reference_deviations(session, now)
+
+    def _check_reference_deviations(self, session: Session, now: datetime) -> None:
+        """Alerta só na transição para acima do limite configurado (não repete a cada sondagem)."""
+        threshold = self.settings.fx_reference_deviation_alert_pct
+        latest = ref.latest_by_source(ref.recent_references(session, now=now, data_mode=self.settings.data_mode))
+        for dev in ref.compare(latest, threshold):
+            key = (dev.instrument, dev.source_a, dev.source_b)
+            was = self._deviation_state.get(key, False)
+            self._deviation_state[key] = dev.over
+            if not dev.over or was:
+                continue
+            events_svc.append_event(
+                session,
+                EVENT_REFERENCE_DEVIATION,
+                ref.deviation_event_payload(dev, threshold_pct=threshold),
+                data_mode=self.settings.data_mode,
+                ts=now,
+            )
+
+    async def _poll_oxr(self, now: datetime) -> bool:
+        """Open Exchange Rates (base USD). A chave vai só na query da requisição e nunca em mensagem de erro."""
+        key = self.settings.oxr_app_id
+        if not key:
+            raise RuntimeError("Open Exchange Rates sem OXR_APP_ID")
+        ceiling = ref.effective_ceiling(ref.OXR_SOURCE, self.settings.oxr_monthly_cap)
+        # reserva commitada ANTES da requisição: uma falha de rede também conta no teto
+        with session_scope(self.factory) as session:
+            if not ref.reserve_call(session, ref.OXR_SOURCE, now, ceiling):
+                log.warning("OXR: teto mensal de %d chamadas atingido; sem consulta até o próximo mês", ceiling)
+                return False
+        try:
+            resp = await self.http().get(
+                ref.OXR_URL,
+                params={"app_id": key, "symbols": ",".join(ref.OXR_SYMBOLS)},
+                headers=default_headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise RuntimeError(f"Open Exchange Rates: erro de rede ({type(exc).__name__})") from None
+        if resp.status_code in (418, 429):
+            raise BlockedError(f"HTTP {resp.status_code} de Open Exchange Rates")
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Open Exchange Rates: HTTP {resp.status_code}")
+        quotes = ref.parse_oxr_latest(q.loads_exact(resp.text), collected_at=now)
+        with session_scope(self.factory) as session:
+            added = ref.upsert_reference_quotes(session, quotes, data_mode=self.settings.data_mode)
+            self._check_reference_deviations(session, now)
+        return added > 0
 
     # ----------------------------------------------------------------- cripto
     async def _poll_binance_ticker(self, now: datetime) -> bool:

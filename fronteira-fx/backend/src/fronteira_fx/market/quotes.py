@@ -21,7 +21,18 @@ BINANCE_BASE = (
     "https://data-api.binance.vision"  # dados públicos de mercado (o host de negociação bloqueia algumas regiões)
 )
 FRANKFURTER_URL = "https://api.frankfurter.dev/v2/rates"
-BCB_SGS_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{code}/dados/ultimos/{n}?formato=json"
+# SGS exige dataInicial e dataFinal (dd/mm/aaaa) desde 26/03/2025; janela curta, sempre dentro de 10 anos.
+BCB_SGS_URL = (
+    "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{code}/dados?formato=json&dataInicial={start}&dataFinal={end}"
+)
+BCB_WINDOW_DAYS = 90  # cobre feriados e séries pouco frequentes (Selic meta); só as duas últimas linhas são usadas
+
+
+def bcb_window(now: datetime) -> tuple[str, str]:
+    """(dataInicial, dataFinal) no formato do SGS, em horário de Brasília."""
+    end = now.astimezone(BRT).date()
+    start = end - timedelta(days=BCB_WINDOW_DAYS)
+    return start.strftime("%d/%m/%Y"), end.strftime("%d/%m/%Y")
 BRT = timezone(timedelta(hours=-3))
 
 # (símbolo Binance, rótulo, instrumento interno)
