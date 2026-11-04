@@ -71,7 +71,8 @@ describe("planos na demonstração (sem nenhuma execução)", () => {
   it("expira pela cotação velha: aprovar depois de 900 s é 409 e o plano fica expirado", async () => {
     const cycle = await anyDemoCycle();
     const plan = await api.createPlan("demo", { start: cycle.start, path: cycle.path });
-    vi.setSystemTime(Date.parse("2026-11-04T12:20:00Z"));
+    // relativo ao carimbo da demonstração (hora real arredondada no carregamento), nunca um horário fixo do dia
+    vi.setSystemTime(Date.parse(DEMO_SERVER_TIME) + 60_000 + 901_000);
     await expect(api.approvePlan("demo", plan.id)).rejects.toMatchObject({ status: 409 });
     expect((await api.plan("demo", plan.id)).status).toBe("expired");
   });
@@ -79,7 +80,7 @@ describe("planos na demonstração (sem nenhuma execução)", () => {
   it("a lista traz os planos do mais recente para o mais antigo", async () => {
     const cycle = await anyDemoCycle();
     const a = await api.createPlan("demo", { start: cycle.start, path: cycle.path });
-    vi.setSystemTime(Date.parse("2026-11-04T12:01:00Z"));
+    vi.setSystemTime(Date.parse(DEMO_SERVER_TIME) + 120_000); // um minuto depois do primeiro plano
     const b = await api.createPlan("demo", { start: cycle.start, path: cycle.path });
     const list = await api.plans("demo");
     expect(list.map((p) => p.id)).toEqual([b.id, a.id]);
