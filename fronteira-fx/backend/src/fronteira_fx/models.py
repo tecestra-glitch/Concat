@@ -569,6 +569,21 @@ class ReferenceApiUsage(Base):
     calls: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class MarketRead(Base):
+    """Leitura de mercado já calculada pelo worker: triângulos por modo e indicadores por instrumento e intervalo.
+    A API só lê esta tabela; nenhum ciclo ou indicador é recalculado numa requisição (Vercel: 4 h de CPU por mês)."""
+
+    __tablename__ = "market_reads"
+    __table_args__ = (UniqueConstraint("kind", "key", "data_mode", name="uq_market_read"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(32))  # triangles | indicators
+    key: Mapped[str] = mapped_column(String(120))  # triangles: modo (celular|todos); indicators: instrumento|intervalo
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+    payload: Mapped[Any] = mapped_column(JSON)
+    computed_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
 class ExecutionPlan(Base):
     """Plano de execução: só organiza os passos de um ciclo. Nada aqui move dinheiro (fase A).
 

@@ -5541,6 +5541,7 @@
           "market"
         ],
         "summary": "Triângulos (três pernas) no grafo de posições, com lucro líquido e confiança; só leitura",
+        "description": "Lê a lista calculada pelo worker (`market_reads`, ordenada por ROI) e aplica os filtros sobre ela.\nSem linha gravada ainda: lista vazia. Nenhum ciclo é calculado aqui.",
         "operationId": "get_triangles",
         "parameters": [
           {
@@ -5789,6 +5790,7 @@
           "market"
         ],
         "summary": "Indicadores técnicos (RSI, MACD, estocástico, ADX, ATR, NATR, Ichimoku) de uma série Binance; só leitura",
+        "description": "Lê os indicadores que o worker calculou sobre velas fechadas (`market_reads`). Sem linha: insufficient_data.",
         "operationId": "get_market_indicators",
         "parameters": [
           {

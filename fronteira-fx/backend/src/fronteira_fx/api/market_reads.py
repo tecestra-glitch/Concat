@@ -1,9 +1,11 @@
 """Rotas de leitura do módulo `market` que faltavam para o MCP: cotações de cripto, triângulos, referências de câmbio,
-macro (BCB e FRED), indicadores técnicos. Somente leitura: só `GET`, só banco e motor, nenhuma chamada de rede, nenhum
-laço, nenhum websocket. Respostas cacheadas por `READ_CACHE_TTL_S` (ver `api/cache.py`).
+macro (BCB e FRED), indicadores técnicos. Somente leitura: só `GET` e só banco, nenhuma chamada de rede, nenhum laço,
+nenhum websocket e nenhum cálculo de ciclo ou indicador (a Vercel tem 4 h de CPU por mês). Respostas cacheadas por
+`READ_CACHE_TTL_S` (ver `api/cache.py`).
 
-Tudo que sai daqui é referência ou leitura de posição: `executable` é sempre `false` em cotação, referência, macro e
-indicador. Triângulos vêm do grafo de posições (`find_cycles_for`) com três pernas, com a mesma regra de execução dele.
+Triângulos e indicadores são lidos de `market_reads`, gravados pelo worker (`market/reads.py`). Tudo que sai daqui é
+referência ou leitura de posição: `executable` é sempre `false` em cotação, referência, macro e indicador. Triângulos
+têm as mesmas três pernas e a mesma regra de execução de `find_cycles` no grafo de posições.
 """
 
 from __future__ import annotations
@@ -16,14 +18,12 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import or_, select
 
-from ..indicators import core, sinais
 from ..market import quotes as q
+from ..market import reads
 from ..market import reference as ref
-from ..market.service import load_candles
 from ..models import MarketQuote
 from ..schemas import CycleOut
-from ..services.cycles import find_cycles_for
-from .deps import DataModeDep, DbDep, SettingsDep
+from .deps import DataModeDep, DbDep
 from .market import MarketQuoteOut
 
 router = APIRouter(prefix="/market", tags=["market"])
@@ -78,25 +78,6 @@ class IndicatorsOut(BaseModel):
     data_mode: str
 
 
-_INDICATOR_FIELDS = (
-    "rsi_14",
-    "macd_line",
-    "macd_signal",
-    "macd_hist",
-    "stoch_k",
-    "stoch_d",
-    "adx_14",
-    "plus_di_14",
-    "minus_di_14",
-    "atr_14",
-    "natr_14",
-    "ichimoku_tenkan",
-    "ichimoku_kijun",
-    "ichimoku_senkou_a",
-    "ichimoku_senkou_b",
-)
-
-
 def _cached(request: Request, response: Response, key: str, compute: Any) -> Any:
     """Resposta por `key` (rota + modo + parâmetros). `Cache-Control: private`: a resposta depende da chave da API."""
     ttl = request.app.state.settings.read_cache_ttl_s
@@ -106,10 +87,6 @@ def _cached(request: Request, response: Response, key: str, compute: Any) -> Any
 
 def _dec(value: Decimal | None) -> str | None:
     return None if value is None else format(value, "f")
-
-
-def _last(series: list[Decimal | None]) -> Decimal | None:
-    return series[-1] if series else None
 
 
 @router.get(
@@ -153,24 +130,22 @@ def get_triangles(
     response: Response,
     db: DbDep,
     data_mode: DataModeDep,
-    settings: SettingsDep,
     min_roi: Annotated[Decimal | None, Query(description="ROI mínimo como string decimal, ex. 0.001")] = None,
     start: Annotated[str | None, Query(description="nó de partida, ex. BRL@nubank", max_length=120)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     mode: Annotated[Literal["celular", "todos"], Query(description="celular (padrão) ou todos")] = "celular",
 ) -> list[dict[str, Any]]:
+    """Lê a lista calculada pelo worker (`market_reads`, ordenada por ROI) e aplica os filtros sobre ela.
+    Sem linha gravada ainda: lista vazia. Nenhum ciclo é calculado aqui."""
+
     def compute() -> list[dict[str, Any]]:
-        cycles = find_cycles_for(
-            db,
-            data_mode=data_mode,
-            max_len=3,
-            min_roi=min_roi,
-            start=start,
-            limit=None,
-            lookback_s=settings.quotes_lookback_s,
-            mode=mode,
-        )
-        return [c for c in cycles if len(c["edges"]) == 3][:limit]
+        row = reads.read_row(db, reads.TRIANGLE_KIND, mode, data_mode)
+        cycles = [c for c in (row.payload if row is not None else []) if len(c["edges"]) == 3]
+        if min_roi is not None:
+            cycles = [c for c in cycles if Decimal(c["roi"]) >= min_roi]
+        if start:
+            cycles = [c for c in cycles if c["start"] == start]
+        return cycles[:limit]
 
     key = f"triangles|{data_mode}|{min_roi}|{start}|{limit}|{mode}"
     return _cached(request, response, key, compute)
@@ -248,61 +223,23 @@ def get_market_indicators(
     instrument: Annotated[Literal["BTC/USDT", "ETH/USDT", "USDT/BRL"], Query()],
     interval: Annotated[Literal["5m", "1d"], Query()] = "5m",
 ) -> IndicatorsOut:
+    """Lê os indicadores que o worker calculou sobre velas fechadas (`market_reads`). Sem linha: insufficient_data."""
     if instrument not in BINANCE_INSTRUMENTS:  # o Literal já garante; a checagem protege contra mudança futura
         raise HTTPException(status_code=422, detail="instrumento sem indicadores")
 
     def compute() -> IndicatorsOut:
-        c5, c1 = load_candles(db, instrument, data_mode)
-        candles = c5 if interval == "5m" else c1
-        now = datetime.now(tz=UTC)
-        if data_mode == "demo" and candles:
-            now = candles[-1].close_time.replace(microsecond=0)
-        closed = sinais.apenas_fechadas(candles, now)
-        base: dict[str, Any] = {
-            "instrument": instrument,
-            "interval": interval,
-            "closed_candles": len(closed),
-            "data_mode": data_mode,
-        }
-        if not closed:
+        row = reads.read_row(db, reads.INDICATOR_KIND, f"{instrument}|{interval}", data_mode)
+        if row is None:
             return IndicatorsOut(
-                **base,
+                instrument=instrument,
+                interval=interval,
                 status="insufficient_data",
                 as_of=None,
-                **{k: None for k in _INDICATOR_FIELDS},
+                closed_candles=0,
+                data_mode=data_mode,
+                **{k: None for k in reads.INDICATOR_FIELDS},
             )
-        try:
-            leituras = sinais.calcula_leituras(closed)
-        except sinais.VelaInvalidaError as exc:
-            raise HTTPException(status_code=422, detail="série de velas inconsistente") from exc
-        # A nuvem que vale no último fechamento foi calculada 26 velas antes. O valor do índice atual é a projeção
-        # para daqui a 26 velas e não pode ser publicado como nuvem vigente.
-        cloud = core.nuvem_vigente(leituras.ichimoku, len(closed) - 1)
-        values = {
-            "rsi_14": _last(leituras.rsi),
-            "macd_line": _last(leituras.macd.line),
-            "macd_signal": _last(leituras.macd.signal),
-            "macd_hist": _last(leituras.macd.hist),
-            "stoch_k": _last(leituras.stoch.k),
-            "stoch_d": _last(leituras.stoch.d),
-            "adx_14": _last(leituras.adx.adx),
-            "plus_di_14": _last(leituras.adx.plus_di),
-            "minus_di_14": _last(leituras.adx.minus_di),
-            "atr_14": _last(leituras.atr),
-            "natr_14": _last(leituras.natr),
-            "ichimoku_tenkan": _last(leituras.ichimoku.tenkan),
-            "ichimoku_kijun": _last(leituras.ichimoku.kijun),
-            "ichimoku_senkou_a": cloud[0] if cloud else None,
-            "ichimoku_senkou_b": cloud[1] if cloud else None,
-        }
-        # RSI e ADX são as leituras mais exigentes em janela: sem elas o conjunto não está completo
-        complete = values["rsi_14"] is not None and values["adx_14"] is not None
-        return IndicatorsOut(
-            **base,
-            status="ok" if complete else "insufficient_data",
-            as_of=closed[-1].close_time,
-            **{k: _dec(v) for k, v in values.items()},
-        )
+        return IndicatorsOut.model_validate(row.payload)
 
     key = f"indicators|{data_mode}|{instrument}|{interval}"
     return _cached(request, response, key, compute)

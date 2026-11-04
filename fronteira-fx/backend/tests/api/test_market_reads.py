@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from fronteira_fx.api.cache import TtlCache
 from fronteira_fx.indicators import core
 from fronteira_fx.main import create_app
+from fronteira_fx.market.reads import refresh_reads
 from fronteira_fx.models import FxReferenceQuote, MarketCandle, MarketQuote
 from tests.conftest import make_settings
 
@@ -187,6 +188,8 @@ def test_indicators_insufficient_then_ok(client, db):
             )
         )
     db.commit()
+    refresh_reads(db, client.app.state.settings, now)  # o worker calcula; a API só lê
+    db.commit()
     app_client: TestClient = client
     app_client.app.state.read_cache.clear()
     body = app_client.get("/v1/market/indicators", params={"instrument": "BTC/USDT", "interval": "5m"}).json()
@@ -225,6 +228,8 @@ def test_ichimoku_publicado_e_a_nuvem_vigente_nao_a_projecao(client, db):
             )
         )
     db.commit()
+    refresh_reads(db, client.app.state.settings, now)
+    db.commit()
     ohlc = core.Ohlc(
         open=[c - Decimal("0.3") for _, c in rows],
         high=[c + Decimal("1") for _, c in rows],
@@ -238,3 +243,71 @@ def test_ichimoku_publicado_e_a_nuvem_vigente_nao_a_projecao(client, db):
     assert Decimal(body["ichimoku_senkou_a"]) == ich.senkou_a[last - 26]  # type: ignore[index]
     assert Decimal(body["ichimoku_senkou_b"]) == ich.senkou_b[last - 26]  # type: ignore[index]
     assert ich.senkou_a[last] != ich.senkou_a[last - 26]  # o valor do índice atual é outro número
+
+
+def _cycle(path: list[str], roi: str) -> dict:
+    """Forma de `CycleOut` gravada pelo worker (três arestas válidas; valores simples, só para o filtro)."""
+    edges = [
+        {"from": a, "to": b, "kind": "quote", "rate": "1", "via": "ueno", "confidence": "quoted"}
+        for a, b in zip(path, path[1:], strict=False)
+    ]
+    return {
+        "start": path[0],
+        "path": path,
+        "edges": edges,
+        "legs": [],
+        "amount_in": "1000",
+        "amount_out": "1000",
+        "gain": "0",
+        "roi": roi,
+        "minutes": 5,
+        "confidence": "quoted",
+        "data_mode": "real",
+    }
+
+
+def test_triangles_are_read_from_the_worker_rows_and_filtered_there(client, db, monkeypatch):
+    """A rota só lê `market_reads`: filtros (min_roi, start, limit) são aplicados sobre a lista gravada, sem grafo."""
+    from fronteira_fx.market import reads
+    from fronteira_fx.models import MarketRead
+    from tests.conftest import NOW
+
+    stored = [
+        _cycle(["BRL@nubank", "USDT@binance", "BRL@ueno", "BRL@nubank"], "0.0120"),
+        _cycle(["USD@ueno", "PYG@chaco", "BRL@ueno", "USD@ueno"], "0.0040"),
+        _cycle(["BRL@nubank", "PYG@chaco", "USD@ueno", "BRL@nubank"], "-0.0010"),
+    ]
+    db.add(MarketRead(kind="triangles", key="todos", data_mode="real", payload=stored, computed_at=NOW))
+    db.commit()
+
+    def boom(*_args, **_kwargs):
+        raise AssertionError("a API não pode calcular ciclos numa requisição")
+
+    monkeypatch.setattr(reads, "find_cycles_for", boom)
+    resp = client.get("/v1/market/triangles", params={"mode": "todos", "limit": 100})
+    assert resp.status_code == 200
+    assert [c["path"] for c in resp.json()] == [c["path"] for c in stored]
+
+    client.app.state.read_cache.clear()
+    filtered = client.get("/v1/market/triangles", params={"mode": "todos", "min_roi": "0.003"}).json()
+    assert [c["roi"] for c in filtered] == ["0.012", "0.004"]
+    client.app.state.read_cache.clear()
+    by_start = client.get("/v1/market/triangles", params={"mode": "todos", "start": "USD@ueno"}).json()
+    assert [c["start"] for c in by_start] == ["USD@ueno"]
+    client.app.state.read_cache.clear()
+    one = client.get("/v1/market/triangles", params={"mode": "todos", "limit": 1}).json()
+    assert [c["roi"] for c in one] == ["0.012"]
+    client.app.state.read_cache.clear()
+    celular = client.get("/v1/market/triangles", params={"mode": "celular"}).json()
+    assert celular == []  # o modo celular é outra linha, ainda não gravada
+
+
+def test_triangles_without_worker_rows_are_empty_and_never_computed(client, db, monkeypatch):
+    from fronteira_fx.market import reads
+
+    def boom(*_args, **_kwargs):
+        raise AssertionError("a API não pode calcular ciclos numa requisição")
+
+    monkeypatch.setattr(reads, "find_cycles_for", boom)
+    resp = client.get("/v1/market/triangles", params={"limit": 5})
+    assert resp.status_code == 200 and resp.json() == []

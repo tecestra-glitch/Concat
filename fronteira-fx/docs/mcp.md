@@ -56,10 +56,10 @@ resposta é `409` e nada é lido nem gravado (cada instância serve um único mo
 | `get_market_volatility` | leitura | `GET /v1/market/volatility` | volatilidade (EWMA, Parkinson, ATR) e regime normal / alta / muito alta; `status` diferente de `ok` não traz regime |
 | `list_market_sentiment` | leitura | `GET /v1/market/sentiment` | Fear & Greed (Alternative.me) com atribuição visível; sempre `executable: false` |
 | `get_crypto_quotes` | leitura | `GET /v1/market/crypto` | cotações de cripto (Binance, dados públicos) gravadas no banco; `executable: false` |
-| `get_triangles` | leitura | `GET /v1/market/triangles` | triângulos de três pernas no grafo de posições (`min_roi`, `start`, `limit` ≤ 100, `mode`); mesma regra de execução de `find_cycles`; vazio sem posições |
+| `get_triangles` | leitura | `GET /v1/market/triangles` | triângulos de três pernas lidos de `market_reads`, calculados pelo worker (top 200 por ROI, mesma regra de `find_cycles`); `min_roi`, `start` e `limit` ≤ 100 filtram essa lista; `mode`; vazio até o worker gravar |
 | `list_fx_references` | leitura | `GET /v1/market/references` | última cotação por fonte de câmbio de referência (Frankfurter, PTAX, Open Exchange Rates); `referencia: true`, `executable: false` |
 | `get_macro_series` | leitura | `GET /v1/market/macro` | séries SGS do BCB (Selic, IPCA, PTAX) e dólar amplo do FRED (DTWEXBGS, aproximação e não o DXY); `executable: false` |
-| `get_market_indicators` | leitura | `GET /v1/market/indicators?instrument=&interval=` | RSI, MACD, estocástico, ADX, ATR, NATR e Ichimoku da última vela fechada (`5m` ou `1d`); `status` `insufficient_data` quando faltar janela |
+| `get_market_indicators` | leitura | `GET /v1/market/indicators?instrument=&interval=` | RSI, MACD, estocástico, ADX, ATR, NATR e Ichimoku da última vela fechada (`5m` ou `1d`), lidos de `market_reads` (calculados pelo worker); a nuvem publicada é a vigente (calculada 26 velas antes); `status` `insufficient_data` quando faltar janela |
 
 As rotas `/v1/market/*` são só `GET`. As leituras de mercado (cotações, triângulos, referências, macro, indicadores)
 passam por um cache em memória com TTL configurável por `READ_CACHE_TTL_S` (padrão 60 s, 0 desliga, máximo 3600). A
