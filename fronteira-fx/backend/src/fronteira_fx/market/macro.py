@@ -16,6 +16,7 @@ from typing import Any
 
 import httpx
 
+from ..crypto.guard import RegionalBlocked
 from . import quotes as q
 from .throttle import BlockedError, SlidingWindowLimiter, backoff_delay, parse_retry_after
 
@@ -73,6 +74,8 @@ async def fred_observations(
             resp = await client.get(FRED_URL, params=params)
         except httpx.HTTPError as exc:
             raise FredError(f"FRED: erro de rede ({type(exc).__name__})") from None
+        if resp.status_code == 451:  # bloqueio regional: desliga a fonte, sem nova tentativa
+            raise RegionalBlocked(FRED_SOURCE, "FRED: HTTP 451 (bloqueio regional)")
         if resp.status_code == 429:
             if attempt + 1 >= max_attempts:
                 raise BlockedError("FRED: HTTP 429 após novas tentativas")

@@ -21,6 +21,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from ..config import Settings
+from ..crypto.guard import RegionalBlocked, RegionalGate
 from ..db import session_scope
 from ..models import MarketCandle, MarketQuote
 from ..services import events as events_svc
@@ -38,12 +39,22 @@ log = logging.getLogger("fronteira_fx.market")
 EVENT_VOLATILITY_ALERT = "market.volatility_alert"
 EVENT_REFERENCE_DEVIATION = "market.reference_deviation"
 BINANCE_SOURCES = ("binance-ticker", "binance-candles")
+# Fontes no mesmo host compartilham o bloqueio regional: um HTTP 451 desliga o grupo inteiro.
+REGION_GROUPS: dict[str, str] = {"binance-ticker": "binance", "binance-candles": "binance"}
 FX_SOURCE = "frankfurter"
 BCB_SOURCE = "bcb-sgs"
 KEEP_5M_DAYS = 3
 KEEP_1D_DAYS = 60
 BINANCE_LIMIT_5M = 300  # 288 velas fechadas + a aberta (descartada pelo parser)
 BINANCE_LIMIT_1D = 21  # 20 fechadas + a aberta
+
+
+def region_of(source_id: str) -> str:
+    return REGION_GROUPS.get(source_id, source_id)
+
+
+def sources_in_region(region: str) -> list[str]:
+    return [sid for sid, grp in REGION_GROUPS.items() if grp == region] or [region]
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +118,8 @@ class MarketPoller:
         self._validators: dict[str, tuple[str | None, str | None]] = {}
         self._alert_state: dict[str, bool] = {}
         self._deviation_state: dict[tuple[str, str, str], bool] = {}
+        # bloqueio regional (HTTP 451) por grupo de fonte: vale durante todo o processo, como crypto/venues.py
+        self.gate = RegionalGate()
 
     @property
     def enabled(self) -> bool:
@@ -129,9 +142,16 @@ class MarketPoller:
         now = self.clock()
         results: list[PollResult] = []
         for source_id in self.scheduler.due(now):
+            if not self.scheduler.get(source_id).enabled:  # desligada por bloqueio regional nesta mesma rodada
+                continue
             self.scheduler.mark_started(source_id, now)
             try:
                 changed = await self._dispatch(source_id, now)
+            except RegionalBlocked as exc:
+                self._disable_region(exc.venue)
+                self.scheduler.record_result(source_id, changed=False, error=True, now=self.clock())
+                results.append(PollResult(source_id, ok=False, changed=False, error=str(exc)))
+                log.warning("market %s desligada nesta região: %s", source_id, exc)
             except BlockedError as exc:
                 self.scheduler.record_result(source_id, changed=False, blocked=True, now=self.clock())
                 results.append(PollResult(source_id, ok=False, changed=False, error=str(exc)))
@@ -165,17 +185,34 @@ class MarketPoller:
             return await self._poll_oxr(now)
         raise KeyError(f"fonte de mercado desconhecida: {source_id}")
 
-    async def _get_json(self, url: str, params: dict[str, str] | None = None) -> Any:
+    def _disable_region(self, region: str) -> None:
+        """HTTP 451: a fonte (e o grupo dela) fica desligada nesta região. Sem contorno e sem reagendamento."""
+        if self.gate.is_blocked(region) is None:
+            self.gate.block(region, 451, "HTTP 451: bloqueio regional; fonte desligada, sem contorno")
+        for source_id in sources_in_region(region):
+            if source_id in self.scheduler:
+                self.scheduler.override(source_id, enabled=False)
+
+    async def _get_json(self, url: str, params: dict[str, str] | None = None, *, source: str) -> Any:
+        region = region_of(source)
+        if self.gate.is_blocked(region) is not None:
+            raise RegionalBlocked(region, f"{region}: fonte desligada nesta região (HTTP 451)")
+        host = url.split("/")[2]
         resp = await self.http().get(url, params=params, headers=default_headers())
+        if resp.status_code == 451:
+            raise RegionalBlocked(region, f"{region}: HTTP 451 (bloqueio regional)")
         if resp.status_code in (418, 429):
-            raise BlockedError(f"HTTP {resp.status_code} de {url.split('/')[2]}")
-        resp.raise_for_status()
+            raise BlockedError(f"HTTP {resp.status_code} de {host}")
+        if resp.status_code >= 400:  # sem a URL na mensagem: a query pode levar segredos
+            raise RuntimeError(f"HTTP {resp.status_code} de {host}")
         return q.loads_exact(resp.text)
 
     # ----------------------------------------------------------------- notícias
     async def _poll_feed(self, feed: news_mod.FeedSpec, now: datetime) -> bool:
         etag, last_modified = self._validators.get(feed.feed_id, (None, None))
         out = await conditional_get(feed.url, etag=etag, last_modified=last_modified, client=self.http())
+        if out.status_code == 451:
+            raise RegionalBlocked(feed.feed_id, f"{feed.feed_id}: HTTP 451 (bloqueio regional)")
         if out.blocked:
             raise BlockedError(out.error or "bloqueado")
         if out.error:
@@ -190,7 +227,9 @@ class MarketPoller:
 
     # ----------------------------------------------------------------- sentimento
     async def _poll_fng(self, now: datetime) -> bool:
-        data = await self._get_json(sentiment_mod.FNG_URL, sentiment_mod.FNG_PARAMS)
+        data = await self._get_json(
+            sentiment_mod.FNG_URL, sentiment_mod.FNG_PARAMS, source=sentiment_mod.FNG_SOURCE
+        )
         try:
             draft = sentiment_mod.parse_fng(data)
         except sentiment_mod.SentimentFormatError as exc:
@@ -228,7 +267,9 @@ class MarketPoller:
 
     async def _poll_frankfurter(self, now: datetime) -> bool:
         data = await self._get_json(
-            q.FRANKFURTER_URL, {"base": "USD", "quotes": ",".join(c for c, _ in q.FRANKFURTER_QUOTES)}
+            q.FRANKFURTER_URL,
+            {"base": "USD", "quotes": ",".join(c for c, _ in q.FRANKFURTER_QUOTES)},
+            source=FX_SOURCE,
         )
         drafts = q.parse_frankfurter(data)
         with session_scope(self.factory) as session:
@@ -242,7 +283,7 @@ class MarketPoller:
         for code, instrument, label in q.BCB_SERIES:
             start = today - timedelta(days=q.SGS_LOOKBACK_DAYS[code])
             url, params = q.sgs_request(code, start, today)  # datas obrigatórias, janela ≤ 10 anos
-            data = await self._get_json(url, params)
+            data = await self._get_json(url, params, source=BCB_SOURCE)
             drafts.append(q.parse_bcb_series(data, instrument, label))
         with session_scope(self.factory) as session:
             changed = self._upsert_quotes(session, drafts, now)
@@ -292,6 +333,8 @@ class MarketPoller:
             )
         except httpx.HTTPError as exc:
             raise RuntimeError(f"Open Exchange Rates: erro de rede ({type(exc).__name__})") from None
+        if resp.status_code == 451:
+            raise RegionalBlocked(ref.OXR_SOURCE, "Open Exchange Rates: HTTP 451 (bloqueio regional)")
         if resp.status_code in (418, 429):
             raise BlockedError(f"HTTP {resp.status_code} de Open Exchange Rates")
         if resp.status_code >= 400:
@@ -319,7 +362,9 @@ class MarketPoller:
     # ----------------------------------------------------------------- cripto
     async def _poll_binance_ticker(self, now: datetime) -> bool:
         symbols = json.dumps([sym for sym, _, _ in q.BINANCE_SYMBOLS], separators=(",", ":"))
-        data = await self._get_json(f"{q.BINANCE_BASE}/api/v3/ticker/24hr", {"symbols": symbols})
+        data = await self._get_json(
+            f"{q.BINANCE_BASE}/api/v3/ticker/24hr", {"symbols": symbols}, source="binance-ticker"
+        )
         drafts = q.parse_ticker_24h(data)
         with session_scope(self.factory) as session:
             return self._upsert_quotes(session, drafts, now)
@@ -332,14 +377,16 @@ class MarketPoller:
                 k5 = await self._get_json(
                     f"{q.BINANCE_BASE}/api/v3/klines",
                     {"symbol": symbol, "interval": "5m", "limit": str(BINANCE_LIMIT_5M)},
+                    source="binance-candles",
                 )
                 k1 = await self._get_json(
                     f"{q.BINANCE_BASE}/api/v3/klines",
                     {"symbol": symbol, "interval": "1d", "limit": str(BINANCE_LIMIT_1D)},
+                    source="binance-candles",
                 )
                 c5 = q.parse_klines(k5, "5m", now=now)
                 c1 = q.parse_klines(k1, "1d", now=now)
-            except BlockedError:
+            except (BlockedError, RegionalBlocked):
                 raise
             except Exception as exc:
                 errors.append(f"{instrument}: {exc}"[:200])
