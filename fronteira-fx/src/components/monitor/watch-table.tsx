@@ -86,7 +86,7 @@ function PollButton({ s, name, compact = false }: { s: WatchStatus; name: string
   return (
     <div className={cn("flex items-center gap-2", compact ? "justify-between" : "justify-end")}>
       {feedback && (
-        <output className={cn("text-[11px]", m.isError ? "text-loss" : m.data ? "text-gain" : "text-muted")} aria-live="polite">
+        <output className={cn("text-caption", m.isError ? "text-loss" : m.data ? "text-gain" : "text-muted")} aria-live="polite">
           {feedback}
         </output>
       )}
@@ -102,16 +102,16 @@ function WatchRow({ s, name }: { s: WatchStatus; name: string }) {
     <TableRow data-testid="watch-row" data-source={s.source_id} data-last-run={s.last_run_at ?? ""} className={cn(!s.enabled && "bg-surface-2/40 text-muted")}>
       <TableCell>
         <p className="font-medium">{name}</p>
-        <p className="tnum text-[11px] text-muted">{s.source_id}</p>
+        <p className="tnum text-caption text-muted">{s.source_id}</p>
       </TableCell>
       <TableCell><EnableSwitch s={s} name={name} id={`watch-enabled-${s.source_id}`} /></TableCell>
       <TableCell>
         <p className="tnum">{formatInterval(s.interval_s)}</p>
-        <p className="tnum text-[11px] text-muted">{formatInterval(s.min_interval_s)} – {formatInterval(s.max_interval_s)}</p>
+        <p className="tnum text-caption text-muted">{formatInterval(s.min_interval_s)} – {formatInterval(s.max_interval_s)}</p>
       </TableCell>
       <TableCell>
         <Countdown s={s} />
-        <p className="text-[11px] text-muted">sondada <Age iso={s.last_run_at} empty="nunca" className="text-muted" /></p>
+        <p className="text-caption text-muted">sondada <Age iso={s.last_run_at} empty="nunca" className="text-muted" /></p>
       </TableCell>
       <TableCell><Age iso={s.last_change_at} /></TableCell>
       <TableCell className="tnum text-right">{s.changes_24h}</TableCell>
@@ -128,7 +128,7 @@ function WatchCard({ s, name }: { s: WatchStatus; name: string }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-medium">{name}</p>
-          <p className="tnum text-[11px] text-muted">{s.source_id}</p>
+          <p className="tnum text-caption text-muted">{s.source_id}</p>
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge s={s} />

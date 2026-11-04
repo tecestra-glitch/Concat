@@ -17,7 +17,7 @@ export function TopBar() {
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6">
       <Dialog>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Abrir menu">
+          <Button variant="ghost" size="icon" className="shrink-0 lg:hidden" aria-label="Abrir menu">
             <Menu />
           </Button>
         </DialogTrigger>
@@ -32,7 +32,7 @@ export function TopBar() {
           </nav>
         </DialogContent>
       </Dialog>
-      <h1 className="truncate text-sm font-semibold sm:text-base">{current?.label ?? "Fronteira FX"}</h1>
+      <h1 className="truncate text-heading font-semibold sm:text-title">{current?.label ?? "Fronteira FX"}</h1>
       <div className="ml-auto flex items-center gap-2">
         <ConnectionStatus />
         <ThemeToggle />
@@ -41,12 +41,13 @@ export function TopBar() {
   );
 }
 
+/** Alternância de tema (G8): rótulo fixo "Alternar tema"; `aria-pressed` vale quando o tema claro está ligado. */
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();
   const dark = mounted ? resolvedTheme === "dark" : true;
   return (
-    <Button variant="ghost" size="icon" aria-label={dark ? "Ativar tema claro" : "Ativar tema escuro"} aria-pressed={!dark} onClick={() => setTheme(dark ? "light" : "dark")}>
+    <Button variant="ghost" size="icon" aria-label="Alternar tema" aria-pressed={!dark} title={dark ? "Tema escuro (ativar claro)" : "Tema claro (ativar escuro)"} onClick={() => setTheme(dark ? "light" : "dark")}>
       {dark ? <Sun /> : <Moon />}
     </Button>
   );

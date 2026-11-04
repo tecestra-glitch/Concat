@@ -31,7 +31,7 @@ export function venueName(node: string): string {
 }
 
 // mesmos nomes do backend (services/plans.py INSTITUTION_NAMES)
-const DEMO_VENUE_NAMES: Record<string, string> = { banco_py: "banco paraguaio", brbank: "banco brasileiro", revolut: "Revolut", nomad: "Nomad", nubank: "Nubank", itau: "Itaú", bradesco: "Bradesco", caixa: "Caixa" };
+const DEMO_VENUE_NAMES: Record<string, string> = { "banco-demo-py": "banco paraguaio", brbank: "banco brasileiro", revolut: "Revolut", nomad: "Nomad", nubank: "Nubank", itau: "Itaú", bradesco: "Bradesco", caixa: "Caixa" };
 
 /** Valor no texto do passo: PYG sem centavos; BRL e USD com centavos só quando há. */
 export function plainAmount(value: string, currency: Plan["currency"]): string {

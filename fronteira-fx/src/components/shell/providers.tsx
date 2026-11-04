@@ -5,11 +5,13 @@ import { ThemeProvider } from "next-themes";
 import { SettingsProvider } from "@/lib/settings";
 import { LiveProvider } from "@/lib/live";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeColorSync } from "./theme-color";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [qc] = React.useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } }));
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+      <ThemeColorSync />
       <QueryClientProvider client={qc}>
         <SettingsProvider>
           <LiveProvider>

@@ -160,7 +160,7 @@ export function SpreadHeatmap({
                 <span className="sr-only">Casa</span>
               </th>
               {pairs.map((p) => (
-                <th key={p} scope="col" className="whitespace-nowrap px-1 text-center text-[11px] font-medium">
+                <th key={p} scope="col" className="whitespace-nowrap px-1 text-center text-caption font-medium">
                   {PAIR_LABEL[p]}
                 </th>
               ))}
@@ -178,7 +178,7 @@ export function SpreadHeatmap({
           </tbody>
         </table>
       </div>
-      <ol aria-label="Legenda do spread" className="flex flex-wrap gap-2 text-[11px] text-muted">
+      <ol aria-label="Legenda do spread" className="flex flex-wrap gap-2 text-caption text-muted">
         {HEAT_LEGEND.map(({ step, label }) => (
           <li key={step} className="flex items-center gap-1">
             <span aria-hidden className={cn("inline-block h-3 w-3 border border-border", HEAT_BG[step])} />

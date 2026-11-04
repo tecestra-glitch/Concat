@@ -56,7 +56,7 @@ export function IndicatorToggles({ value, onChange, disabled = false, className 
             disabled={disabled}
             onClick={() => onChange({ ...value, [id]: !value[id] })}
             className={cn(
-              "h-8 max-sm:h-10 rounded-sm border border-border px-2.5 text-[13px] transition-colors",
+              "h-8 max-sm:h-11 rounded-sm border border-border px-2.5 text-[13px] transition-colors",
               "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
               "disabled:pointer-events-none disabled:opacity-50",
               pressed ? "bg-surface-2 text-foreground" : "text-muted hover:text-foreground",

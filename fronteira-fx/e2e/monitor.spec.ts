@@ -10,7 +10,7 @@ async function expectNoHorizontalScroll(page: Page) {
 test.describe("Monitor ao vivo", () => {
   test("renders heading, stats, at least 5 sources and the timeline without horizontal scroll", async ({ page }, info) => {
     await page.goto("/monitor");
-    await expect(page.getByRole("heading", { level: 2, name: "Monitor ao vivo" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Monitor ao vivo" })).toBeVisible();
     await expect(page.getByTestId("watch-stats")).toBeVisible();
     const rows = page.getByTestId("watch-row").filter({ visible: true });
     await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(5);
@@ -65,7 +65,7 @@ test.describe("Monitor ao vivo", () => {
 test.describe("Alertas", () => {
   test("renders rules, events and the demo note without horizontal scroll", async ({ page }, info) => {
     await page.goto("/alertas");
-    await expect(page.getByRole("heading", { level: 2, name: "Alertas" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Alertas" })).toBeVisible();
     await expect(page.getByTestId("alerts-demo-note")).toBeVisible();
     await expect.poll(() => page.getByTestId("alert-rule").filter({ visible: true }).count()).toBeGreaterThanOrEqual(4);
     await expect.poll(() => page.getByTestId("alert-event").count()).toBeGreaterThanOrEqual(5);

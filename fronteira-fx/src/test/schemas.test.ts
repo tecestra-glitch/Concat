@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { CycleSchema, EdgeSchema, FeeSchema, HealthSchema, ModeSchema, PlanSchema, QuoteSchema, StreamEventSchema } from "@/lib/api/schemas";
 
-const edge = { from: "BRL@brbank", to: "PYG@banco_py", kind: "transfer", rate: "1360.8", fee_pct: "0", fee_fixed: "0", minutes: 2880, via: "Western Union", confidence: "estimated", evidence_id: null, channel: "assistida" };
-const leg = { kind: "transfer", channel: "assistida", from: "BRL@brbank", to: "PYG@banco_py", via: "Western Union", minutes: 2880, border: false, amount_in: "25000", amount_out: "34000000", costs: { currency: "BRL", spread: null, fees: "0", iof: null, transport: null } };
-const cycle = { start: "BRL@brbank", path: ["BRL@brbank", "PYG@banco_py", "BRL@brbank"], edges: [edge, { ...edge, from: "PYG@banco_py", to: "BRL@brbank" }], legs: [leg], amount_in: "25000", amount_out: "25041.20", gain: "41.20", roi: "0.001648", gain_by_currency: { BRL: "41.20", USD: "7.60", PYG: "55000" }, costs: { spread: null, fees: "0", iof: null, transport: null }, requires_declaration: false, minutes: 4320, confidence: "estimated", data_mode: "real" };
+const edge = { from: "BRL@brbank", to: "PYG@banco-demo-py", kind: "transfer", rate: "1360.8", fee_pct: "0", fee_fixed: "0", minutes: 2880, via: "Western Union", confidence: "estimated", evidence_id: null, channel: "assistida" };
+const leg = { kind: "transfer", channel: "assistida", from: "BRL@brbank", to: "PYG@banco-demo-py", via: "Western Union", minutes: 2880, border: false, amount_in: "25000", amount_out: "34000000", costs: { currency: "BRL", spread: null, fees: "0", iof: null, transport: null } };
+const cycle = { start: "BRL@brbank", path: ["BRL@brbank", "PYG@banco-demo-py", "BRL@brbank"], edges: [edge, { ...edge, from: "PYG@banco-demo-py", to: "BRL@brbank" }], legs: [leg], amount_in: "25000", amount_out: "25041.20", gain: "41.20", roi: "0.001648", gain_by_currency: { BRL: "41.20", USD: "7.60", PYG: "55000" }, costs: { spread: null, fees: "0", iof: null, transport: null }, requires_declaration: false, minutes: 4320, confidence: "estimated", data_mode: "real" };
 
 describe("zod schemas mirror the contract", () => {
   it("Fee is fixed and/or percentage: amount may be null, pct optional (Q-03/MED-03)", () => {

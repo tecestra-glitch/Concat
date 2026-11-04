@@ -112,10 +112,10 @@ describe("tokens do pregão em globals.css", () => {
     expect(theme).toContain("--color-accent-strong: var(--accent-strong);");
   });
 
-  it("keyframes da fita e do destaque; a fita pausa em hover e foco", () => {
-    expect(CSS).toMatch(/@keyframes pregao-marquee\s*\{[^}]*translateX\(0\)[^}]*\}[^}]*translateX\(-50%\)/);
-    expect(CSS).toMatch(/\.pregao-marquee\s*\{[^}]*animation:\s*pregao-marquee var\(--tape-duration, 40s\) linear infinite;/);
-    expect(CSS).toMatch(/\.pregao-marquee:hover,\s*\.pregao-marquee:focus-within\s*\{[^}]*animation-play-state:\s*paused;/);
-    expect(CSS).toMatch(/@keyframes pregao-flash\s*\{[^}]*var\(--surface-2\)[^}]*\}[^}]*transparent/);
+  it("sem fita animada (PR1); o realce de célula vem de fx-flash (PR2)", () => {
+    expect(CSS).not.toMatch(/pregao-marquee/);
+    expect(CSS).not.toMatch(/pregao-flash/);
+    expect(CSS).toMatch(/@keyframes fx-flash-up\s*\{[^}]*var\(--gain-soft\)[^}]*\}[^}]*transparent/);
+    expect(CSS).toMatch(/@keyframes fx-flash-down\s*\{[^}]*var\(--loss-soft\)[^}]*\}[^}]*transparent/);
   });
 });

@@ -70,7 +70,6 @@ export function remotePanel(
 
 const setTimeframe = (tf: Timeframe) => updatePregaoPrefs({ tf });
 const setIndicators = (indicators: IndicatorState) => updatePregaoPrefs({ indicators });
-const setTapePaused = (tapePaused: boolean) => updatePregaoPrefs({ tapePaused });
 
 export function Pregao() {
   const { mode } = useSettings();
@@ -173,8 +172,6 @@ export function Pregao() {
             selectedKey={effectiveKey}
             onSelect={onSelect}
             loading={quotesLoading}
-            paused={prefs.tapePaused}
-            onPausedChange={setTapePaused}
           />
         }
         timeframe={<TimeframeBar value={tf} onChange={setTimeframe} />}

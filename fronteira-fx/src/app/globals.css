@@ -3,27 +3,38 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Tokens (dev/ui/spec-reforma-ui.md §2). Claro em :root; escuro em .dark (tema padrão).
+ * Os nomes antigos continuam; os novos entram ao lado. Cores de texto sobre fundo de matiz
+ * (gain-soft, loss-soft, warn-soft, demo-soft) são sempre --foreground (≥ 4,5:1 nos dois temas).
+ */
 :root {
-  /* Fronteira FX light theme */
   --background: #f4f6fb;
   --surface: #ffffff;
   --surface-2: #eef1f8;
+  --surface-3: #e3e8f2;
   --foreground: #0b1020;
   --muted: #5b6478;
   --border: #d9deea;
+  --control-border: #7c8597;
+  --border-strong: #7c8597;
   --accent: #2563eb;
   --accent-foreground: #ffffff;
+  --accent-strong: #1d4ed8;
+  --accent-soft: color-mix(in oklab, #2563eb 12%, transparent);
   /* DS7: ganho/perda/aviso passam 4,5:1 sobre #fff, #f4f6fb e #eef1f8 */
   --gain: #047857;
-  --loss: #be123c;
-  --warn: #92400e;
-  /* Texto de selo sobre o próprio matiz a 15 % (bg-gain/15, bg-accent/15): ≥ 4,5:1 no claro */
   --gain-strong: #065f46;
-  --accent-strong: #1d4ed8;
+  --gain-soft: color-mix(in oklab, #047857 14%, transparent);
+  --loss: #be123c;
+  --loss-soft: color-mix(in oklab, #be123c 14%, transparent);
+  --warn: #92400e;
+  --warn-soft: color-mix(in oklab, #92400e 14%, transparent);
+  --demo: #6d28d9;
+  --demo-soft: color-mix(in oklab, #6d28d9 12%, transparent);
   --ring: #2563eb;
-  --radius: 0.5rem;
-  --border-strong: #7c8597;
-  --surface-3: #e3e8f2;
+  --scrim: rgb(11 16 32 / 0.4);
+  --grid-line: rgb(11 16 32 / 0.05);
   --chart-buy: #2563eb;
   --chart-sell: #545b6d;
   --chart-grid: #e6eaf3;
@@ -38,6 +49,32 @@
   --heat-3: #c3d0fb;
   --heat-4: #a7b8f5;
   --heat-5: #879bea;
+  /* Raios (§2.2) */
+  --r-chip: 4px;
+  --r-control: 8px;
+  --r-surface: 12px;
+  --r-pill: 999px;
+  /* Sombras (§2.3) */
+  --shadow-1: 0 1px 2px rgb(11 16 32 / 0.06);
+  --shadow-2: 0 8px 24px rgb(11 16 32 / 0.1);
+  --shadow-3: 0 16px 48px rgb(11 16 32 / 0.16);
+  /* Alturas de painel (§2.4) e camadas (§2.4) */
+  --panel-h-sm: 280px;
+  --panel-h-md: 360px;
+  --panel-h-lg: 420px;
+  --z-header: 30;
+  --z-nav: 40;
+  --z-overlay: 50;
+  --z-toast: 60;
+  /* Movimento (§3.1) */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --motion-flash: 1200ms;
+  --motion-stagger: 40ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark {
@@ -45,23 +82,32 @@
   --background: #0b1020;
   --surface: #111827;
   --surface-2: #171f33;
+  --surface-3: #1f2a40;
   --foreground: #e6eaf3;
   --muted: #94a3b8;
   --border: #243049;
+  --control-border: #64748b;
+  --border-strong: #64748b;
   --accent: #60a5fa;
   --accent-foreground: #0b1020;
-  --gain: #34d399;
-  --loss: #fb7185;
-  --warn: #fbbf24;
-  --gain-strong: #34d399;
   --accent-strong: #60a5fa;
+  --accent-soft: color-mix(in oklab, #60a5fa 14%, transparent);
+  --gain: #34d399;
+  --gain-strong: #34d399;
+  --gain-soft: color-mix(in oklab, #34d399 14%, transparent);
+  --loss: #fb7185;
+  --loss-soft: color-mix(in oklab, #fb7185 14%, transparent);
+  --warn: #fbbf24;
+  --warn-soft: color-mix(in oklab, #fbbf24 14%, transparent);
+  --demo: #c4b5fd;
+  --demo-soft: color-mix(in oklab, #c4b5fd 14%, transparent);
   --ring: #60a5fa;
-  --border-strong: #64748b;
-  --surface-3: #1f2a40;
+  --scrim: rgb(2 6 23 / 0.6);
+  --grid-line: rgb(148 163 184 / 0.06);
   --chart-buy: #60a5fa;
   --chart-sell: #a9b0c0;
   --chart-grid: #1b2440;
-  --chart-volume: #334155;
+  --chart-volume: #475569;
   --chart-sma: #60a5fa;
   --chart-ema: #c084fc;
   --chart-band: #94a3b8;
@@ -71,33 +117,67 @@
   --heat-3: #263a66;
   --heat-4: #2f4a82;
   --heat-5: #3a5ca0;
+  --shadow-1: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 8px 24px rgb(0 0 0 / 0.45);
+  --shadow-3: 0 16px 48px rgb(0 0 0 / 0.6);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-control-border: var(--control-border);
+  --color-border-strong: var(--border-strong);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-gain: var(--gain);
-  --color-loss: var(--loss);
-  --color-warn: var(--warn);
-  --color-gain-strong: var(--gain-strong);
   --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-gain: var(--gain);
+  --color-gain-strong: var(--gain-strong);
+  --color-gain-soft: var(--gain-soft);
+  --color-loss: var(--loss);
+  --color-loss-soft: var(--loss-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-demo: var(--demo);
+  --color-demo-soft: var(--demo-soft);
   --color-ring: var(--ring);
-  --color-border-strong: var(--border-strong);
-  --color-surface-3: var(--surface-3);
+  --color-scrim: var(--scrim);
   --color-chart-buy: var(--chart-buy);
   --color-chart-sell: var(--chart-sell);
   --color-chart-grid: var(--chart-grid);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 4px);
+  /* Raios: os nomes do Tailwind (sm/md/lg) apontam para os papéis da spec; `rounded-md` continua valendo. */
+  --radius-chip: var(--r-chip);
+  --radius-control: var(--r-control);
+  --radius-surface: var(--r-surface);
+  --radius-pill: var(--r-pill);
+  --radius-sm: var(--r-chip);
+  --radius-md: var(--r-control);
+  --radius-lg: var(--r-surface);
+  --radius-xl: var(--r-surface);
+  /* Sombras: os nomes do Tailwind apontam para os três níveis da spec. */
+  --shadow-xs: var(--shadow-1);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
+  --shadow-xl: var(--shadow-3);
+  /* Escala tipográfica de 5 papéis (§2.5). */
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.125rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  --text-heading: 1rem;
+  --text-heading--line-height: 1.5rem;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.75rem;
 }
 
 @layer base {
@@ -145,38 +225,195 @@
   }
 }
 
-/* Pregão: fita rolante (pausa em hover/foco; vira lista estática com motion-reduce) e destaque de linha nova */
-@keyframes pregao-marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-/* Em `@layer components` (A11Y-1): CSS sem camada venceria `motion-reduce:animate-none`, que fica em
-   `@layer utilities`, e a fita seguiria animada (parada num translate qualquer) com movimento reduzido. */
+/* ---- Utilitários de movimento (§3.3). Só opacity, transform e cor. ---- */
 @layer components {
-  .pregao-marquee {
-    animation: pregao-marquee var(--tape-duration, 40s) linear infinite;
+  .fx-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
   }
-  .pregao-marquee:hover,
-  .pregao-marquee:focus-within {
-    animation-play-state: paused;
+  .fx-tnum {
+    font-variant-numeric: tabular-nums;
   }
-}
-@keyframes pregao-flash {
-  from {
-    background-color: var(--surface-2);
+
+  @keyframes fx-enter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
-  to {
-    background-color: transparent;
+  .fx-enter {
+    animation: fx-enter var(--motion-base) var(--ease-out) both;
+  }
+
+  @keyframes fx-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .fx-fade {
+    animation: fx-fade var(--motion-fast) var(--ease-out) both;
+  }
+
+  .fx-lift {
+    transition:
+      transform var(--motion-fast) var(--ease-out),
+      border-color var(--motion-fast) var(--ease-out);
+  }
+  .fx-lift:hover {
+    transform: translateY(-1px);
+  }
+  .fx-press:active {
+    transform: translateY(1px);
+  }
+
+  @keyframes fx-flash-up {
+    from {
+      background-color: var(--gain-soft);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+  @keyframes fx-flash-down {
+    from {
+      background-color: var(--loss-soft);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+  /* Mesmos keyframes com outro nome: `useFlash` alterna o sufixo para reiniciar a animação a cada mudança. */
+  @keyframes fx-flash-up-b {
+    from {
+      background-color: var(--gain-soft);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+  @keyframes fx-flash-down-b {
+    from {
+      background-color: var(--loss-soft);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+  .fx-flash-up {
+    animation: fx-flash-up var(--motion-flash) var(--ease-out);
+  }
+  .fx-flash-down {
+    animation: fx-flash-down var(--motion-flash) var(--ease-out);
+  }
+  .fx-flash-up-b {
+    animation: fx-flash-up-b var(--motion-flash) var(--ease-out);
+  }
+  .fx-flash-down-b {
+    animation: fx-flash-down-b var(--motion-flash) var(--ease-out);
+  }
+
+  /* Brilho do esqueleto implementado do zero (sem código de terceiros; Uiverse só como inspiração). */
+  @keyframes fx-shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+  .fx-skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 0%, var(--surface-3) 50%, var(--surface-2) 100%) 0 0 / 200% 100%;
+    animation: fx-shimmer 1.2s var(--ease-inout) infinite;
+  }
+
+  @keyframes fx-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .fx-spin {
+    animation: fx-spin 1s steps(12) infinite;
+  }
+
+  @keyframes fx-pop {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .fx-pop {
+    animation: fx-pop var(--motion-fast) var(--ease-out) both;
+  }
+
+  .fx-grid {
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* Indicador de aba: move por transform, nunca por left. */
+  .fx-segmented-indicator {
+    transform: translateX(calc(var(--i, 0) * 100%));
+    transition: transform var(--motion-base) var(--ease-inout);
+  }
+
+  /* Cartão com linha de luz: pseudo-elemento de opacidade (sem box-shadow). */
+  .fx-card {
+    position: relative;
+    isolation: isolate;
+  }
+  .fx-card::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(120deg, transparent 30%, color-mix(in oklab, var(--accent) 35%, transparent) 50%, transparent 70%);
+    transition: opacity 240ms var(--ease-out);
+    z-index: -1;
+  }
+  .fx-card:hover::after,
+  .fx-card:focus-within::after {
+    opacity: 1;
   }
 }
 
+/* Movimento reduzido (§3.4, obrigatório): nada se repete, nada pisca, a tela aparece direto. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .fx-flash-up,
+  .fx-flash-down,
+  .fx-flash-up-b,
+  .fx-flash-down-b {
+    animation: none !important;
+  }
+  .fx-skeleton {
+    animation: none !important;
+    background: var(--surface-2);
+  }
+  .fx-spin {
+    animation: none !important;
   }
 }

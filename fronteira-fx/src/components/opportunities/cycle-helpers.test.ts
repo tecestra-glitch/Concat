@@ -38,7 +38,7 @@ describe("cycle-helpers (ganho, filtros e textos das pernas)", () => {
   it("filtro: moeda de partida, ganho mínimo na moeda escolhida e incluir incompletos", () => {
     const ok = cycle();
     const incompleto = cycle({ start: "USD@nomad", confidence: "incomplete" });
-    const semConversao = cycle({ start: "PYG@banco_py", gain_by_currency: { BRL: null, USD: null, PYG: null } });
+    const semConversao = cycle({ start: "PYG@banco-demo-py", gain_by_currency: { BRL: null, USD: null, PYG: null } });
     const list = [ok, incompleto, semConversao];
     expect(filterCycles(list, { currency: "all", minGain: "", minCurrency: "BRL", includeIncomplete: true })).toHaveLength(3);
     expect(filterCycles(list, { currency: "all", minGain: "", minCurrency: "BRL", includeIncomplete: false })).toEqual([ok, semConversao]);

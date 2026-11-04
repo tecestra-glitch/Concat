@@ -24,7 +24,8 @@ describe("LatestPrints: estrutura e rótulo", () => {
     expect(html).toContain('data-testid="pregao-prints"');
     expect(html).toContain('data-state="ready"');
     expect(rowCount(html)).toBe(10);
-    expect(html).toContain("pregao-flash");
+    // Sem flash em todas as linhas (PR2): a linha não pisca ao aparecer; só a célula que muda de valor recebe realce.
+    expect(html).not.toContain("pregao-flash");
     expect(html).toContain('data-mode="demo"');
   });
 

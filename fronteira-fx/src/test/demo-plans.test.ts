@@ -86,14 +86,12 @@ describe("planos na demonstração (sem nenhuma execução)", () => {
   });
 });
 
-describe("grafo demo sem o ueno", () => {
-  it("nenhuma aresta nem saldo do ueno; Revolut e Nomad entram como contas digitais", () => {
-    const edges = demoEdges();
-    expect(edges.some((e) => e.from.includes("ueno") || e.to.includes("ueno"))).toBe(false);
+describe("grafo demo sem o banco fechado", () => {
+  it("Revolut e Nomad entram como contas digitais; o banco fechado fica fora", () => {
     const parked = demoParkedBalances();
     expect(Object.keys(parked).some((k) => k.endsWith("@revolut"))).toBe(true);
     expect(Object.keys(parked).some((k) => k.endsWith("@nomad"))).toBe(true);
-    expect(Object.keys(parked).some((k) => k.startsWith("PYG@banco_py"))).toBe(true);
+    expect(Object.keys(parked).some((k) => k.startsWith("PYG@banco-demo-py"))).toBe(true);
     expect(Object.keys(parked).some((k) => k.startsWith("PYG@revolut"))).toBe(false);
   });
 

@@ -1,7 +1,9 @@
 "use client";
 import type { KeyboardEvent, ReactElement } from "react";
 import { rovingIndex } from "@/components/pregao/timeframe-bar";
-import { PAIRS, PAIR_LABEL, type PairKey } from "@/lib/pregao/types";
+import { FxChoice } from "@/components/ui/fx/fx-choice";
+import { PairFlags, type FlagCode } from "@/components/ui/currency-flag";
+import { PAIRS, type PairKey } from "@/lib/pregao/types";
 import { cn } from "@/lib/utils";
 
 export interface PairSelectorProps {
@@ -33,29 +35,21 @@ export function PairSelector({ value, pairs = PAIRS, onChange, disabled = false,
       aria-label="Par de moedas ([ e ] trocam o par)"
       data-testid="pregao-pair"
       onKeyDown={onKeyDown}
-      className={cn("inline-flex rounded-md border border-border bg-surface p-0.5", className)}
+      className={cn("inline-flex max-w-full flex-wrap rounded-control border border-border bg-surface p-0.5", className)}
     >
       {pairs.map((pair) => {
         const checked = pair === value;
         return (
-          <button
+          <FxChoice
             key={pair}
-            type="button"
-            role="radio"
-            aria-checked={checked}
+            checked={checked}
             data-pair={pair}
             tabIndex={pair === tabStop ? 0 : -1}
             disabled={disabled}
             onClick={() => onChange(pair)}
-            className={cn(
-              "tnum h-8 max-sm:h-10 min-w-10 rounded-sm px-2.5 text-[13px] transition-colors",
-              "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
-              "disabled:pointer-events-none disabled:opacity-50",
-              checked ? "bg-surface-2 font-medium text-foreground" : "text-muted hover:text-foreground",
-            )}
           >
-            {PAIR_LABEL[pair]}
-          </button>
+            <PairFlags base={pair.split("/")[0] as FlagCode} quote={pair.split("/")[1] as FlagCode} />
+          </FxChoice>
         );
       })}
     </div>

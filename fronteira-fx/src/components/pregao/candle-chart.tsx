@@ -59,6 +59,8 @@ export interface CandleChartProps {
   /** Quando passado, força `style={{ height }}`; senão a altura vem do pai (`h-full`). */
   height?: number;
   className?: string;
+  /** Prefixo do data-testid da figura (`${prefix}-chart`); o pregão usa "pregao", a home usa "home". */
+  testIdPrefix?: string;
 }
 
 interface Handles {
@@ -108,6 +110,7 @@ export function CandleChart({
   onRetry,
   height,
   className,
+  testIdPrefix = "pregao",
 }: CandleChartProps): React.ReactElement {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const handlesRef = React.useRef<Handles | null>(null);
@@ -309,7 +312,7 @@ export function CandleChart({
   // de atribuição dentro do contêiner e o estado de erro tem um botão; ambos seriam nested-interactive.
   return (
     <figure
-      data-testid="pregao-chart"
+      data-testid={`${testIdPrefix}-chart`}
       aria-label={label}
       aria-busy={state === "loading" ? true : undefined}
       data-state={state}

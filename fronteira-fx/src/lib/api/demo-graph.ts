@@ -3,7 +3,7 @@
  * estacionados por nó. Tudo em string decimal (D1); só o cálculo em `../graph` converte para número.
  *
  * Trilhos e deslocamentos seguem `backend/.../data/rails.json` e `transport.json`: custo não verificado
- * vira `incomplete` e nunca zero. O ueno saiu do grafo (resolução do BCP em 03/11/2026).
+ * vira `incomplete` e nunca zero. O banco fechado saiu do grafo (resolução do BCP em 03/11/2026).
  */
 import { dec, edgesFromQuotes, nodeKey } from "../graph";
 import { allDemoQuotes, demoAccounts, demoWesternUnionQuotes } from "./demo-data";
@@ -77,14 +77,14 @@ export function demoTransferEdges(): Edge[] {
   // cotação Nomad USD/BRL: define a taxa das conversões que passam pelo Nomad (e a data delas)
   const nomadUsd = allDemoQuotes.find((q) => q.source_id === "nomad" && q.base === "USD" && q.quote === "BRL")!;
   return [
-    // remessa: BRL no banco BR → PYG no Banco PY (WU, tarifa 100 % desconto)
-    transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "banco_py"), { channel: "assistida", rate: wu5k.sell ?? "0", minutes: 2 * 1440, via: "Western Union → conta Banco PY (Pix)", confidence: "estimated", evidence_id: wu5k.evidence_id, quoted_at: wu5k.captured_at }),
+    // remessa: BRL no banco BR → PYG no banco demo PY (WU, tarifa 100 % desconto)
+    transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "banco-demo-py"), { channel: "assistida", rate: wu5k.sell ?? "0", minutes: 2 * 1440, via: "Western Union → conta banco demo PY (Pix)", confidence: "estimated", evidence_id: wu5k.evidence_id, quoted_at: wu5k.captured_at }),
     transfer(nodeKey("BRL", "brbank"), nodeKey("PYG", "cash:CDE"), { channel: "presencial", rate: wuCash.sell ?? "0", minutes: 30, via: "Western Union retirada em loja (CDE)", confidence: "estimated", evidence_id: wuCash.evidence_id, quoted_at: wuCash.captured_at }),
-    // Banco PY ↔ dinheiro (saque/depósito em PYG): tarifa não verificada → incompleto (nunca zero, como no backend)
-    transfer(nodeKey("PYG", "banco_py"), nodeKey("PYG", "cash:ASU"), { kind: "withdraw", channel: "presencial", minutes: 20, via: "saque Banco PY (ASU) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
-    transfer(nodeKey("PYG", "cash:ASU"), nodeKey("PYG", "banco_py"), { kind: "deposit", channel: "presencial", minutes: 20, via: "depósito Banco PY (ASU) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
-    transfer(nodeKey("PYG", "cash:CDE"), nodeKey("PYG", "banco_py"), { kind: "deposit", channel: "presencial", minutes: 30, via: "depósito Banco PY (CDE) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
-    transfer(nodeKey("PYG", "banco_py"), nodeKey("PYG", "cash:CDE"), { kind: "withdraw", channel: "presencial", minutes: 30, via: "saque Banco PY (CDE) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
+    // banco demo PY ↔ dinheiro (saque/depósito em PYG): tarifa não verificada → incompleto (nunca zero, como no backend)
+    transfer(nodeKey("PYG", "banco-demo-py"), nodeKey("PYG", "cash:ASU"), { kind: "withdraw", channel: "presencial", minutes: 20, via: "saque banco demo PY (ASU) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
+    transfer(nodeKey("PYG", "cash:ASU"), nodeKey("PYG", "banco-demo-py"), { kind: "deposit", channel: "presencial", minutes: 20, via: "depósito banco demo PY (ASU) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
+    transfer(nodeKey("PYG", "cash:CDE"), nodeKey("PYG", "banco-demo-py"), { kind: "deposit", channel: "presencial", minutes: 30, via: "depósito banco demo PY (CDE) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
+    transfer(nodeKey("PYG", "banco-demo-py"), nodeKey("PYG", "cash:CDE"), { kind: "withdraw", channel: "presencial", minutes: 30, via: "saque banco demo PY (CDE) (custo não verificado)", confidence: "incomplete", unknown_costs: ["fees"] }),
     // dinheiro ↔ casas de câmbio (mesma cidade)
     ...counterEdges("CDE", ["chaco:CDE", "alberdi:CDE"]),
     ...counterEdges("ASU", ["chaco:ASU", "bonanza:ASU", "norte:ASU"]),
@@ -109,7 +109,7 @@ export function demoEdges(): Edge[] {
 }
 
 const ACCOUNT_VENUE: Record<string, string> = {
-  "acc-banco-py-pyg": "banco_py",
+  "acc-banco-demo-py-pyg": "banco-demo-py",
   "acc-nomad-usd": "nomad",
   "acc-revolut-usd": "revolut",
   "acc-revolut-brl": "revolut",

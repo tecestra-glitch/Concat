@@ -126,7 +126,7 @@ function RangeValue({ stats, quote, value }: { stats: SessionStats | null; quote
       >
         {pos === null ? null : <span className="absolute top-0 h-2 w-0.5 bg-foreground" style={{ left: `${pos}%` }} />}
       </div>
-      <div className="flex justify-between text-[11px] text-muted">
+      <div className="flex justify-between text-caption text-muted">
         <span>mín {low}</span>
         <span>máx {high}</span>
       </div>
@@ -138,7 +138,7 @@ function StatTile({ cell, stats, quote }: { cell: StatsCell; stats: SessionStats
   return (
     <div className="rounded-md border border-border bg-surface px-3 py-2">
       <dt className="text-xs text-muted">{cell.label}</dt>
-      <dd className="tnum text-base">
+      <dd className="fx-num text-heading">
         {cell.id === "change" ? (
           <span className="flex flex-wrap items-baseline gap-x-2">
             <Delta value={cell.deltaAbs ?? null} kind="abs" quote={quote} />
@@ -209,7 +209,7 @@ export function StatsStrip({
             <StatTile key={cell.id} cell={cell} stats={stats} quote={quote} />
           ))}
         </dl>
-        <p className="mt-1 text-[11px] text-muted">corte diário 00:00 Assunção</p>
+        <p className="mt-1 text-caption text-muted">corte diário 00:00 Assunção</p>
       </>
     );
   }

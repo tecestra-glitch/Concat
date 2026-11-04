@@ -53,13 +53,13 @@ export function MemoryPage() {
             </div>
             <div className="grid gap-1">
               <Label htmlFor="mem-kind">Tipo</Label>
-              <select id="mem-kind" className="h-9 rounded-md border border-border bg-background px-2 text-sm" value={filters.kind} onChange={(e) => setFilters({ ...filters, kind: e.target.value })}>
+              <select id="mem-kind" className="h-9 rounded-control border border-control-border bg-surface px-2 text-body" value={filters.kind} onChange={(e) => setFilters({ ...filters, kind: e.target.value })}>
                 {KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
               </select>
             </div>
             <div className="grid gap-1">
               <Label htmlFor="mem-tag">Etiqueta</Label>
-              <Input id="mem-tag" value={filters.tag} onChange={(e) => setFilters({ ...filters, tag: e.target.value })} placeholder="ex.: ueno" className="sm:w-32" autoComplete="off" />
+              <Input id="mem-tag" value={filters.tag} onChange={(e) => setFilters({ ...filters, tag: e.target.value })} placeholder="ex.: tarifa" className="sm:w-32" autoComplete="off" />
             </div>
           </div>
         </CardHeader>

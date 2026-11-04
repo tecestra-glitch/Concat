@@ -8,7 +8,7 @@ export default function NotFound() {
       <h2 className="text-lg font-semibold tracking-tight">Esta página não existe</h2>
       <p className="text-sm text-muted">O endereço pode ter mudado. As telas do terminal estão no menu ao lado (ou em «Mais», no celular).</p>
       <Button asChild>
-        <Link href="/">Ir para a visão geral</Link>
+        <Link href="/">Ir para o início</Link>
       </Button>
     </div>
   );

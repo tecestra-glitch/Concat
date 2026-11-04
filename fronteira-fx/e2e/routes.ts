@@ -1,17 +1,17 @@
-/** Every route with the level-2 heading its page renders (shared by the specs; not a test file). */
+/** Every route with the title its top-bar h1 shows (nav label, dev/ui/spec-reforma-ui.md G1) (shared by the specs; not a test file). */
 export const ROUTES = [
-  ["/", "Visão geral"],
+  ["/", "Início"],
   ["/mercados", "Mercados"],
   ["/pregao", "Pregão"],
   ["/oportunidades", "Oportunidades"],
   ["/planos", "Planos"],
-  ["/simulador", "Simulador de rotas"],
+  ["/simulador", "Simulador"],
   ["/contas", "Contas e cartões"],
   ["/fontes", "Fontes"],
   ["/monitor", "Monitor ao vivo"],
   ["/economia", "Economia e cripto"],
   ["/alertas", "Alertas"],
-  ["/diario", "Diário de operações"],
+  ["/diario", "Diário"],
   ["/conhecimento", "Conhecimento"],
   ["/memoria", "Memória"],
   ["/configuracoes", "Configurações"],

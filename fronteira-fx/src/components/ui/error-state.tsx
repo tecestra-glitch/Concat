@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 export function ErrorState({ title = "Não foi possível carregar", error, onRetry, retryLabel = "Tentar de novo", className, compact = false }: { title?: string; error?: unknown; onRetry?: () => void; retryLabel?: string; className?: string; compact?: boolean }) {
   const detail = error instanceof Error ? error.message : typeof error === "string" ? error : null;
   return (
-    <div role="alert" className={cn("rounded-md border border-loss/40 bg-loss/5 text-sm", compact ? "p-3" : "p-4", className)}>
+    <div role="alert" className={cn("rounded-control border border-loss/40 bg-loss/5 text-sm", compact ? "p-3" : "p-4", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-loss">{title}</p>
         {onRetry && (

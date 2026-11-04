@@ -9,7 +9,11 @@ import { useSettings } from "@/lib/settings";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { HEALTH_LABEL, HEALTH_TONE } from "@/components/ui/labels";
+import { FxChip, type FxChipTone } from "@/components/ui/fx/fx-chip";
+import { FlagIcon } from "@/components/ui/currency-flag";
+import { HEALTH_LABEL } from "@/components/ui/labels";
+import { COUNTRY_LABEL, sourceCountry } from "@/lib/api/source-country";
+import type { Health, Source } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,6 +23,26 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { formatAge, formatDateTime } from "@/lib/format";
 import { CITY_LABEL, type Evidence } from "@/lib/api/types";
 import { integrationLabel } from "@/lib/api/source-integration";
+
+/** Tom do chip de status por saúde da fonte (FO2). Texto sempre visível; cor nunca é o único sinal. */
+const HEALTH_CHIP_TONE: Partial<Record<Health, FxChipTone>> = { ok: "gain", degraded: "warn", stale: "warn", blocked: "loss", unknown: "neutral" };
+
+/** Bandeira PY e o nome do país (FO1, ME3). Fonte sem país não quebra: mostra "país não informado". */
+function CountryLine({ source }: { source: Source }) {
+  const country = sourceCountry(source);
+  return (
+    <p className="mt-1 flex items-center gap-1.5 text-caption text-muted" data-testid="source-country">
+      {country ? (
+        <>
+          <FlagIcon country={country} />
+          <span>{COUNTRY_LABEL[country]}</span>
+        </>
+      ) : (
+        <span>país não informado</span>
+      )}
+    </p>
+  );
+}
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -60,14 +84,14 @@ function SourcesInner() {
           <Card key={s.id} className={sel === s.id ? "ring-2 ring-ring" : undefined} data-testid="source-card">
             <CardHeader>
               <div className="flex items-start justify-between gap-2">
-                <div>
+                <div className="min-w-0">
                   <CardTitle>{s.name}</CardTitle>
                   <CardDescription>{METHOD[s.method]} · sondada a cada {Math.max(1, Math.round(s.poll_interval_s / 60))} min</CardDescription>
+                  <CountryLine source={s} />
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <Badge variant={HEALTH_TONE[s.health] ?? "outline"}>{HEALTH_LABEL[s.health] ?? s.health}</Badge>
-                  <Badge variant="outline" data-testid="integration-badge">{integrationLabel(s.integration)}</Badge>
-                </div>
+                {/* Status em chip (FO2): ok, atraso, bloqueada ou desconhecida; o texto é sempre o rótulo. */}
+                <FxChip tone={HEALTH_CHIP_TONE[s.health] ?? "neutral"} data-testid="source-status">{HEALTH_LABEL[s.health] ?? s.health}</FxChip>
+                <Badge variant="outline" data-testid="integration-badge">{integrationLabel(s.integration)}</Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-2 text-xs">
@@ -79,8 +103,8 @@ function SourcesInner() {
               <div className="flex flex-wrap gap-1">{s.capabilities.length ? s.capabilities.map((c) => <Badge key={c} variant="accent">{c}</Badge>) : <Badge variant="outline">nenhuma capacidade comprovada</Badge>}</div>
               <ul className="list-disc pl-4 text-muted">{s.limitations.map((l) => <li key={l}>{l}</li>)}</ul>
               <div className="flex items-center justify-between pt-1">
-                <a className="text-accent underline" href={s.url} target="_blank" rel="noreferrer noopener">site<span className="sr-only"> de {s.name} (abre em nova aba)</span></a>
-                <button type="button" className="rounded-sm text-accent underline focus-visible:outline-2 focus-visible:outline-ring" onClick={() => setSel(sel === s.id ? undefined : s.id)} aria-pressed={sel === s.id}>
+                <a className="inline-flex min-h-11 min-w-11 items-center text-accent underline sm:min-h-6 sm:min-w-0" href={s.url} target="_blank" rel="noreferrer noopener">site<span className="sr-only"> de {s.name} (abre em nova aba)</span></a>
+                <button type="button" className="inline-flex min-h-11 items-center rounded-chip py-1 text-accent underline focus-visible:outline-2 focus-visible:outline-ring sm:min-h-6" onClick={() => setSel(sel === s.id ? undefined : s.id)} aria-pressed={sel === s.id}>
                   {sel === s.id ? "todas as evidências" : "ver evidências"}
                 </button>
               </div>
@@ -143,7 +167,7 @@ function HashDialog({ evidence: e }: { evidence: Evidence }) {
   return (
     <Dialog onOpenChange={() => setCopied(false)}>
       <DialogTrigger asChild>
-        <button type="button" className="tnum rounded-sm underline decoration-dotted focus-visible:outline-2 focus-visible:outline-ring" aria-label={`Ver hash completo da evidência ${e.id}`}>{e.sha256.slice(0, 12)}…</button>
+        <button type="button" className="tnum inline-flex items-center rounded-sm py-1 underline decoration-dotted focus-visible:outline-2 focus-visible:outline-ring" aria-label={`Ver hash completo da evidência ${e.id}`}>{e.sha256.slice(0, 12)}…</button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>Evidência {e.id}</DialogTitle><DialogDescription>{e.kind} · capturada em {formatDateTime(e.captured_at)} · <a className="text-accent underline" href={e.url} target="_blank" rel="noreferrer noopener">origem</a></DialogDescription></DialogHeader>

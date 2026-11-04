@@ -78,7 +78,7 @@ export function ChangeTimeline({ sources, names }: { sources: Source[]; names: R
             </li>
           ))}
         </ol>
-        {all.length > LIMIT && <p className="pt-2 text-[11px] text-muted">Mostrando {LIMIT} de {all.length} mudanças.</p>}
+        {all.length > LIMIT && <p className="pt-2 text-caption text-muted">Mostrando {LIMIT} de {all.length} mudanças.</p>}
       </CardContent>
     </Card>
   );

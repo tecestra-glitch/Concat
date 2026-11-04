@@ -1,7 +1,7 @@
 /**
  * Cruzamento de posições ("grafo de posições") — espelho TS do motor do backend (D1).
  *
- * Nó  = moeda em um local/conta (ex.: USD@revolut, PYG@chaco:CDE, BRL@brbank, PYG@cash:ASU).
+ * Nó  = moeda em um local/conta (ex.: USD@banco-demo-py, PYG@chaco:CDE, BRL@brbank).
  * Aresta = uma forma de mover valor entre dois nós: uma cotação (compra/venda de uma fonte),
  *          uma transferência (entre contas e lugares digitais), um depósito/saque (dinheiro ↔ conta)
  *          ou um deslocamento entre cidades (kind `travel`). Cada aresta carrega taxa, custos, prazo,
@@ -95,7 +95,7 @@ export function applyEdge(amount: number, e: Edge): number {
 // Lado paraguaio (espelho de `is_paraguayan_venue` no backend): cidades do Paraguai, banco paraguaio e as fontes
 // cujas cidades estão todas no Paraguai. Qualquer outro lugar (fintech, banco brasileiro, Western Union) não é.
 const PY_CITIES = new Set(["CDE", "ASU", "PJC", "ENC"]);
-const PY_VENUES = new Set(["banco_py", "chaco", "alberdi", "bonanza", "norte"]);
+const PY_VENUES = new Set(["banco-demo-py", "chaco", "alberdi", "bonanza", "norte"]);
 
 export function isParaguayanVenue(venue: string): boolean {
   const [head, city] = venue.replace(/^demo-/, "").split(":");

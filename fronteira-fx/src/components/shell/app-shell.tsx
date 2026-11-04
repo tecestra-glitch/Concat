@@ -61,7 +61,7 @@ function MobileNav({ pathname }: { pathname: string }) {
   const { primary, more } = splitNav(NAV);
   const moreActive = more.some((n) => isActive(n.href, pathname));
   const [open, setOpen] = React.useState(false);
-  const itemClass = (active: boolean) => cn("flex min-h-12 w-full flex-col items-center justify-center gap-0.5 py-2 text-[11px] text-muted focus-visible:outline-2 focus-visible:outline-ring", active && "text-accent");
+  const itemClass = (active: boolean) => cn("flex min-h-12 w-full flex-col items-center justify-center gap-0.5 py-2 text-caption text-muted focus-visible:outline-2 focus-visible:outline-ring", active && "text-accent");
   return (
     <nav aria-label="Navegação" data-testid="mobile-nav" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur lg:hidden">
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${primary.length + 1}, minmax(0, 1fr))` }}>

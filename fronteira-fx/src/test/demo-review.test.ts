@@ -15,7 +15,7 @@ describe("IOF no espelho (mesma regra do backend: fora do lado paraguaio, IOF de
     ["casa:FOZ", "BRL", "USD", true],
     ["chaco:CDE", "BRL", "PYG", false],
     ["cash:CDE", "BRL", "USD", false],
-    ["banco_py", "BRL", "PYG", false],
+    ["banco-demo-py", "BRL", "PYG", false],
     ["chaco", "BRL", "PYG", false],
     ["chaco:CDE", "USD", "BRL", false],
   ] as const)("%s %s→%s: %s", (venue, from, to, expected) => {
@@ -23,9 +23,9 @@ describe("IOF no espelho (mesma regra do backend: fora do lado paraguaio, IOF de
   });
 });
 
-describe("saque e depósito do Banco PY: custo não verificado, nunca zero", () => {
-  it("todas as arestas de saque e depósito do Banco PY são incompletas e sem tarifa conhecida", () => {
-    const bank = demoTransferEdges().filter((e) => /^(saque|depósito) Banco PY/.test(e.via));
+describe("saque e depósito do banco demo PY: custo não verificado, nunca zero", () => {
+  it("todas as arestas de saque e depósito do banco demo PY são incompletas e sem tarifa conhecida", () => {
+    const bank = demoTransferEdges().filter((e) => /^(saque|depósito) banco demo PY/.test(e.via));
     expect(bank.length).toBeGreaterThan(0);
     for (const e of bank) {
       expect(e.confidence).toBe("incomplete");
@@ -33,8 +33,8 @@ describe("saque e depósito do Banco PY: custo não verificado, nunca zero", () 
     }
   });
 
-  it("o ciclo PYG@banco_py → PYG@cash:ASU → PYG@banco_py não aparece como estimativa com custo zero", () => {
-    const cycles = findCycles(demoEdges(), { "PYG@banco_py": "1000000" }, { maxLen: 4 });
+  it("o ciclo PYG@banco-demo-py → PYG@cash:ASU → PYG@banco-demo-py não aparece como estimativa com custo zero", () => {
+    const cycles = findCycles(demoEdges(), { "PYG@banco-demo-py": "1000000" }, { maxLen: 4 });
     const loop = cycles.filter((c) => c.path.length === 3 && c.path.includes("PYG@cash:ASU"));
     expect(loop.length).toBeGreaterThan(0);
     for (const c of loop) {

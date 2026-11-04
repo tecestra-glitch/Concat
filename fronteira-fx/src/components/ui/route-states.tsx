@@ -8,6 +8,7 @@ import { Button } from "./button";
 export function RouteLoading({ title, blocks = 3 }: { title: string; blocks?: number }) {
   return (
     <div role="status" aria-label={`Carregando ${title}`} className="stagger space-y-4">
+      <span className="sr-only">Carregando…</span>
       <div className="space-y-2" style={{ "--i": 0 } as React.CSSProperties}>
         <Skeleton className="h-6 w-48" />
         <Skeleton className="h-4 w-80 max-w-full" />
@@ -26,7 +27,7 @@ export function RouteError({ title, error, reset }: { title: string; error: Erro
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       <ErrorState title="Esta tela falhou ao renderizar" error={error.digest ? `${error.message} (ref. ${error.digest})` : error} onRetry={reset} retryLabel="Recarregar a tela" />
       <Button asChild variant="outline" size="sm">
-        <Link href="/">Voltar à visão geral</Link>
+        <Link href="/">Voltar ao início</Link>
       </Button>
     </div>
   );

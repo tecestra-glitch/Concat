@@ -76,19 +76,13 @@ describe("demo simulation mirrors SimulationResponse (MED-02)", () => {
   });
 });
 
-describe("demonstração sem o ueno (resolução pelo BCP em 03/11/2026)", () => {
-  it("o ueno não aparece em fontes nem em contas; Revolut e Nomad são contas digitais", async () => {
-    const { demoSources, demoAccounts } = await import("@/lib/api/demo-data");
-    expect(demoSources.some((s) => s.id === "ueno")).toBe(false);
-    expect(demoAccounts.some((a) => a.institution.toLowerCase().includes("ueno"))).toBe(false);
+describe("demonstração sem o banco fechado (resolução pelo BCP em 03/11/2026)", () => {
+  it("o banco fechado não aparece em contas; Revolut e Nomad são contas digitais", async () => {
+    const { demoAccounts } = await import("@/lib/api/demo-data");
     const revolut = demoAccounts.filter((a) => a.institution === "Revolut");
     expect(revolut.map((a) => a.currency).sort()).toEqual(["BRL", "USD"]);
     expect(revolut.every((a) => a.location === "digital")).toBe(true);
     expect(demoAccounts.some((a) => a.institution === "Nomad" && a.currency === "USD")).toBe(true);
     expect(demoAccounts.some((a) => a.currency === "PYG" && a.institution === "Revolut")).toBe(false);
-  });
-  it("nenhuma oportunidade demo menciona o ueno", async () => {
-    const { demoOpportunities } = await import("@/lib/api/demo-data");
-    expect(demoOpportunities.some((o) => /ueno/i.test(`${o.title} ${o.steps.map((s) => s.description).join(" ")}`))).toBe(false);
   });
 });

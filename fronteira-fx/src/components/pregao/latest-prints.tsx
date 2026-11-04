@@ -1,8 +1,9 @@
 "use client";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFlash } from "@/components/ui/fx/fx-flash";
 import { CITY_LABEL } from "@/lib/api/types";
 import { formatRate } from "@/lib/format";
 import { quoteOfPair } from "@/lib/pregao/candles";
@@ -40,6 +41,15 @@ export function printTimeShort(iso: string): string {
 /** Par e cidade da filial ("USD/PYG · CDE"); digital fica só com o par. */
 export function printSubtitle(p: Pick<Print, "pair" | "city">): string {
   return p.city ? `${p.pair} · ${p.city}` : p.pair;
+}
+
+/**
+ * Venda da última atualização. Realça só quando o valor da própria célula muda (`useFlash`); uma linha nova não pisca
+ * (spec dev/ui/spec-reforma-ui.md, PR2: nada de flash em todas as linhas).
+ */
+function SellCell({ value, children }: { value: string | null; children: ReactNode }): ReactElement {
+  const flash = useFlash(value);
+  return <td className={cn("tnum whitespace-nowrap text-right text-foreground", flash)}>{children}</td>;
 }
 
 function rateText(value: string | null, p: Print): string {
@@ -93,7 +103,7 @@ function houseCell(p: Print, onSelect?: (key: string) => void): ReactElement {
       {/* Painel estreito: o selo "incompleta" desce para a linha do par · cidade e o nome da casa fica inteiro; sem
           espaço ao lado do subtítulo, o selo quebra para baixo dele (nada é cortado). */}
       <span className="flex min-w-0 flex-wrap items-center gap-x-1 @md:hidden">
-        <span data-testid="pregao-print-sub" className="truncate text-[11px] text-muted">
+        <span data-testid="pregao-print-sub" className="truncate text-caption text-muted">
           {printSubtitle(p)}
         </span>
         {p.incomplete ? (
@@ -189,7 +199,7 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
                   data-id={p.id}
                   data-key={p.key}
                   data-kind={p.kind}
-                  className="h-8 max-md:h-10 border-t border-border motion-safe:animate-[pregao-flash_1.2s_ease-out_1]"
+                  className="h-8 max-md:h-10 border-t border-border"
                 >
                   <td className="tnum whitespace-nowrap">
                     <time dateTime={p.captured_at} title={printTime(p.captured_at)}>
@@ -200,12 +210,12 @@ export function LatestPrints({ prints, limit = 30, loading = false, error = null
                   <td className="max-w-0">{houseCell(p, onSelect)}</td>
                   <td className="whitespace-nowrap @max-md:hidden">{p.pair}</td>
                   <td className="tnum whitespace-nowrap text-right text-foreground max-sm:hidden">{rateText(p.buy, p)}</td>
-                  <td className="tnum whitespace-nowrap text-right text-foreground">
+                  <SellCell value={p.sell}>
                     {rateText(p.sell, p)}
-                    <span className="block text-[11px] @md:hidden">
+                    <span className="block text-caption @md:hidden">
                       <Delta value={p.change_pct} />
                     </span>
-                  </td>
+                  </SellCell>
                   <td className="whitespace-nowrap text-right @max-md:hidden">
                     <Delta value={p.change_pct} />
                   </td>

@@ -78,11 +78,11 @@ export function Accounts() {
       </div>
       {mode === "demo" && (
         <Card>
-          <CardHeader><CardTitle>Cenário “Pagar uma compra” (cartão ueno) — demonstração</CardTitle><CardDescription>Até validar a moeda efetivamente debitada e os encargos, o resultado é exibido como estimativa incompleta. O saldo USD não é presumido como usado automaticamente.</CardDescription></CardHeader>
+          <CardHeader><CardTitle>Cenário “Pagar uma compra” (cartão banco demo PY) — demonstração</CardTitle><CardDescription>Até validar a moeda efetivamente debitada e os encargos, o resultado é exibido como estimativa incompleta. O saldo USD não é presumido como usado automaticamente.</CardDescription></CardHeader>
           <CardContent className="grid gap-2 text-sm sm:grid-cols-3">
-            <Scenario title="BRL → Western Union → saldo ueno → compra com cartão" items={["moeda da compra: PYG", "conta debitada: ueno PYG", "conversão: não (saldo PYG)", "tarifas: pendentes", "benefícios elegíveis: a confirmar"]} />
-            <Scenario title="Saldo ueno → conversão PYG/USD → compra" items={["moeda da compra: USD", "conta debitada: ueno USD", "conversão: ueno venda USD", "tarifas: pendentes", "lançamento final: estimado"]} />
-            <Scenario title="Saldo ueno → pagamento de fatura de crédito" items={["cartão: crédito", "fatura em PYG", "pagamento: saldo PYG", "juros/encargos: pendentes", "cálculo da fatura incluído"]} />
+            <Scenario title="BRL → Western Union → saldo banco demo PY → compra com cartão" items={["moeda da compra: PYG", "conta debitada: banco demo PY PYG", "conversão: não (saldo PYG)", "tarifas: pendentes", "benefícios elegíveis: a confirmar"]} />
+            <Scenario title="Saldo banco demo PY → conversão PYG/USD → compra" items={["moeda da compra: USD", "conta debitada: banco demo PY USD", "conversão: banco demo PY venda USD", "tarifas: pendentes", "lançamento final: estimado"]} />
+            <Scenario title="Saldo banco demo PY → pagamento de fatura de crédito" items={["cartão: crédito", "fatura em PYG", "pagamento: saldo PYG", "juros/encargos: pendentes", "cálculo da fatura incluído"]} />
           </CardContent>
         </Card>
       )}

@@ -190,7 +190,7 @@ export function Watchlist({ rows, selectedKey, onSelect, loading = false, error 
   return (
     <div data-testid="pregao-watchlist" data-state="ready" data-mode={mode} className={className}>
       {/* No celular as células perdem 2 px de cada lado: casa, compra, venda e variação cabem em 358 px. */}
-      <Table className="text-[13px] max-sm:[&_td]:px-1.5 max-sm:[&_th]:px-1.5">
+      <Table className="text-[13px] max-xl:[&_td]:px-1.5 max-xl:[&_th]:px-1.5">
         <caption className="sr-only">Lista de séries acompanhadas</caption>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
@@ -213,7 +213,7 @@ export function Watchlist({ rows, selectedKey, onSelect, loading = false, error 
                     {header.column.getCanSort() ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                        className="inline-flex items-center gap-1 py-1 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {label}
