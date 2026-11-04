@@ -7,6 +7,8 @@ export type Channel = "digital" | "physical" | "aggregator";
 export type Modality = "cash" | "transfer" | "account" | "card_debit" | "card_credit" | "card_virtual" | "reference";
 export type QuoteKind = "market_reference" | "indicative" | "executable";
 export type SourceMethod = "official_api" | "html" | "browser" | "manual";
+/** Como a fonte é alcançada: API pública, endpoint interno do próprio site, HTML renderizado ou navegador. */
+export type SourceIntegration = "api_oficial" | "endpoint_interno" | "html" | "navegador";
 export type Health = "ok" | "degraded" | "blocked" | "stale" | "unknown";
 export type Confidence = "quoted" | "estimated" | "incomplete";
 export type DataMode = "real" | "simulation" | "demo";
@@ -36,6 +38,7 @@ export interface Source {
   name: string;
   kind: "exchange_house" | "remittance" | "bank" | "fintech" | "central_bank";
   method: SourceMethod;
+  integration: SourceIntegration;
   url: string;
   health: Health;
   last_success_at: string | null;

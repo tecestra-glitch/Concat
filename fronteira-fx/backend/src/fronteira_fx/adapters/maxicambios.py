@@ -107,6 +107,7 @@ class MaxiCambiosAdapter:
         name="MaxiCambios",
         kind="exchange_house",
         method="html",
+        integration="html",
         url=URL,
         capabilities=["buy_sell", "usd_pyg", "brl_pyg", "cross_usd_brl", "declared_update_ts", "board_asu"],
         limitations=[

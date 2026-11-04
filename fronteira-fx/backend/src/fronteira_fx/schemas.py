@@ -18,6 +18,7 @@ Channel = Literal["digital", "physical", "aggregator"]
 Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]
 QuoteKind = Literal["market_reference", "indicative", "executable"]
 SourceMethod = Literal["official_api", "html", "browser", "manual"]
+Integration = Literal["api_oficial", "endpoint_interno", "html", "navegador"]
 SourceKind = Literal["exchange_house", "remittance", "bank", "fintech", "central_bank"]
 Health = Literal["ok", "degraded", "blocked", "stale", "unknown"]
 Confidence = Literal["quoted", "estimated", "incomplete"]
@@ -50,6 +51,7 @@ class SourceOut(ApiModel):
     name: str
     kind: str
     method: str
+    integration: Integration = "html"
     url: str
     health: str
     last_success_at: datetime | None = None
@@ -67,6 +69,7 @@ class SourceOut(ApiModel):
             name=row.name,
             kind=row.kind,
             method=row.method,
+            integration=row.integration,
             url=row.url or "",
             health=row.health,
             last_success_at=row.last_success_at,

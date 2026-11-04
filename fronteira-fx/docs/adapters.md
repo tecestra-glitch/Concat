@@ -160,3 +160,5 @@ na 1.x) já constam em `pyproject.toml`.
   send_amount}`, `receiver{cty_iso2_ext:"PY",curr_iso3:"PYG"}`, `visitor{fingerprint_id}`) devolve `services_groups[].pay_groups[]`
   com os preços por combinação fund_in/fund_out; exige fingerprint/cookies da sessão — candidato a adapter HTTP se se provar estável.
 - ueno: o AJAX devolve também EUR; se a página passar a publicar BRL, o adapter o captura sem mudanças.
+
+`integration` (`api_oficial` | `endpoint_interno` | `html` | `navegador`) diz como cada fonte é alcançada; é exposto em `GET /v1/sources`, em `list_sources` do MCP e como selo na tela Fontes. Para criar um adaptador novo a partir de um site, veja `docs/integracoes.md` (ferramenta `fx-discover`).

@@ -18,6 +18,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatAge, formatDateTime } from "@/lib/format";
 import { CITY_LABEL, type Evidence } from "@/lib/api/types";
+import { integrationLabel } from "@/lib/api/source-integration";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -63,7 +64,10 @@ function SourcesInner() {
                   <CardTitle>{s.name}</CardTitle>
                   <CardDescription>{METHOD[s.method]} · sondada a cada {Math.max(1, Math.round(s.poll_interval_s / 60))} min</CardDescription>
                 </div>
-                <Badge variant={HEALTH_TONE[s.health] ?? "outline"}>{HEALTH_LABEL[s.health] ?? s.health}</Badge>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge variant={HEALTH_TONE[s.health] ?? "outline"}>{HEALTH_LABEL[s.health] ?? s.health}</Badge>
+                  <Badge variant="outline" data-testid="integration-badge">{integrationLabel(s.integration)}</Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-2 text-xs">

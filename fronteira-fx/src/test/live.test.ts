@@ -133,6 +133,7 @@ describe("source.health (Q-02)", () => {
     name: id.toUpperCase(),
     kind: "exchange_house",
     method: "html",
+    integration: "html",
     url: `https://${id}.example`,
     health: "ok",
     last_success_at: "2026-11-02T11:00:00Z",

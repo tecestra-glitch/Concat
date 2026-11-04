@@ -57,8 +57,8 @@ function mkSession(source_id: string, status: HouseSession["status"]): HouseSess
 }
 
 const sources: Source[] = [
-  { id: "chaco", name: "Cambios Chaco", kind: "exchange_house", method: "html", url: "", health: "ok", last_success_at: null, last_error: null, capabilities: [], limitations: [], coverage: { cities: ["CDE"], currencies: ["USD", "PYG"] }, poll_interval_s: 300, data_mode: "real" },
-  { id: "bcp", name: "BCP (referência)", kind: "central_bank", method: "html", url: "", health: "ok", last_success_at: null, last_error: null, capabilities: [], limitations: [], coverage: { cities: [], currencies: ["USD", "PYG"] }, poll_interval_s: 3600, data_mode: "real" },
+  { id: "chaco", name: "Cambios Chaco", kind: "exchange_house", method: "html", integration: "html", url: "", health: "ok", last_success_at: null, last_error: null, capabilities: [], limitations: [], coverage: { cities: ["CDE"], currencies: ["USD", "PYG"] }, poll_interval_s: 300, data_mode: "real" },
+  { id: "bcp", name: "BCP (referência)", kind: "central_bank", method: "html", integration: "api_oficial", url: "", health: "ok", last_success_at: null, last_error: null, capabilities: [], limitations: [], coverage: { cities: [], currencies: ["USD", "PYG"] }, poll_interval_s: 3600, data_mode: "real" },
 ];
 
 const chacoOld = mkQuote({ id: "q-chaco-old", source_id: "chaco", buy: "5900", sell: "5970", captured_at: ago(900) });

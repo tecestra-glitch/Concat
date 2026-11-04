@@ -48,6 +48,7 @@ class RevolutAdapter:
         name="Revolut",
         kind="fintech",
         method="official_api",
+        integration="endpoint_interno",
         url=PAGE_URL,
         capabilities=["usd_brl", "buy_sell", "declared_update_ts", "json_endpoint"],
         limitations=[
