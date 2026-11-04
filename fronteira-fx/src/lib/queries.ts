@@ -86,6 +86,11 @@ export function useAccounts() {
   const { mode } = useSettings();
   return useQuery({ queryKey: ["accounts", mode], queryFn: () => api.accounts(mode) });
 }
+/** Conexões do modo e se o agregador de Open Finance está configurado (`["connections", mode]`). */
+export function useConnections() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["connections", mode], queryFn: () => api.connections(mode) });
+}
 /** Accepts the legacy source id or the full filter object (`source`, `from`). */
 export function useEvidence(filters?: EvidenceFilters | string) {
   const { mode } = useSettings();

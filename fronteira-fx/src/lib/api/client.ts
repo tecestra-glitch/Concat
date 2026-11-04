@@ -44,6 +44,22 @@ import type {
   Volatility,
 } from "./types";
 import type { AlertRule, AlertRuleInput } from "./watch";
+import {
+  ApiKeyValidationSchema,
+  CONNECTIONS_PATH,
+  ConnectionListSchema,
+  ConnectionSchema,
+  OpenFinanceStartSchema,
+  StatementImportResultSchema,
+  connectionPath,
+  type ApiKeyInput,
+  type ApiKeyValidation,
+  type Connection,
+  type ConnectionList,
+  type OpenFinanceStart,
+  type StatementImportResult,
+} from "./connections";
+import { demoConnectionList, demoCreateApiKeyConnection, demoDeleteConnection, demoImportStatement, demoValidateApiKey } from "./demo-connections";
 import { InstitutionSchema, type Institution } from "./institutions";
 import type { BackendStatus } from "./backend-status";
 import { ApiError } from "./errors";
@@ -135,7 +151,8 @@ function assertSameMode(path: string, expected: string, body: unknown): void {
  */
 export async function http<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  if (init.body !== undefined && init.body !== null && !headers.has("content-type")) headers.set("content-type", "application/json");
+  const multipart = typeof FormData !== "undefined" && init.body instanceof FormData;
+  if (init.body !== undefined && init.body !== null && !multipart && !headers.has("content-type")) headers.set("content-type", "application/json");
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) throw new ApiError(res.status, `${res.status} ${await errorDetail(res)} em ${path}`);
   if (res.status === 204 || res.status === 205) return undefined as T;
@@ -470,6 +487,46 @@ export const api = {
     } catch {
       return null;
     }
+  },
+  /** GET /v1/connections: conexões do modo e se o agregador de Open Finance está configurado. */
+  async connections(mode: Mode): Promise<ConnectionList> {
+    if (mode !== "demo") return ConnectionListSchema.parse(await http<unknown>(`${CONNECTIONS_PATH}${qs(modeQuery(mode))}`));
+    return demoConnectionList();
+  },
+  /** POST /v1/connections/open-finance: devolve o endereço de consentimento (nunca recebe senha de banco). */
+  async startOpenFinance(mode: Mode, institutionId: string): Promise<OpenFinanceStart> {
+    if (mode === "demo") throw new ApiError(409, "Open Finance não está disponível em demonstração.");
+    return OpenFinanceStartSchema.parse(await http<unknown>(`${CONNECTIONS_PATH}/open-finance${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify({ institution_id: institutionId }) }));
+  },
+  /** POST /v1/connections/validate-key: consulta as permissões da chave; nada é gravado. */
+  async validateApiKey(mode: Mode, input: ApiKeyInput): Promise<ApiKeyValidation> {
+    if (mode !== "demo") return ApiKeyValidationSchema.parse(await http<unknown>(`${CONNECTIONS_PATH}/validate-key${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify(input) }));
+    return demoValidateApiKey(input.api_key);
+  },
+  /** POST /v1/connections (método `api_key_readonly`). O segredo vai só neste corpo e não volta na resposta. */
+  async createApiKeyConnection(mode: Mode, input: ApiKeyInput & { institution_name: string }): Promise<Connection> {
+    if (mode !== "demo") {
+      return ConnectionSchema.parse(await http<unknown>(`${CONNECTIONS_PATH}${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify({ ...input, method: "api_key_readonly" }) }));
+    }
+    return demoCreateApiKeyConnection({ institution_id: input.institution_id, institution_name: input.institution_name, api_key: input.api_key });
+  },
+  /** POST /v1/connections/statements (multipart): o servidor lê o CSV/OFX; a tela não interpreta o conteúdo. */
+  async importStatement(mode: Mode, institutionId: string, institutionName: string, file: File): Promise<StatementImportResult> {
+    if (mode !== "demo") {
+      const form = new FormData();
+      form.set("institution_id", institutionId);
+      form.set("file", file, file.name);
+      return StatementImportResultSchema.parse(await http<unknown>(`${CONNECTIONS_PATH}/statements${qs(modeQuery(mode))}`, { method: "POST", body: form }));
+    }
+    return demoImportStatement({ institution_id: institutionId, institution_name: institutionName });
+  },
+  /** DELETE /v1/connections/{id}: apaga a conexão (o servidor revoga o acesso ao agregador, quando houver). */
+  async deleteConnection(mode: Mode, id: string): Promise<void> {
+    if (mode !== "demo") {
+      await http<void>(`${connectionPath(id)}${qs(modeQuery(mode))}`, { method: "DELETE" });
+      return;
+    }
+    demoDeleteConnection(id);
   },
   /** SSE endpoint (through the proxy); `cursor` resumes after the last event id, absent after a 410. */
   streamUrl(mode: Mode, cursor?: string | null): string {
