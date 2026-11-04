@@ -174,7 +174,8 @@
                   "enum": [
                     "CDE",
                     "ASU",
-                    "PJC"
+                    "PJC",
+                    "ENC"
                   ],
                   "type": "string"
                 },
@@ -1419,7 +1420,8 @@
                   "enum": [
                     "CDE",
                     "ASU",
-                    "PJC"
+                    "PJC",
+                    "ENC"
                   ],
                   "type": "string"
                 },
@@ -5747,7 +5749,8 @@
                 "enum": [
                   "CDE",
                   "ASU",
-                  "PJC"
+                  "PJC",
+                  "ENC"
                 ]
               },
               {

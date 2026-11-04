@@ -70,8 +70,8 @@ KNOWN_BRANCHES: dict[str, BranchInfo] = {
         BranchInfo("chaco-14", "Ag. Plaza Madero", None, "14"),
         BranchInfo("chaco-16", "Hernandarias - Super Carretera", None, "16"),
         BranchInfo("chaco-22", "Itaipú", None, "22"),
-        BranchInfo("chaco-23", "Sucursal Super 6 - ENC", None, "23"),
-        BranchInfo("chaco-24", "ENC. Mcal. Estigarribia - Zona Alta", None, "24"),
+        BranchInfo("chaco-23", "Sucursal Super 6 - ENC", "ENC", "23"),
+        BranchInfo("chaco-24", "ENC. Mcal. Estigarribia - Zona Alta", "ENC", "24"),
         BranchInfo("chaco-27", "Sucursal Santa Rita", None, "27"),
         BranchInfo("chaco-28", "Sucursal Pedro Juan Caballero", "PJC", "28"),
         BranchInfo("chaco-29", "Agencia Pedro Juan Caballero", "PJC", "29"),
@@ -111,9 +111,9 @@ class ChacoAdapter:
         limitations=[
             "API JSON não documentada (a mesma que o site usa); pode mudar sem aviso",
             "cotação de balcão indicativa; valor efetivo depende do montante e da filial",
-            "filiais fora de CDE/ASU/PJC ficam sem cidade (city=None)",
+            "filiais fora de CDE/ASU/PJC/ENC ficam sem cidade (city=None)",
         ],
-        cities=["CDE", "ASU", "PJC"],
+        cities=["CDE", "ASU", "PJC", "ENC"],
         currencies=["USD", "BRL", "PYG"],
         poll_interval_s=300,
         allowed_domains=["www.cambioschaco.com.py"],
@@ -258,6 +258,20 @@ class ChacoAdapter:
                         declared_updated_at=declared or _parse_update_ts(item.get("updatedAt")),
                     )
                 )
+                if iso == "BRL" and item.get("arbitrage"):
+                    # cruzamento USD•BRL: em cada filial, purchaseArbitrage/saleArbitrage = BRL por 1 USD
+                    x_buy = positive_or_none(try_parse_decimal(item.get("purchaseArbitrage")))
+                    x_sell = positive_or_none(try_parse_decimal(item.get("saleArbitrage")))
+                    if x_buy is not None and x_sell is not None:
+                        quotes.append(
+                            QuoteDraft(
+                                source_id=self.info.id, base="USD", quote="BRL", buy=x_buy, sell=x_sell,
+                                unit_note="BRL por 1 USD (cruzado arbitraje)", modality="cash",
+                                kind="indicative", channel="physical", city=binfo.city, branch_id=binfo.id,
+                                context={"board": "arbitrage", "pair": "USD x BRL"},
+                                declared_updated_at=declared or _parse_update_ts(item.get("updatedAt")),
+                            )
+                        )
             for missing in sorted(CURRENCIES - seen):
                 issues.append(f"branch {bid} ({binfo.name}): missing {missing}")
         evidence = build_evidence(

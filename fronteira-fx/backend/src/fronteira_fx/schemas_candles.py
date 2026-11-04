@@ -13,7 +13,7 @@ Timeframe = Literal["15m", "1h", "4h", "1d"]
 TF_SECONDS: dict[str, int] = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
 SessionStatus = Literal["open", "closed", "pre", "unknown"]
 Channel = Literal["physical", "digital"]
-HouseCity = Literal["CDE", "ASU", "PJC"]
+HouseCity = Literal["CDE", "ASU", "PJC", "ENC"]
 
 
 class Candle(ApiModel):

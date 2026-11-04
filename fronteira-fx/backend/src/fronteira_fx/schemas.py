@@ -13,7 +13,7 @@ from .decimal_utils import fmt
 DecStr = Annotated[Decimal, PlainSerializer(lambda v: fmt(v), return_type=str, when_used="json-unless-none")]
 
 Currency = Literal["BRL", "USD", "PYG"]
-City = Literal["CDE", "ASU", "PJC"]
+City = Literal["CDE", "ASU", "PJC", "ENC"]
 Channel = Literal["digital", "physical", "aggregator"]
 Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]
 QuoteKind = Literal["market_reference", "indicative", "executable"]

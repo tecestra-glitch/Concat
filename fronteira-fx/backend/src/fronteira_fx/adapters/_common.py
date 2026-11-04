@@ -21,6 +21,8 @@ _CITY_PATTERNS: tuple[tuple[str, City], ...] = (
     ("pedro juan caballero", "PJC"),
     ("pedro juan", "PJC"),
     ("pjc", "PJC"),
+    ("encarnacion", "ENC"),
+    ("enc", "ENC"),
 )
 
 
@@ -33,7 +35,7 @@ def city_from_text(text: str | None) -> City:
     if not text:
         return None
     norm = strip_accents(text).lower()
-    tokens = set(norm.replace("-", " ").replace("_", " ").split())
+    tokens = set(norm.replace("-", " ").replace("_", " ").replace(".", " ").split())
     for pattern, city in _CITY_PATTERNS:
         if " " in pattern or len(pattern) > 3:
             if pattern in norm:

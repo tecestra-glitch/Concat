@@ -12,7 +12,7 @@ export const PairKeySchema = z.enum(["USD/PYG", "BRL/PYG", "USD/BRL"]);
 export const DataModeSchema = z.enum(["real", "simulation", "demo"]);
 export const SessionStatusSchema = z.enum(["open", "closed", "pre", "unknown"]);
 export const HouseChannelSchema = z.enum(["physical", "digital"]);
-export const HouseCitySchema = z.enum(["CDE", "ASU", "PJC"]);
+export const HouseCitySchema = z.enum(["CDE", "ASU", "PJC", "ENC"]);
 
 export const CandleSchema = z.object({
   t: isoDate,

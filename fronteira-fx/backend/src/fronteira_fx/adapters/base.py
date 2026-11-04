@@ -13,7 +13,7 @@ from enum import StrEnum
 from typing import Any, Literal, Protocol
 
 Currency = Literal["BRL", "USD", "PYG"]
-City = Literal["CDE", "ASU", "PJC"] | None
+City = Literal["CDE", "ASU", "PJC", "ENC"] | None
 # "reference" marks third-party aggregator quotes (e.g. dolarPy): never executable, never a counter price.
 Modality = Literal["cash", "transfer", "account", "card_debit", "card_credit", "card_virtual", "reference"]
 QuoteKind = Literal["market_reference", "indicative", "executable"]
