@@ -390,6 +390,19 @@ Com as duas primeiras definidas: o adaptador da Western Union chama `POST {FX_BR
 correspondente; falha de rede, `401`, `404` ou JSON inválido viram `error`, sem exceção. Pedidos sob demanda
 dessa fonte rodam direto, sem a fila do worker, e respeitam o intervalo mínimo.
 
+## Stream da Binance no worker (opcional)
+
+Só no servidor sempre ligado (worker), nunca na API serverless. Desligado por padrão.
+
+| Variável | Valor |
+|---|---|
+| `FX_BINANCE_WS` | `1` liga o stream público (klines fechadas em 5 min e bookTicker); ausente ou `0` mantém desligado |
+| `FX_BINANCE_WS_SYMBOLS` | opcional; padrão `BTCUSDT,ETHUSDT,USDTBRL` (só pares da lista de referência do módulo market) |
+| `FX_BINANCE_WS_URL` | opcional; padrão `wss://data-stream.binance.vision/stream` |
+
+Regras: conexão renovada antes de 24 h (23 h por padrão), no máximo 300 conexões novas a cada 5 min, ping a cada
+20 s, gravação em lote a cada 5 s. HTTP 451 desliga a fonte naquela região (sem contorno). Só lê; nada envia ordem.
+
 Custo: cada execução gasta segundos de CPU. No plano grátis da Vercel há cerca de 4 horas de CPU por mês;
 mantenha o intervalo de 2 h. O segredo fica só em variáveis de ambiente: o backend recusa o placeholder
 `TROQUE_*` e URL que não seja https (exceto localhost).
