@@ -3455,6 +3455,9 @@
               }
             }
           },
+          "404": {
+            "description": "stream desligado na instância serverless: usar polling de /v1/snapshot"
+          },
           "410": {
             "description": "cursor expirado: refazer snapshot"
           },
@@ -5192,10 +5195,10 @@
                   "type": "null"
                 }
               ],
-              "description": "infomoney | agencia-brasil | bcb | mercopress | demo",
+              "description": "investinglive | infomoney | agencia-brasil | bcb | mercopress | demo",
               "title": "Source"
             },
-            "description": "infomoney | agencia-brasil | bcb | mercopress | demo"
+            "description": "investinglive | infomoney | agencia-brasil | bcb | mercopress | demo"
           },
           {
             "name": "since",
@@ -5263,6 +5266,78 @@
                     "$ref": "#/components/schemas/NewsOut"
                   },
                   "title": "Response List Market News"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/sentiment": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Sentimento de mercado (Fear & Greed, Alternative.me), com atribuição; nunca executável",
+        "operationId": "list_market_sentiment",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SentimentOut"
+                  },
+                  "title": "Response List Market Sentiment"
                 }
               }
             }
@@ -5383,6 +5458,400 @@
                     "$ref": "#/components/schemas/MarketVolatilityOut"
                   },
                   "title": "Response Get Market Volatility"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/crypto": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Cotações de cripto (referência de mercado da Binance, dados públicos); nunca executáveis",
+        "operationId": "get_crypto_quotes",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MarketQuoteOut"
+                  },
+                  "title": "Response Get Crypto Quotes"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/triangles": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Triângulos (três pernas) no grafo de posições, com lucro líquido e confiança; só leitura",
+        "description": "Lê a lista calculada pelo worker (`market_reads`, ordenada por ROI) e aplica os filtros sobre ela.\nSem linha gravada ainda: lista vazia. Nenhum ciclo é calculado aqui.",
+        "operationId": "get_triangles",
+        "parameters": [
+          {
+            "name": "min_roi",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ROI mínimo como string decimal, ex. 0.001",
+              "title": "Min Roi"
+            },
+            "description": "ROI mínimo como string decimal, ex. 0.001"
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "nó de partida, ex. BRL@nubank",
+              "title": "Start"
+            },
+            "description": "nó de partida, ex. BRL@nubank"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "celular",
+                "todos"
+              ],
+              "type": "string",
+              "description": "celular (padrão) ou todos",
+              "default": "celular",
+              "title": "Mode"
+            },
+            "description": "celular (padrão) ou todos"
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CycleOut"
+                  },
+                  "title": "Response Get Triangles"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/references": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Referências de câmbio (Frankfurter, PTAX, OXR): última cotação por fonte; nunca executáveis",
+        "operationId": "list_fx_references",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferenceOut"
+                  },
+                  "title": "Response List Fx References"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/macro": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Séries macro: SGS do BCB (Selic, IPCA, PTAX) e dólar amplo do FRED; nunca executáveis",
+        "operationId": "get_macro_series",
+        "parameters": [
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MacroOut"
+                  },
+                  "title": "Response Get Macro Series"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/indicators": {
+      "get": {
+        "tags": [
+          "market"
+        ],
+        "summary": "Indicadores técnicos (RSI, MACD, estocástico, ADX, ATR, NATR, Ichimoku) de uma série Binance; só leitura",
+        "description": "Lê os indicadores que o worker calculou sobre velas fechadas (`market_reads`). Sem linha: insufficient_data.",
+        "operationId": "get_market_indicators",
+        "parameters": [
+          {
+            "name": "instrument",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "BTC/USDT",
+                "ETH/USDT",
+                "USDT/BRL"
+              ],
+              "type": "string",
+              "title": "Instrument"
+            }
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "5m",
+                "1d"
+              ],
+              "type": "string",
+              "default": "5m",
+              "title": "Interval"
+            }
+          },
+          {
+            "name": "data_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "simulation",
+                    "demo"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância.",
+              "title": "Data Mode"
+            },
+            "description": "Modo que o cliente espera. Cada instância serve um único data_mode: se este valor diferir do modo da instância, a resposta é 409 e nada é lido nem gravado. Ausente = modo da instância."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndicatorsOut"
                 }
               }
             }
@@ -7491,6 +7960,257 @@
         ],
         "title": "HouseSession"
       },
+      "IndicatorsOut": {
+        "properties": {
+          "instrument": {
+            "type": "string",
+            "title": "Instrument"
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "5m",
+              "1d"
+            ],
+            "title": "Interval"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "insufficient_data"
+            ],
+            "title": "Status"
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "closed_candles": {
+            "type": "integer",
+            "title": "Closed Candles"
+          },
+          "rsi_14": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rsi 14"
+          },
+          "macd_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macd Line"
+          },
+          "macd_signal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macd Signal"
+          },
+          "macd_hist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macd Hist"
+          },
+          "stoch_k": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stoch K"
+          },
+          "stoch_d": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stoch D"
+          },
+          "adx_14": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adx 14"
+          },
+          "plus_di_14": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plus Di 14"
+          },
+          "minus_di_14": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minus Di 14"
+          },
+          "atr_14": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atr 14"
+          },
+          "natr_14": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Natr 14"
+          },
+          "ichimoku_tenkan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ichimoku Tenkan"
+          },
+          "ichimoku_kijun": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ichimoku Kijun"
+          },
+          "ichimoku_senkou_a": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ichimoku Senkou A"
+          },
+          "ichimoku_senkou_b": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ichimoku Senkou B"
+          },
+          "source": {
+            "type": "string",
+            "const": "binance",
+            "title": "Source",
+            "default": "binance"
+          },
+          "executable": {
+            "type": "boolean",
+            "const": false,
+            "title": "Executable",
+            "default": false
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "Indicadores calculados sobre velas fechadas (shift 1). Leitura de mercado, não é sinal de compra ou venda."
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrument",
+          "interval",
+          "status",
+          "as_of",
+          "closed_candles",
+          "rsi_14",
+          "macd_line",
+          "macd_signal",
+          "macd_hist",
+          "stoch_k",
+          "stoch_d",
+          "adx_14",
+          "plus_di_14",
+          "minus_di_14",
+          "atr_14",
+          "natr_14",
+          "ichimoku_tenkan",
+          "ichimoku_kijun",
+          "ichimoku_senkou_a",
+          "ichimoku_senkou_b",
+          "data_mode"
+        ],
+        "title": "IndicatorsOut"
+      },
       "Institution": {
         "properties": {
           "id": {
@@ -7953,6 +8673,85 @@
         ],
         "title": "LegOut"
       },
+      "MacroOut": {
+        "properties": {
+          "instrument": {
+            "type": "string",
+            "title": "Instrument"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "crypto",
+              "fx_reference",
+              "bcb_series"
+            ],
+            "title": "Kind"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "price": {
+            "type": "string",
+            "title": "Price"
+          },
+          "change_pct": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Pct"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "executable": {
+            "type": "boolean",
+            "const": false,
+            "title": "Executable",
+            "default": false
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "Referência de mercado. Não é preço executável nem cotação de casa de câmbio."
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrument",
+          "label",
+          "kind",
+          "source",
+          "price",
+          "change_pct",
+          "observed_at",
+          "captured_at",
+          "data_mode"
+        ],
+        "title": "MacroOut",
+        "description": "Mesma forma de `MarketQuoteOut` (`kind`, `source`, `price`, `change_pct`), só para séries macro."
+      },
       "MarketQuoteOut": {
         "properties": {
           "instrument": {
@@ -8328,6 +9127,21 @@
             "type": "string",
             "title": "Link"
           },
+          "excerpt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excerpt"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          },
           "published_at": {
             "anyOf": [
               {
@@ -8357,6 +9171,8 @@
           "feed",
           "title",
           "link",
+          "excerpt",
+          "attribution",
           "published_at",
           "captured_at",
           "data_mode"
@@ -9457,6 +10273,63 @@
         ],
         "title": "RagHit"
       },
+      "ReferenceOut": {
+        "properties": {
+          "instrument": {
+            "type": "string",
+            "title": "Instrument"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "price": {
+            "type": "string",
+            "title": "Price"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "collected_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Collected At"
+          },
+          "referencia": {
+            "type": "boolean",
+            "const": true,
+            "title": "Referencia",
+            "default": true
+          },
+          "executable": {
+            "type": "boolean",
+            "const": false,
+            "title": "Executable",
+            "default": false
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "Referência de câmbio. Não executável: nunca é preço de casa de câmbio nem entra num ciclo executável."
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "instrument",
+          "source",
+          "price",
+          "observed_at",
+          "collected_at",
+          "data_mode"
+        ],
+        "title": "ReferenceOut"
+      },
       "RouteResultOut": {
         "properties": {
           "steps": {
@@ -9696,6 +10569,67 @@
         },
         "type": "object",
         "title": "SearchOut"
+      },
+      "SentimentOut": {
+        "properties": {
+          "index_id": {
+            "type": "string",
+            "title": "Index Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          },
+          "classification": {
+            "type": "string",
+            "title": "Classification"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Captured At"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          },
+          "executable": {
+            "type": "boolean",
+            "const": false,
+            "title": "Executable",
+            "default": false
+          },
+          "data_mode": {
+            "type": "string",
+            "title": "Data Mode"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index_id",
+          "label",
+          "value",
+          "classification",
+          "provider",
+          "observed_at",
+          "captured_at",
+          "attribution",
+          "data_mode"
+        ],
+        "title": "SentimentOut"
       },
       "SessionStats": {
         "properties": {

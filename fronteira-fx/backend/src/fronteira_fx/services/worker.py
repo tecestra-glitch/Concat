@@ -12,6 +12,8 @@ import signal
 
 from ..config import Settings, get_settings
 from ..db import create_schema, make_engine, make_session_factory
+from ..market.binance_ws import BinanceStream
+from ..market.reads import ReadsRefresher
 from ..market.service import MarketPoller
 from .collector import Collector
 from .demo import ensure_demo_seeded
@@ -29,6 +31,9 @@ async def run_loop(settings: Settings | None = None, *, iterations: int | None =
     collector = Collector(session_factory, settings, inline_browser=True)
     collector.ensure_sources()
     market = MarketPoller(session_factory, settings)  # módulo market: piso de 60 s por fonte, só em real
+    reads = ReadsRefresher(session_factory, settings)  # triângulos e indicadores calculados aqui, lidos pela API
+    # stream da Binance (websocket): só com FX_BINANCE_WS=1; roda como tarefa e para junto com o worker
+    binance = BinanceStream(session_factory, settings) if settings.binance_ws else None
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -38,6 +43,7 @@ async def run_loop(settings: Settings | None = None, *, iterations: int | None =
         except (NotImplementedError, RuntimeError):  # pragma: no cover - platform dependent
             pass
 
+    binance_task = asyncio.create_task(binance.run(stop)) if binance is not None else None
     n = 0
     while not stop.is_set():
         try:
@@ -47,6 +53,7 @@ async def run_loop(settings: Settings | None = None, *, iterations: int | None =
             market_results = await market.run_once()
             if market_results:
                 log.info("market: %d polled, %d failed", len(market_results), sum(not r.ok for r in market_results))
+            reads.maybe_refresh()
             log.info(
                 "tick: %d sources (%d skipped), %d tasks, %d events pruned",
                 len(outcomes),
@@ -63,12 +70,18 @@ async def run_loop(settings: Settings | None = None, *, iterations: int | None =
             await asyncio.wait_for(stop.wait(), timeout=settings.worker_tick_s)
         except TimeoutError:
             pass
+    stop.set()
+    if binance_task is not None:
+        await binance_task
     await market.aclose()
     engine.dispose()
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    # o httpx registra a URL inteira em INFO: chaves de API vão na query string, então o log de rotina fica em WARNING
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(logging.WARNING)
     asyncio.run(run_loop())
 
 

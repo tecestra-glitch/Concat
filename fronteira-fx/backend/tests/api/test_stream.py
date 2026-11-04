@@ -1,7 +1,7 @@
 import json
 
 from fronteira_fx.services import events as ev
-from tests.conftest import NOW, seed_market
+from tests.conftest import NOW, make_settings, seed_market
 
 
 def parse_sse(text: str) -> list[dict]:
@@ -69,3 +69,16 @@ def test_stream_410_when_cursor_expired_and_400_when_invalid(client, db):
     with client.stream("GET", "/v1/stream", params={"cursor": "7"}) as ok:
         assert ok.status_code == 200
         ok.close()
+
+
+def test_stream_is_refused_on_serverless_and_snapshot_still_serves(db):
+    """Vercel: nenhum laço de stream. A rota responde 404 antes de qualquer consulta; o cliente usa o snapshot."""
+    from fastapi.testclient import TestClient
+
+    from fronteira_fx.main import create_app
+
+    app = create_app(make_settings(serverless=True), mount_mcp_server=False)
+    with TestClient(app) as c:
+        resp = c.get("/v1/stream")
+        assert resp.status_code == 404 and "snapshot" in resp.json()["detail"]
+        assert c.get("/v1/snapshot").status_code == 200

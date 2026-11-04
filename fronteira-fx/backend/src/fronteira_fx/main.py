@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .api import v1_router
+from .api.cache import TtlCache
 from .api.deps import api_key_matches
 from .config import Settings, get_settings
 from .db import create_schema, make_engine, make_session_factory, session_scope
@@ -66,6 +67,7 @@ def create_app(settings: Settings | None = None, *, mount_mcp_server: bool = Tru
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.collector = Collector(session_factory, settings)
+    app.state.read_cache = TtlCache()  # rotas de leitura /v1/market/* (TTL em READ_CACHE_TTL_S)
     app.state.exchange_transport = None  # httpx transport para as corretoras; só os testes injetam um mock
 
     @app.exception_handler(RequestValidationError)

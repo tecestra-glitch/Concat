@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
+from decimal import Decimal
 from functools import lru_cache
 from typing import Literal, Self
 from urllib.parse import urlsplit
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 log = logging.getLogger("fronteira_fx.config")
@@ -72,6 +73,20 @@ class Settings(BaseSettings):
     smtp_from: str | None = None
     smtp_starttls: bool = True
     alert_http_timeout_s: float = 10.0
+    # Stream público da Binance (klines fechadas e bookTicker) no worker. Desligado por padrão: só liga com
+    # FX_BINANCE_WS=1. Só leitura; HTTP 451 desliga a fonte (não há contorno). Ver market/binance_ws.py.
+    binance_ws: bool = Field(default=False, validation_alias=AliasChoices("FX_BINANCE_WS"))
+    binance_ws_url: str = Field(
+        default="wss://data-stream.binance.vision/stream", validation_alias=AliasChoices("FX_BINANCE_WS_URL")
+    )
+    binance_ws_symbols: str = Field(
+        default="BTCUSDT,ETHUSDT,USDTBRL", validation_alias=AliasChoices("FX_BINANCE_WS_SYMBOLS")
+    )
+    binance_ws_interval: str = "5m"
+    binance_ws_rotate_s: int = 23 * 3600  # a Binance encerra a conexão em 24 h; renova antes (sem perder velas)
+    binance_ws_overlap_s: float = 10.0  # tempo em que as duas conexões escutam ao mesmo tempo na renovação
+    binance_ws_flush_s: float = 5.0  # gravação em lote no banco
+    binance_ws_ping_s: float = 20.0  # ping do cliente; o pong de pings do servidor é automático
     quotes_lookback_s: int = 7 * 86400  # how far back "latest per context" looks
     # idade máxima da cotação mais velha de um plano antes de ele expirar (sem execução iniciada)
     plan_quote_max_age_s: int = 900
@@ -92,6 +107,28 @@ class Settings(BaseSettings):
     openfinance_client_secret: str | None = Field(
         default=None, validation_alias=AliasChoices("FX_OPENFINANCE_CLIENT_SECRET")
     )
+
+    # Referências de câmbio (módulo market, U03). Tudo é REFERÊNCIA, nunca executável. Open Exchange Rates só entra
+    # com OXR_APP_ID (chave só por variável de ambiente); sem ela a fonte fica desligada e nenhuma chamada é feita.
+    oxr_app_id: SecretStr | None = Field(default=None, validation_alias=AliasChoices("OXR_APP_ID"))
+    # teto mensal de chamadas à OXR (UTC). O plano gratuito permite 1.000; nunca passa de 1.000 (ver reference.py).
+    oxr_monthly_cap: int = Field(default=1000, ge=0, validation_alias=AliasChoices("OXR_MONTHLY_CAP"))
+    # desvio absoluto (%) entre duas fontes de referência para o mesmo instrumento que dispara alerta (acima dele)
+    fx_reference_deviation_alert_pct: Decimal = Field(
+        default=Decimal("1.0"), gt=0, validation_alias=AliasChoices("FX_REFERENCE_DEVIATION_ALERT_PCT")
+    )
+    # Macro (módulo market). Só variáveis de ambiente, tipo SecretStr (não aparece em repr). Sem FRED_API_KEY a
+    # fonte FRED fica desligada. BRAPI_TOKEN só serve a testes e validação manual da B3 (nunca ao agendador).
+    fred_api_key: SecretStr | None = Field(default=None, validation_alias=AliasChoices("FRED_API_KEY"))
+    brapi_token: SecretStr | None = Field(default=None, validation_alias=AliasChoices("BRAPI_TOKEN"))
+    # slippage por perna de exchange de cripto (fração: 0,0005 = 0,05%), somado ao VWAP do tamanho alvo. Premissa
+    # configurável, não é taxa de fonte; zero é aceito mas o dono deve escolher um valor consciente.
+    crypto_slippage_pct: Decimal = Field(
+        default=Decimal("0.0005"), ge=0, le=Decimal("0.05"), validation_alias=AliasChoices("FX_CRYPTO_SLIPPAGE_PCT")
+    )
+    # cache em memória das rotas de leitura (/v1/market/*). Curto de propósito: a Vercel tem 4 h de CPU por mês.
+    # 0 desliga o cache. O mesmo valor vai no Cache-Control (private, max-age) das respostas.
+    read_cache_ttl_s: int = Field(default=60, ge=0, le=3600, validation_alias=AliasChoices("READ_CACHE_TTL_S"))
 
     # Knowledge base (RAG). `backend/knowledge/*.md` is seeded at startup, idempotently (hash per file);
     # `KNOWLEDGE_DIR` points elsewhere (e.g. inside a container image).
@@ -115,6 +152,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "FX_CONNECTIONS_KEY ainda é o placeholder do .env.example; gere com `openssl rand -base64 32`"
             )
+        if self.oxr_app_id and self.oxr_app_id.get_secret_value().strip().upper().startswith(PLACEHOLDER_PREFIX):
+            raise ValueError("OXR_APP_ID ainda é o placeholder do .env.example; use a chave da sua conta OXR")
         if self.browser_secret and self.browser_secret.strip().upper().startswith(PLACEHOLDER_PREFIX):
             raise ValueError("FX_BROWSER_SECRET ainda é o placeholder do .env.example; gere com `openssl rand -hex 32`")
         return self
@@ -130,6 +169,14 @@ class Settings(BaseSettings):
             local = parts.hostname in ("localhost", "127.0.0.1", "::1")
             if parts.scheme != "https" and not (parts.scheme == "http" and local):
                 raise ValueError("FX_BROWSER_URL precisa ser https:// (http só é aceito para localhost)")
+        return self
+
+    @model_validator(mode="after")
+    def _normalise_reference_settings(self) -> Self:
+        """Chave vazia conta como desligada; o teto mensal da OXR nunca passa de 1.000 (limite do plano gratuito)."""
+        raw_oxr = self.oxr_app_id.get_secret_value().strip() if self.oxr_app_id else ""
+        self.oxr_app_id = SecretStr(raw_oxr) if raw_oxr else None
+        self.oxr_monthly_cap = min(self.oxr_monthly_cap, 1000)
         return self
 
     @model_validator(mode="after")

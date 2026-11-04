@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -21,8 +21,21 @@ BINANCE_BASE = (
     "https://data-api.binance.vision"  # dados públicos de mercado (o host de negociação bloqueia algumas regiões)
 )
 FRANKFURTER_URL = "https://api.frankfurter.dev/v2/rates"
-BCB_SGS_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{code}/dados/ultimos/{n}?formato=json"
+# SGS exige dataInicial e dataFinal (dd/mm/aaaa) desde 26/03/2025; janela curta, sempre dentro de 10 anos.
+BCB_SGS_URL = (
+    "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{code}/dados?formato=json&dataInicial={start}&dataFinal={end}"
+)
+BCB_WINDOW_DAYS = 90  # cobre feriados e séries pouco frequentes (Selic meta); só as duas últimas linhas são usadas
+
+
+def bcb_window(now: datetime) -> tuple[str, str]:
+    """(dataInicial, dataFinal) no formato do SGS, em horário de Brasília."""
+    end = now.astimezone(BRT).date()
+    start = end - timedelta(days=BCB_WINDOW_DAYS)
+    return start.strftime("%d/%m/%Y"), end.strftime("%d/%m/%Y")
+BCB_SGS_BASE = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{code}/dados"
 BRT = timezone(timedelta(hours=-3))
+SGS_MAX_WINDOW_YEARS = 10  # janela máxima por consulta; desde 26/03/2025 dataInicial e dataFinal são obrigatórios
 
 # (símbolo Binance, rótulo, instrumento interno)
 BINANCE_SYMBOLS: tuple[tuple[str, str, str], ...] = (
@@ -36,12 +49,41 @@ FRANKFURTER_QUOTES: tuple[tuple[str, str], ...] = (
     ("ARS", "USD/ARS (peso argentino, via Frankfurter)"),
     ("EUR", "EUR/USD (derivado do par USD/EUR)"),
 )
-# código SGS: (instrumento, rótulo). 1 e 10813: dólar venda e compra (PTAX); 432: meta da Selic.
+# código SGS: (código, instrumento, rótulo). 1 e 10813: PTAX venda e compra; 11: Selic diária (% a.d.);
+# 432: meta da Selic; 433: IPCA mensal (série do IBGE publicada pelo BCB, fonte secundária).
 BCB_SERIES: tuple[tuple[int, str, str], ...] = (
     (1, "PTAX venda", "USD/BRL PTAX venda (SGS 1)"),
     (10813, "PTAX compra", "USD/BRL PTAX compra (SGS 10813)"),
+    (11, "Selic diária (SGS 11)", "Selic diária, % a.d. (SGS 11)"),
     (432, "Selic meta", "Taxa Selic meta, % a.a. (SGS 432)"),
+    (433, "IPCA mensal (SGS 433)", "IPCA mensal, % (SGS 433, IBGE via BCB; fonte secundária)"),
 )
+# Quantos dias para trás cada consulta olha. Séries diárias: 15 dias bastam. Séries mensais ou raras: 400 dias.
+SGS_LOOKBACK_DAYS: dict[int, int] = {1: 15, 10813: 15, 11: 15, 432: 400, 433: 400}
+
+
+def _add_years(day: date, years: int) -> date:
+    try:
+        return day.replace(year=day.year + years)
+    except ValueError:  # 29/02 em ano não bissexto
+        return day.replace(year=day.year + years, day=28)
+
+
+def sgs_request(code: int, start: date, end: date) -> tuple[str, dict[str, str]]:
+    """URL e parâmetros de uma consulta SGS. `dataInicial` e `dataFinal` são sempre enviados (obrigatórios).
+
+    Janela inválida (início depois do fim ou mais de 10 anos) levanta ValueError antes de qualquer rede.
+    """
+    if start > end:
+        raise ValueError("SGS: dataInicial posterior a dataFinal")
+    if end > _add_years(start, SGS_MAX_WINDOW_YEARS):
+        raise ValueError(f"SGS: janela maior que {SGS_MAX_WINDOW_YEARS} anos")
+    params = {
+        "formato": "json",
+        "dataInicial": start.strftime("%d/%m/%Y"),
+        "dataFinal": end.strftime("%d/%m/%Y"),
+    }
+    return BCB_SGS_BASE.format(code=code), params
 
 
 class FeedFormatError(ValueError):
@@ -143,7 +185,7 @@ def parse_frankfurter(data: Any) -> list[QuoteDraft]:
 
 
 def parse_bcb_series(data: Any, instrument: str, label: str) -> QuoteDraft:
-    """Série do SGS (`ultimos/N`): a última linha é a referência; a variação vem da penúltima."""
+    """Série do SGS (consulta com datas): a última linha é a referência; a variação vem da penúltima."""
     if not isinstance(data, list) or not data:
         raise FeedFormatError(f"SGS {instrument}: sem valores")
     last = data[-1]

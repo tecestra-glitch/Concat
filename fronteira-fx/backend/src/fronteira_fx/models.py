@@ -13,6 +13,7 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     Date,
     DateTime,
@@ -446,16 +447,36 @@ class Task(Base):
 
 
 class NewsItem(Base):
-    """Manchete de feed público (módulo `market`): só título, link, fonte e horários. Nada de texto da matéria."""
+    """Manchete de feed público (módulo `market`): título, link, fonte, horários e, só em feed que autoriza, um
+    trecho curto. Nunca o texto inteiro da matéria."""
 
     __tablename__ = "news_items"
+    __table_args__ = (Index("ix_news_items_feed_guid", "feed", "guid"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    source: Mapped[str] = mapped_column(String(32), index=True)  # infomoney | agencia-brasil | bcb | mercopress | demo
+    source: Mapped[str] = mapped_column(String(32), index=True)  # investinglive | infomoney | bcb | ... | demo
     feed: Mapped[str] = mapped_column(String(48))  # id do feed de origem (ex.: infomoney-economia)
     title: Mapped[str] = mapped_column(Text)
     link: Mapped[str] = mapped_column(String(2048), unique=True)  # deduplicação por link
+    guid: Mapped[str | None] = mapped_column(String(512), nullable=True)  # deduplicação por guid dentro do feed
+    excerpt: Mapped[str | None] = mapped_column(String(400), nullable=True)  # trecho curto (≤ 281 caracteres)
     published_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True, index=True)
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class SentimentReading(Base):
+    """Leitura de sentimento de mercado (Fear & Greed, Alternative.me). Tendência com atribuição; nunca executável."""
+
+    __tablename__ = "sentiment_readings"
+    __table_args__ = (UniqueConstraint("index_id", "observed_at", "data_mode", name="uq_sentiment_reading"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    index_id: Mapped[str] = mapped_column(String(32))  # fng
+    provider: Mapped[str] = mapped_column(String(32))  # alternative.me
+    value: Mapped[int] = mapped_column(Integer)  # 0 (medo extremo) a 100 (ganância extrema)
+    classification: Mapped[str] = mapped_column(String(32))  # rótulo do provedor, ex.: Fear
+    observed_at: Mapped[datetime] = mapped_column(UTCDateTime)
     captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
 
@@ -493,6 +514,74 @@ class MarketCandle(Base):
     close: Mapped[Decimal] = mapped_column(Money)
     captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class MarketBookTop(Base):
+    """Último topo do livro (bookTicker da Binance) por par e modo de dados, gravado em lote pelo stream do worker.
+
+    Referência de mercado: nunca executável e nunca entra no grafo de ciclos.
+    """
+
+    __tablename__ = "market_book_top"
+
+    symbol: Mapped[str] = mapped_column(String(24), primary_key=True)  # ex.: BTCUSDT
+    data_mode: Mapped[str] = mapped_column(String(16), primary_key=True, default="real")
+    instrument: Mapped[str] = mapped_column(String(32))  # ex.: BTC/USDT
+    bid: Mapped[Decimal] = mapped_column(Money)
+    bid_qty: Mapped[Decimal] = mapped_column(Money)
+    ask: Mapped[Decimal] = mapped_column(Money)
+    ask_qty: Mapped[Decimal] = mapped_column(Money)
+    update_id: Mapped[int] = mapped_column(BigInteger)
+    captured_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class FxReferenceQuote(Base):
+    """Cotação de referência de câmbio (Frankfurter, PTAX, Open Exchange Rates) com a data de coleta.
+
+    `referencia` é sempre verdadeiro: referência de mercado nunca é executável nem vira aresta de ciclo.
+    Uma linha por (fonte, instrumento, data observada): o histórico serve para comparar fontes no mesmo dia.
+    """
+
+    __tablename__ = "fx_reference_quotes"
+    __table_args__ = (
+        UniqueConstraint("source", "instrument", "observed_at", "data_mode", name="uq_fx_reference_quote"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    instrument: Mapped[str] = mapped_column(String(32), index=True)  # USD/BRL, USD/PYG, EUR/USD
+    source: Mapped[str] = mapped_column(String(32), index=True)  # frankfurter | bcb-ptax-venda | openexchangerates
+    price: Mapped[Decimal] = mapped_column(Money)
+    observed_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    collected_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    referencia: Mapped[bool] = mapped_column(Boolean, default=True)
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+
+
+class ReferenceApiUsage(Base):
+    """Contador de chamadas por fonte e mês UTC (`period` = AAAA-MM). Persistido: sobrevive a reinícios do worker."""
+
+    __tablename__ = "reference_api_usage"
+    __table_args__ = (UniqueConstraint("source", "period", name="uq_reference_api_usage"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(32))
+    period: Mapped[str] = mapped_column(String(7))
+    calls: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class MarketRead(Base):
+    """Leitura de mercado já calculada pelo worker: triângulos por modo e indicadores por instrumento e intervalo.
+    A API só lê esta tabela; nenhum ciclo ou indicador é recalculado numa requisição (Vercel: 4 h de CPU por mês)."""
+
+    __tablename__ = "market_reads"
+    __table_args__ = (UniqueConstraint("kind", "key", "data_mode", name="uq_market_read"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(32))  # triangles | indicators
+    key: Mapped[str] = mapped_column(String(120))  # triangles: modo (celular|todos); indicators: instrumento|intervalo
+    data_mode: Mapped[str] = mapped_column(String(16), default="real", index=True)
+    payload: Mapped[Any] = mapped_column(JSON)
+    computed_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
 class ExecutionPlan(Base):
