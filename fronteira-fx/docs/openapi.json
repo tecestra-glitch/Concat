@@ -5436,6 +5436,18 @@
             "title": "Counter",
             "default": false
           },
+          "quoted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quoted At"
+          },
           "ref_rate": {
             "anyOf": [
               {
@@ -6395,7 +6407,7 @@
               "type": "string"
             },
             "type": "array",
-            "maxItems": 7,
+            "maxItems": 21,
             "minItems": 2,
             "title": "Path"
           }
@@ -6406,7 +6418,7 @@
           "path"
         ],
         "title": "PlanCreateIn",
-        "description": "Plano a partir de um ciclo: o `start` e o `path` (nós, o último igual ao primeiro) de `/opportunities/cycles`."
+        "description": "Plano a partir de um ciclo: o `start` e o `path` (nós, o último igual ao primeiro) de `/opportunities/cycles`.\n\nAté 21 nós: 6 pernas (o máximo de `max_len`), com no máximo dois balcões entre pernas consecutivas."
       },
       "PlanOut": {
         "properties": {

@@ -48,7 +48,8 @@ def cycle_dict() -> dict:
     return {
         "start": "PYG@cash:CDE",
         "path": ["PYG@cash:CDE", "PYG@chaco:CDE", "USD@chaco:CDE", "USD@cash:CDE"],
-        "edges": [],
+        "edges": [{"evidence_id": None, "quoted_at": NOW.isoformat(), "via": "chaco cash @CDE (venda 7300)",
+                   "rate": "0.00013"}],
         "legs": legs,
         "amount_in": "7300000",
         "amount_out": "7400000",
@@ -236,3 +237,27 @@ def test_done_step_keeps_the_realized_amount_and_note(db):
     step = plan.steps[0]
     assert step.status == "done" and step.actual_out == D("40") and step.note == "trânsito rápido"
     assert step.done_at == NOW
+
+
+# --- SC-1: a validade do plano sai da cotação mais velha, com ou sem evidência ----------------------------------------
+
+
+def test_expiry_uses_the_oldest_quote_date_even_without_evidence(db):
+    c = cycle_dict()
+    c["edges"] = [
+        {"evidence_id": None, "via": "casa", "rate": "0.00013", "quoted_at": "2026-11-01T12:00:00+00:00"},
+        {"evidence_id": None, "via": "outra", "rate": "1", "quoted_at": "2026-11-04T11:59:00+00:00"},
+    ]
+    plan = plans_svc.create_plan(
+        db, cycles=[c], start=c["start"], path=c["path"], data_mode="real", now=NOW, max_age_s=900
+    )
+    assert plan.quotes_as_of == datetime(2026, 11, 1, 12, tzinfo=UTC)  # não "agora"
+    assert plans_svc.refresh_status(plan, now=NOW) == "expired"
+
+
+def test_a_cycle_with_no_quote_date_is_refused_instead_of_using_now(db):
+    c = cycle_dict()
+    c["edges"] = []  # nenhuma aresta datada: não há como provar que a cotação é recente
+    with pytest.raises(PlanError) as err:
+        plans_svc.create_plan(db, cycles=[c], start=c["start"], path=c["path"], data_mode="real", now=NOW, max_age_s=900)
+    assert err.value.status == 422

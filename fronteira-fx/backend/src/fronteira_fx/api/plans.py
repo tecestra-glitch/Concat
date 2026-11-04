@@ -93,12 +93,13 @@ def _raise(err: PlanError) -> None:
     dependencies=[ApiKey],
 )
 def create(body: PlanCreateIn, db: DbDep, data_mode: DataModeDep, settings: SettingsDep) -> PlanOut:
+    # o ciclo é identificado pelo `path` (nós), não pelo número de arestas: busca no máximo de pernas, sem corte
     cycles = find_cycles_for(
         db,
         data_mode=data_mode,
-        max_len=len(body.path) - 1,
+        max_len=6,
         start=body.start,
-        limit=500,
+        limit=None,
         lookback_s=settings.quotes_lookback_s,
     )
     now = utcnow()

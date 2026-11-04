@@ -122,7 +122,7 @@ SourceHealth { "source_id": "chaco", "health": "blocked", "last_error": "string|
 | GET | `/v1/opportunities?capital=&channel=&city=&kind=` | `Opportunity[]` (ranking principal + secundário) |
 | GET | `/v1/opportunities/cycles?max_len=4&min_roi=&start=&limit=200` | `Cycle[]` — ciclos no grafo de posições a partir dos saldos estacionados; `max_len` conta pernas, balcão não conta (ver abaixo) |
 | GET | `/v1/plans?limit=50` | `PlanOut[]` — planos de execução deste modo, do mais recente (ver "Planos de execução") |
-| POST **[chave]** | `/v1/plans` | body `{start, path}` (nós de um ciclo atual de `/v1/opportunities/cycles`) → `201 PlanOut`; `404` se o ciclo não existe mais com as cotações e saldos atuais; `422` se o ciclo não tem ganho líquido positivo. Não executa nada |
+| POST **[chave]** | `/v1/plans` | body `{start, path}` (nós de um ciclo atual de `/v1/opportunities/cycles`, até 21 nós: 6 pernas com balcões) → `201 PlanOut`; `404` se o ciclo não existe mais com as cotações e saldos atuais; `422` se o ciclo não tem ganho líquido positivo ou não tem data de cotação. Não executa nada |
 | GET | `/v1/plans/{id}` | `PlanOut` (com `steps`) |
 | POST **[chave]** | `/v1/plans/{id}/approve` | `PlanOut`; só grava a decisão. `409` se não estiver `proposed` ou se expirou |
 | POST **[chave]** | `/v1/plans/{id}/reject` | `PlanOut`; recusa um plano `proposed` ou `approved` (antes de qualquer passo) |
@@ -140,7 +140,8 @@ Aresta = cotação (compra: base→quote a `buy`; venda: quote→base a `1/sell`
 digitais, ou entre contas e casas, priceada por `data/rails.json`), depósito/saque (balcão, ATM) ou deslocamento
 (`kind: travel`, entre cidades, priceado por `data/transport.json`). Campos: `rate`, `fee_pct` (sobre a entrada),
 `fee_fixed` (na moeda de saída), `iof_pct` (sobre a entrada), `transport_fixed` (deslocamento, na moeda de saída),
-`minutes`, `via`, `confidence`, `evidence_id`, `channel`, `border` (cruza BR↔PY), `ref_rate` (taxa de referência na
+`minutes`, `via`, `confidence`, `evidence_id`, `quoted_at` (instante da cotação que originou a aresta; `null` em balcão,
+trilho e deslocamento), `channel`, `border` (cruza BR↔PY), `ref_rate` (taxa de referência na
 mesma direção de `rate`; `null` = sem referência) e `counter` (balcão: não conta em `max_len`) e `unknown_costs` (lista de `spread|fees|iof|transport` que o motor
 não consegue precificar).
 Aplicar as arestas de `edges[]` em ordem reproduz `amount_out`: a cada aresta,
@@ -153,12 +154,15 @@ com troca nas duas pontas também.
 Cotações com `kind: market_reference` ou `modality: reference` (BCP, PTAX) **não** viram aresta: servem só de comparação.
 Ciclos simples com até `max_len` pernas (2 a 6, padrão 4) são avaliados com o saldo livre do nó inicial; uma aresta cuja
 cotação depende do montante (`amount_base`) só é usada dentro da faixa em que foi cotada. Dinheiro em string decimal (D1).
-Fontes descontinuadas (hoje o ueno, em resolução pelo BCP desde 03/11/2026) não entram no grafo: nem cotação da fonte,
-nem cotação com destino nela, nem conta nela. `GET /v1/sources` marca a fonte com `discontinued: true`.
+Várias arestas podem ligar o mesmo par de nós (cartão e espécie, trilho e deslocamento). Todas entram no grafo e a busca
+escolhe uma por perna, conforme o montante que chega a ela: só alternativas que aceitam o montante competem, custo
+conhecido vence custo desconhecido, e depois vem a maior saída. Por isso um mesmo `path` aparece uma vez só na lista.
+Fontes descontinuadas (hoje o ueno, em resolução pelo BCP desde 03/11/2026) não entram no grafo nem na valoração: nem
+cotação da fonte, nem cotação com destino nela, nem conta nela. `GET /v1/sources` marca a fonte com `discontinued: true`.
 
 **Custo desconhecido nunca vira zero.** Trilho ausente ou com valor `null`, rota de deslocamento sem `cost`, taxa
-de valoração que falta para converter, ou IOF de BRL convertido em instituição brasileira (ou casa de FOZ/PPO) sem
-alíquota conhecida, dá `confidence: "incomplete"` na aresta e no ciclo, e a categoria aparece em `unknown_costs`. Na
+de valoração que falta para converter, ou IOF de BRL convertido fora do lado paraguaio (instituição brasileira, fintech,
+fonte sem cidade no Paraguai ou casa de FOZ/PPO) sem alíquota conhecida, dá `confidence: "incomplete"` na aresta e no ciclo, e a categoria aparece em `unknown_costs`. Na
 perna e no ciclo essa categoria sai `null`, nunca `"0"`. Ciclo `incomplete` não é "lucro confirmado" e nunca dispara
 alerta de ganho. Sem taxa de referência, o `spread` da perna de câmbio é `null` (a taxa cotada é o preço total).
 
@@ -221,6 +225,8 @@ PlanStepOut { "n": 1, "kind": "travel", "channel": "presencial", "text": "Leve o
   mais fraca, sem arredondar o preço para zero. Valores inteiros sem centavos; guarani sem centavos.
 - **Estados**: `proposed` → `approved` → `in_progress` → `done`; ou `rejected`; ou `expired`. Um plano que ainda não
   começou expira quando a cotação mais velha dele passa de `quote_max_age_s` (900 s por padrão, `PLAN_QUOTE_MAX_AGE_S`).
+  A cotação mais velha é a menor data entre `quoted_at` das arestas de cotação do ciclo e a data da evidência (quando há).
+  Um ciclo sem nenhuma data de cotação não vira plano (`422`): nunca se usa "agora" como data da cotação.
   Depois que o primeiro passo é feito, o plano não expira mais.
 - **Passos**: em ordem; `409` se pular um passo, repetir um passo já feito ou o plano não estiver aprovado.
 - **Resultado**: ao concluir o último passo, o plano grava no diário (`GET /v1/journal`) uma entrada `kind: "result"`

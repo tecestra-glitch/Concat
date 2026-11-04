@@ -149,11 +149,15 @@ def _aware(value: datetime) -> datetime:
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
-def _oldest_quote(session: Session, cycle: dict[str, Any]) -> datetime | None:
+def _quotes_as_of(session: Session, cycle: dict[str, Any]) -> datetime | None:
+    """Instante da cotação mais velha que o ciclo usa: a data de cada aresta de cotação e, quando há, a da evidência.
+    None quando nenhuma delas é conhecida (não há como medir a validade do plano)."""
+    stamps = [_aware(datetime.fromisoformat(e["quoted_at"])) for e in cycle.get("edges") or [] if e.get("quoted_at")]
     ids = [e["evidence_id"] for e in cycle.get("edges") or [] if e.get("evidence_id")]
-    if not ids:
-        return None
-    return session.scalar(select(Evidence.captured_at).where(Evidence.id.in_(ids)).order_by(Evidence.captured_at))
+    if ids:
+        evidence = session.scalars(select(Evidence.captured_at).where(Evidence.id.in_(ids))).all()
+        stamps.extend(_aware(v) for v in evidence if v is not None)
+    return min(stamps) if stamps else None
 
 
 def _quotes_snapshot(cycle: dict[str, Any]) -> list[dict[str, Any]]:
@@ -181,7 +185,10 @@ def create_plan(
     if Decimal(str(match["gain"])) <= 0:
         # um plano só organiza uma rota que ganha dinheiro; ciclo sem ganho líquido positivo não vira plano
         raise PlanError(422, "só ciclo com ganho líquido positivo vira plano")
-    quotes_as_of = _oldest_quote(session, match) or now
+    quotes_as_of = _quotes_as_of(session, match)
+    if quotes_as_of is None:
+        # nunca usar "agora" como data da cotação: sem data, a validade não se pode provar
+        raise PlanError(422, "ciclo sem data de cotação; calcule os ciclos de novo")
     plan = ExecutionPlan(
         status="proposed",
         start=start,

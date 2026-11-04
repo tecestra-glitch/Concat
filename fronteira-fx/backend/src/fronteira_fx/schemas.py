@@ -403,6 +403,8 @@ class EdgeOut(ApiModel):
     border: bool = False
     # balcão (ida ao caixa de uma casa na mesma cidade): não conta em `max_len`
     counter: bool = False
+    # instante da cotação que originou a aresta (null em aresta sem cotação: balcão, trilho, deslocamento)
+    quoted_at: datetime | None = None
     # taxa de referência na mesma direção de `rate`; null = sem referência (spread desconhecido)
     ref_rate: DecStr | None = None
     unknown_costs: list[CostKey] = []
@@ -624,10 +626,12 @@ StepStatus = Literal["pending", "done"]
 
 
 class PlanCreateIn(ApiModel):
-    """Plano a partir de um ciclo: o `start` e o `path` (nós, o último igual ao primeiro) de `/opportunities/cycles`."""
+    """Plano a partir de um ciclo: o `start` e o `path` (nós, o último igual ao primeiro) de `/opportunities/cycles`.
+
+    Até 21 nós: 6 pernas (o máximo de `max_len`), com no máximo dois balcões entre pernas consecutivas."""
 
     start: str = Field(min_length=1, max_length=120)
-    path: list[str] = Field(min_length=2, max_length=7)
+    path: list[str] = Field(min_length=2, max_length=21)
 
 
 class StepDoneIn(ApiModel):
