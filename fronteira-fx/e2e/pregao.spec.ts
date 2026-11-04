@@ -230,13 +230,15 @@ test.describe("Pregão", () => {
     const button = tape.getByRole("button", { name: "Pausar fita" });
     await expect(button).toBeVisible();
     await expect(button).toHaveAttribute("aria-pressed", "false");
+    // Ordem de Tab = ordem visual: o botão é o primeiro foco da fita, antes dos itens.
+    await expect(tape.locator("button").first()).toHaveAccessibleName("Pausar fita");
     const list = tape.locator("ul.pregao-marquee");
     await expect.poll(() => list.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("running");
     // No celular não há hover nem foco para pausar: o toque no botão tem que bastar.
     if (info.project.name === "mobile-390") await button.tap();
     else await button.click();
-    const resume = tape.getByRole("button", { name: "Retomar fita" });
-    await expect(resume).toHaveAttribute("aria-pressed", "true");
+    // Rótulo constante: o estado vai só no aria-pressed.
+    await expect(button).toHaveAttribute("aria-pressed", "true");
     await expect.poll(() => list.evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("paused");
     // Parada de fato: o deslocamento não muda entre quadros.
     const still = await list.evaluate(async (el) => {
@@ -246,9 +248,9 @@ test.describe("Pregão", () => {
     });
     expect(still).toBe(true);
     await page.reload();
-    await expect(page.getByTestId("pregao-ticker").getByRole("button", { name: "Retomar fita" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("pregao-ticker").getByRole("button", { name: "Pausar fita" })).toHaveAttribute("aria-pressed", "true");
     await expect.poll(() => page.locator("ul.pregao-marquee").evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("paused");
-    await page.getByTestId("pregao-ticker").getByRole("button", { name: "Retomar fita" }).click();
+    await page.getByTestId("pregao-ticker").getByRole("button", { name: "Pausar fita" }).click();
     await expect(page.getByTestId("pregao-ticker").getByRole("button", { name: "Pausar fita" })).toHaveAttribute("aria-pressed", "false");
     await expect.poll(() => page.locator("ul.pregao-marquee").evaluate((el) => getComputedStyle(el).animationPlayState)).toBe("running");
   });

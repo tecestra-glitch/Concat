@@ -91,8 +91,9 @@ export interface TapePauseButtonProps {
 }
 
 /**
- * Botão visível de pausa (WCAG 2.2.2): no toque não existe hover nem foco para parar a fita. Botão de alternância
- * (`aria-pressed`) com o rótulo da ação. Com movimento reduzido a fita já é estática e o botão some.
+ * Botão visível de pausa (WCAG 2.2.2): no toque não existe hover nem foco para parar a fita. Botão de alternância:
+ * o rótulo é constante ("Pausar fita") e o estado vai no `aria-pressed` e no visual (fundo e ícone). Com movimento
+ * reduzido a fita já é estática e o botão some.
  */
 export function TapePauseButton({ paused, onPausedChange }: TapePauseButtonProps): ReactElement {
   const Icon = paused ? Play : Pause;
@@ -102,10 +103,13 @@ export function TapePauseButton({ paused, onPausedChange }: TapePauseButtonProps
       data-testid="pregao-ticker-pause"
       aria-pressed={paused}
       onClick={() => onPausedChange(!paused)}
-      className="inline-flex min-h-10 shrink-0 items-center gap-1 border-l border-border bg-surface px-2 text-xs text-muted hover:text-foreground motion-reduce:hidden md:min-h-8 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2"
+      className={cn(
+        "inline-flex min-h-10 shrink-0 items-center gap-1 border-r border-border px-2 text-xs text-muted hover:text-foreground motion-reduce:hidden md:min-h-8 focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2",
+        paused ? "bg-surface-2 text-foreground" : "bg-surface",
+      )}
     >
       <Icon size={12} aria-hidden />
-      {paused ? "Retomar fita" : "Pausar fita"}
+      Pausar fita
     </button>
   );
 }
@@ -146,6 +150,8 @@ export function TickerTape({
         <p className="text-sm text-muted">Sem cotações na fita.</p>
       ) : (
         <>
+          {/* Antes da lista no DOM e à esquerda na tela: a ordem de Tab segue a ordem visual (WCAG 2.4.3). */}
+          {onPausedChange ? <TapePauseButton paused={paused} onPausedChange={onPausedChange} /> : null}
           <div className="min-w-0 flex-1 overflow-hidden">
             <ul
               data-paused={paused ? "true" : undefined}
@@ -163,7 +169,6 @@ export function TickerTape({
               ))}
             </ul>
           </div>
-          {onPausedChange ? <TapePauseButton paused={paused} onPausedChange={onPausedChange} /> : null}
         </>
       )}
     </div>

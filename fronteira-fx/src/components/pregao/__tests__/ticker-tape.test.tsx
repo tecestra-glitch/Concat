@@ -195,15 +195,25 @@ describe("TickerTape: botão de pausa (WCAG 2.2.2, toque sem hover)", () => {
     expect(ul).not.toContain("data-paused");
   });
 
-  it("pausada: 'Retomar fita' com aria-pressed=true e animation-play-state: paused na lista", () => {
+  it("pausada: o rótulo continua 'Pausar fita' (constante) com aria-pressed=true e a lista para", () => {
     const html = renderToStaticMarkup(<TickerTape items={demoTicker(NOW)} paused onPausedChange={() => {}} />);
     const button = html.match(/<button[^>]*data-testid="pregao-ticker-pause"[^>]*>[\s\S]*?<\/button>/)?.[0] ?? "";
     expect(button).toContain('aria-pressed="true"');
-    expect(button).toContain("Retomar fita");
+    expect(button).toContain("Pausar fita");
+    // Rótulo constante + aria-pressed: nunca "Retomar fita" no texto nem no nome.
+    expect(html).not.toContain("Retomar fita");
     const ul = html.match(/<ul\b[^>]*>/)?.[0] ?? "";
     expect(ul).toContain("pregao-marquee");
     expect(ul).toContain("[animation-play-state:paused]");
     expect(ul).toContain('data-paused="true"');
+  });
+
+  it("o botão vem antes da lista no DOM (ordem de Tab = ordem visual, WCAG 2.4.3)", () => {
+    const html = renderToStaticMarkup(<TickerTape items={demoTicker(NOW)} onPausedChange={() => {}} />);
+    const button = html.indexOf('data-testid="pregao-ticker-pause"');
+    const list = html.indexOf('<ul');
+    expect(button).toBeGreaterThan(-1);
+    expect(button).toBeLessThan(list);
   });
 
   it("o clique alterna o estado pedido ao handler", () => {
