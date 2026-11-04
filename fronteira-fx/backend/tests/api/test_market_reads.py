@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from fronteira_fx.api.cache import TtlCache
+from fronteira_fx.indicators import core
 from fronteira_fx.main import create_app
 from fronteira_fx.models import FxReferenceQuote, MarketCandle, MarketQuote
 from tests.conftest import make_settings
@@ -199,3 +200,41 @@ def test_indicators_insufficient_then_ok(client, db):
 def test_indicators_reject_unknown_instrument(client):
     resp = client.get("/v1/market/indicators", params={"instrument": "XRP/USDT"})
     assert resp.status_code == 422
+
+
+def test_ichimoku_publicado_e_a_nuvem_vigente_nao_a_projecao(client, db):
+    """A nuvem publicada é a que vale no último fechamento (calculada 26 velas antes), não o valor do índice atual."""
+    now = _now()
+    start = now - timedelta(minutes=5 * 130)
+    rows = []
+    for i in range(130):
+        close = Decimal(100 + (i % 17)) + Decimal(i) / 10
+        open_time = start + timedelta(minutes=5 * i)
+        rows.append((open_time, close))
+        db.add(
+            MarketCandle(
+                instrument="BTC/USDT",
+                interval="5m",
+                open_time=open_time,
+                close_time=open_time + timedelta(minutes=5),
+                open=close - Decimal("0.3"),
+                high=close + Decimal("1"),
+                low=close - Decimal("1"),
+                close=close,
+                data_mode="real",
+            )
+        )
+    db.commit()
+    ohlc = core.Ohlc(
+        open=[c - Decimal("0.3") for _, c in rows],
+        high=[c + Decimal("1") for _, c in rows],
+        low=[c - Decimal("1") for _, c in rows],
+        close=[c for _, c in rows],
+    )
+    ich = core.ichimoku(ohlc)
+    last = len(rows) - 1
+    body = client.get("/v1/market/indicators", params={"instrument": "BTC/USDT", "interval": "5m"}).json()
+    assert body["status"] == "ok"
+    assert Decimal(body["ichimoku_senkou_a"]) == ich.senkou_a[last - 26]  # type: ignore[index]
+    assert Decimal(body["ichimoku_senkou_b"]) == ich.senkou_b[last - 26]  # type: ignore[index]
+    assert ich.senkou_a[last] != ich.senkou_a[last - 26]  # o valor do índice atual é outro número

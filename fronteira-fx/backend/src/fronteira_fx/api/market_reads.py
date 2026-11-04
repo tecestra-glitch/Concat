@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import or_, select
 
-from ..indicators import sinais
+from ..indicators import core, sinais
 from ..market import quotes as q
 from ..market import reference as ref
 from ..market.service import load_candles
@@ -70,7 +70,7 @@ class IndicatorsOut(BaseModel):
     natr_14: str | None
     ichimoku_tenkan: str | None
     ichimoku_kijun: str | None
-    ichimoku_senkou_a: str | None  # valor calculado no índice (não deslocado 26 à frente)
+    ichimoku_senkou_a: str | None  # nuvem vigente: calculada 26 velas antes do último fechamento
     ichimoku_senkou_b: str | None
     source: Literal["binance"] = "binance"
     executable: Literal[False] = False
@@ -275,6 +275,9 @@ def get_market_indicators(
             leituras = sinais.calcula_leituras(closed)
         except sinais.VelaInvalidaError as exc:
             raise HTTPException(status_code=422, detail="série de velas inconsistente") from exc
+        # A nuvem que vale no último fechamento foi calculada 26 velas antes. O valor do índice atual é a projeção
+        # para daqui a 26 velas e não pode ser publicado como nuvem vigente.
+        cloud = core.nuvem_vigente(leituras.ichimoku, len(closed) - 1)
         values = {
             "rsi_14": _last(leituras.rsi),
             "macd_line": _last(leituras.macd.line),
@@ -289,8 +292,8 @@ def get_market_indicators(
             "natr_14": _last(leituras.natr),
             "ichimoku_tenkan": _last(leituras.ichimoku.tenkan),
             "ichimoku_kijun": _last(leituras.ichimoku.kijun),
-            "ichimoku_senkou_a": _last(leituras.ichimoku.senkou_a),
-            "ichimoku_senkou_b": _last(leituras.ichimoku.senkou_b),
+            "ichimoku_senkou_a": cloud[0] if cloud else None,
+            "ichimoku_senkou_b": cloud[1] if cloud else None,
         }
         # RSI e ADX são as leituras mais exigentes em janela: sem elas o conjunto não está completo
         complete = values["rsi_14"] is not None and values["adx_14"] is not None
