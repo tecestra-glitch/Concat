@@ -488,9 +488,10 @@ export const api = {
     return demoMarketVolatility;
   },
   /** GET /v1/market/triangles: triângulos de três pernas no grafo de posições (`executable` só com confiança `quoted`). */
-  async triangles(mode: Mode, f: { minRoi?: string; start?: string; limit?: number } = {}): Promise<Cycle[]> {
-    if (mode !== "demo") return http<Cycle[]>(`/v1/market/triangles${qs({ min_roi: f.minRoi, start: f.start, limit: f.limit ?? 50, mode: "celular", ...modeQuery(mode) })}`);
-    const all = await api.cycles("demo", { maxLen: 3, mode: "celular" });
+  async triangles(mode: Mode, f: { minRoi?: string; start?: string; limit?: number; route?: "celular" | "todos" } = {}): Promise<Cycle[]> {
+    const route = f.route ?? "celular"; // pelo celular é o padrão; "todos" inclui as pernas presenciais
+    if (mode !== "demo") return http<Cycle[]>(`/v1/market/triangles${qs({ min_roi: f.minRoi, start: f.start, limit: f.limit ?? 50, mode: route, ...modeQuery(mode) })}`);
+    const all = await api.cycles("demo", { maxLen: 3, mode: route });
     return all.filter((c) => c.edges.length === 3).slice(0, f.limit ?? 50);
   },
   /** GET /v1/market/crypto: cripto de referência (Binance, dados públicos). Nunca executável. */

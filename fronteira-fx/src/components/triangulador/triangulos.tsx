@@ -27,6 +27,11 @@ import {
 } from "@/lib/api/triangulador";
 import { CardGrid, SourceLine, Notice, Tag } from "./shared";
 
+const ROUTES = [
+  { id: "celular", label: "Pelo celular" },
+  { id: "todos", label: "Inclui presencial (opcional)" },
+] as const;
+
 const GAIN_CLASS = { gain: "text-gain-strong", loss: "text-loss", flat: "" } as const;
 
 const FLAGS = new Set<FlagCode>(["BRL", "USD", "PYG", "ARS", "EUR", "USDT"]);
@@ -103,7 +108,8 @@ export function TriangleCard({ c, index }: { c: Cycle; index: number }) {
 }
 
 export function Triangulos() {
-  const q = useTriangles({ limit: 50 });
+  const [route, setRoute] = React.useState<"celular" | "todos">("celular");
+  const q = useTriangles({ limit: 50, route });
   const accounts = useAccounts();
   const list = q.data ?? [];
   const simulatedBalance = accounts.data !== undefined && hasNoBalance(accounts.data);
@@ -113,6 +119,19 @@ export function Triangulos() {
         Triângulos de três pernas no seu grafo de posições, ordenados pelo ganho. Cada um tem rótulo de executável ou de referência.
         Ninguém envia ordem daqui: a tela só lê e simula.
       </p>
+      <div role="group" aria-label="Quais pernas entram" className="flex flex-wrap gap-2">
+        {ROUTES.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            aria-pressed={route === r.id}
+            onClick={() => setRoute(r.id)}
+            className="inline-flex min-h-11 items-center rounded-control border border-border px-3 text-sm aria-pressed:border-accent aria-pressed:bg-surface-2 aria-pressed:font-medium sm:min-h-9"
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
       <Notice>{SIMULATION_NOTE}</Notice>
       {simulatedBalance && (
         <p className="rounded-control border border-warn/40 bg-surface-2 px-3 py-2 text-xs" data-testid="no-balance-note">

@@ -127,7 +127,7 @@ export function useMarketVolatility() {
 }
 
 /** Telas do triangulador (U09). Leitura de `/v1/market/*`, atualizada a cada 60 s (o backend cacheia no mesmo TTL). */
-export function useTriangles(f: { minRoi?: string; start?: string; limit?: number } = {}) {
+export function useTriangles(f: { minRoi?: string; start?: string; limit?: number; route?: "celular" | "todos" } = {}) {
   const { mode } = useSettings();
   return useQuery({ queryKey: ["tri", mode, "triangles", f], queryFn: () => api.triangles(mode, f), refetchInterval: 60_000, staleTime: 30_000 });
 }
