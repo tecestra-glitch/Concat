@@ -362,6 +362,10 @@ export async function runWesternUnionFlow(
     const receiveText = await page.inputValue(SELECTORS.receive_amount);
     const bodyText = await page.bodyText();
     const received = parseDecimalText(receiveText);
+    if (received === null) {
+      trail.add(`receive=${receiveText || "(vazio)"}`);
+      return await fail("degraded", "receive amount empty after the options were clicked");
+    }
     scenario.receive_amount_pyg = received;
     scenario.receive_amount_text = receiveText;
     Object.assign(scenario, extractSummary(bodyText));

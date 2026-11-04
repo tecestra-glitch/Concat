@@ -1,11 +1,11 @@
 // Cotação pela resposta interna do próprio site: `POST https://www.westernunion.com/wuconnect/prices/catalog`,
 // que o SPA chama quando o valor e o destino estão definidos. Lê o JSON que o site já devolve, sem clicar.
 //
-// ATENÇÃO: o formato exato da resposta ainda não foi verificado ao vivo. O que se sabe (docs/adapters.md): o corpo
-// da requisição tem `sender{cty_iso2_ext,curr_iso3,send_amount}` e `receiver{...}`, e a resposta traz
-// `services_groups[].pay_groups[]` com preços por combinação fund_in/fund_out. Por isso a leitura é tolerante:
-// procura os nomes de campo por padrão, exige o recebimento e o pagamento pedidos e, se não achar, devolve null
-// (o fluxo segue pelos cliques). `catalogShape` descreve só as CHAVES da resposta, para o próximo ajuste.
+// Forma observada ao vivo (2026-11-04, só as chaves): a raiz tem `header_reply`, `response_status`, `sender`,
+// `receiver` e `services_groups`; cada grupo de serviço traz `fund_out` / `fund_out_mnem` (recebimento) e uma
+// lista de combinações (`pay_groups`, com o `fund_in` do pagamento). Os nomes dos valores dentro da combinação
+// ainda não foram confirmados: a leitura procura por padrão e, se não achar, devolve null (o fluxo segue pelos cliques).
+// `catalogShape` descreve só as CHAVES da resposta (sem valores), para a trilha de diagnóstico.
 
 import { parseDecimalText } from "./decimal.js";
 import type { Payment, Receive } from "./types.js";
@@ -19,8 +19,8 @@ export interface CatalogQuote {
   promo: string | null;
 }
 
-const MAX_NODES = 5_000;
 const MAX_LEAVES = 400;
+const MAX_DEPTH = 9;
 
 /** URL da resposta de cotação do site (só o caminho e o host da Western Union). */
 export function isCatalogUrl(url: string): boolean {
@@ -58,28 +58,16 @@ interface Leaf {
   value: string | number;
 }
 
-function leavesOf(node: unknown, path = "", depth = 0, out: Leaf[] = []): Leaf[] {
-  if (depth > 8 || out.length >= MAX_LEAVES) return out;
-  if (Array.isArray(node)) {
-    node.forEach((v, i) => leavesOf(v, `${path}[${i}]`, depth + 1, out));
-  } else if (node !== null && typeof node === "object") {
-    for (const [k, v] of Object.entries(node)) leavesOf(v, path ? `${path}.${k}` : k, depth + 1, out);
-  } else if (typeof node === "string" || typeof node === "number") {
-    const key = path.split(/[.[\]]/).filter(Boolean).pop() ?? "";
-    out.push({ path, key, value: node });
+/** Campos escalares de um objeto e de seus filhos que não são arrays (um array é outra combinação). */
+function ownLeaves(node: object, path = "", depth = 0, out: Leaf[] = []): Leaf[] {
+  if (depth > 3 || out.length >= MAX_LEAVES) return out;
+  for (const [k, v] of Object.entries(node)) {
+    const p = path ? `${path}.${k}` : k;
+    if (Array.isArray(v)) continue;
+    if (v !== null && typeof v === "object") ownLeaves(v, p, depth + 1, out);
+    else if (typeof v === "string" || typeof v === "number") out.push({ path: p, key: k, value: v });
   }
   return out;
-}
-
-/** Objetos do JSON, filhos antes dos pais: a combinação mais específica é avaliada primeiro. */
-function* objectsPostOrder(node: unknown, depth = 0): Generator<unknown> {
-  if (depth > 8) return;
-  if (Array.isArray(node)) {
-    for (const v of node) yield* objectsPostOrder(v, depth + 1);
-  } else if (node !== null && typeof node === "object") {
-    for (const v of Object.values(node)) yield* objectsPostOrder(v, depth + 1);
-    yield node;
-  }
 }
 
 const RECEIVE_TOKENS: Record<Receive, RegExp> = {
@@ -92,79 +80,101 @@ const PAYMENT_TOKENS: Record<Payment, RegExp> = {
   card: /CARD|CARTAO|CARTÃO|CREDIT|DEBIT|^(CC|DC)$/i,
 };
 
+interface Ctx {
+  out: string[];
+  inn: string[];
+}
+
 function numericText(v: string | number): string | null {
   return parseDecimalText(String(v));
 }
 
-/** Monta a cotação para o recebimento e o pagamento pedidos, ou null se a resposta não os mostra. */
-export function quoteFromCatalog(
-  body: unknown,
+function firstNumeric(leaves: Leaf[], keyRe: RegExp, pathRe: RegExp | null, excludePath?: RegExp): string | null {
+  for (const l of leaves) {
+    if (!keyRe.test(l.key)) continue;
+    if (pathRe && !pathRe.test(l.path)) continue;
+    if (excludePath && excludePath.test(l.path)) continue;
+    const v = numericText(l.value);
+    if (v !== null) return v;
+  }
+  return null;
+}
+
+/** Quote for one combination node, when its context has the requested receive and payment and an amount. */
+function quoteHere(leaves: Leaf[], ctx: Ctx, want: { receive: Receive; payment: Payment }): CatalogQuote | null {
+  if (!ctx.out.some((t) => RECEIVE_TOKENS[want.receive].test(t))) return null;
+  if (!ctx.inn.some((t) => PAYMENT_TOKENS[want.payment].test(t))) return null;
+  const received = firstNumeric(leaves, /amount|value|total|sum/i, /receiv|recipient|dest|payout|pay_out/i);
+  if (received === null || Number(received) <= 0) return null;
+  const feeBefore = firstNumeric(leaves, /fee|tarifa|charge/i, /before|list|original|gross/i);
+  const fee = firstNumeric(leaves, /fee|tarifa|charge/i, null, /before|list|original|gross|discount/i);
+  const rate = firstNumeric(leaves, /rate|exchange|cambio|câmbio/i, null);
+  const deliveryLeaf = leaves.find((l) => typeof l.value === "string" && /deliver|eta|prazo|speed|time/i.test(l.key));
+  // promo: text only ("100% de desconto 45.00 BRL"); a numeric field such as fee_before_discount_brl is not a promo
+  const promoLeaf = leaves.find(
+    (l) =>
+      typeof l.value === "string" &&
+      (/promo/i.test(l.key) || (/discount|desconto/i.test(l.key) && /[a-zà-ú]{3,}/i.test(l.value))),
+  );
+  return {
+    receive_amount_pyg: received,
+    fee_brl: fee,
+    fee_before_discount_brl: feeBefore,
+    exchange_rate: rate,
+    delivery: typeof deliveryLeaf?.value === "string" ? deliveryLeaf.value : null,
+    promo: typeof promoLeaf?.value === "string" ? promoLeaf.value : null,
+  };
+}
+
+/**
+ * Monta a cotação para o recebimento e o pagamento pedidos, ou null se a resposta não os mostra.
+ * Percorre a árvore de cima para baixo levando o contexto dos pais: `fund_out` vem do grupo de serviço e
+ * `fund_in` da combinação de pagamento (pay_groups). Uma combinação só vale com os dois e com um valor recebido.
+ */
+export function quoteFromCatalog(body: unknown, want: { receive: Receive; payment: Payment }): CatalogQuote | null {
+  return walk(body, { out: [], inn: [] }, want, 0);
+}
+
+function walk(
+  node: unknown,
+  ctx: Ctx,
   want: { receive: Receive; payment: Payment },
+  depth: number,
 ): CatalogQuote | null {
-  let visited = 0;
-  for (const obj of objectsPostOrder(body)) {
-    if (++visited > MAX_NODES) break;
-    // Only the object's own fields: a leaf under an array belongs to another combination, so it is left out
-    // (otherwise a parent object would mix fund_in and fund_out from different pay groups).
-    const leaves = leavesOf(obj).filter((l) => !l.path.includes("["));
-    const outTokens = leaves.filter((l) => /fund_?out/i.test(l.path)).map((l) => String(l.value));
-    const inTokens = leaves.filter((l) => /fund_?in/i.test(l.path)).map((l) => String(l.value));
-    if (outTokens.length === 0 || inTokens.length === 0) continue;
-    if (!outTokens.some((t) => RECEIVE_TOKENS[want.receive].test(t))) continue;
-    if (!inTokens.some((t) => PAYMENT_TOKENS[want.payment].test(t))) continue;
-
-    const received = leaves
-      .filter((l) => /receiv|recipient|dest|payout|pay_out/i.test(l.path) && /amount|value|total|sum/i.test(l.key))
-      .map((l) => numericText(l.value))
-      .find((v): v is string => v !== null && Number(v) > 0);
-    if (!received) continue;
-
-    const feeLeaf = (re: RegExp) =>
-      leaves.filter((l) => re.test(l.key) && !/before|list|original|gross|discount/i.test(l.path))
-        .map((l) => numericText(l.value))
-        .find((v): v is string => v !== null) ?? null;
-    const feeBefore =
-      leaves.filter((l) => /fee|tarifa|charge/i.test(l.key) && /before|list|original|gross/i.test(l.path))
-        .map((l) => numericText(l.value))
-        .find((v): v is string => v !== null) ?? null;
-    const rate =
-      leaves.filter((l) => /rate|exchange|cambio|câmbio/i.test(l.key))
-        .map((l) => numericText(l.value))
-        .find((v): v is string => v !== null) ?? null;
-    const delivery =
-      leaves.find((l) => typeof l.value === "string" && /deliver|eta|prazo|speed|time/i.test(l.key))?.value ?? null;
-    // promo: text only ("100% de desconto 45.00 BRL"); a numeric field like fee_before_discount_brl is not a promo
-    const promo =
-      leaves.find(
-        (l) =>
-          typeof l.value === "string" &&
-          (/promo/i.test(l.key) || (/discount|desconto/i.test(l.key) && /[a-zà-ú]{3,}/i.test(l.value))),
-      )?.value ?? null;
-
-    return {
-      receive_amount_pyg: received,
-      fee_brl: feeLeaf(/fee|tarifa|charge/i),
-      fee_before_discount_brl: feeBefore,
-      exchange_rate: rate,
-      delivery: typeof delivery === "string" ? delivery : null,
-      promo: typeof promo === "string" ? promo : null,
-    };
+  if (depth > MAX_DEPTH || node === null || typeof node !== "object") return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const q = walk(child, ctx, want, depth + 1);
+      if (q) return q;
+    }
+    return null;
+  }
+  const leaves = ownLeaves(node);
+  const next: Ctx = {
+    out: [...ctx.out, ...leaves.filter((l) => /fund_?out/i.test(l.path)).map((l) => String(l.value))],
+    inn: [...ctx.inn, ...leaves.filter((l) => /fund_?in/i.test(l.path)).map((l) => String(l.value))],
+  };
+  const here = quoteHere(leaves, next, want);
+  if (here) return here;
+  for (const child of Object.values(node)) {
+    const q = walk(child, next, want, depth + 1);
+    if (q) return q;
   }
   return null;
 }
 
 /** Só a forma da resposta (nomes de chave e tipos, sem valores), para o diagnóstico na trilha. */
-export function catalogShape(node: unknown, depth = 0): string {
-  const text = shapeOf(node, depth);
-  return text.length > 600 ? `${text.slice(0, 600)}…` : text;
+export function catalogShape(node: unknown): string {
+  const text = shapeOf(node, 0);
+  return text.length > 3_500 ? `${text.slice(0, 3_500)}…` : text;
 }
 
 function shapeOf(node: unknown, depth: number): string {
-  if (depth > 7) return "…";
+  if (depth > 9) return "…";
   if (node === null) return "null";
   if (Array.isArray(node)) return node.length === 0 ? "[0]" : `[${node.length}]<${shapeOf(node[0], depth + 1)}>`;
   if (typeof node === "object") {
-    const entries = Object.entries(node).slice(0, 12);
+    const entries = Object.entries(node).slice(0, 25);
     return `{${entries.map(([k, v]) => `${k}:${shapeOf(v, depth + 1)}`).join(",")}}`;
   }
   return typeof node;

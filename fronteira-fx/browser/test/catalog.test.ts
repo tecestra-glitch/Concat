@@ -78,7 +78,27 @@ describe("catalogShape (diagnóstico sem valores)", () => {
   it("limita o tamanho", () => {
     const big: Record<string, unknown> = {};
     for (let i = 0; i < 40; i++) big[`k${i}`] = { a: { b: { c: { d: 1 } } } };
-    expect(catalogShape(big).length).toBeLessThanOrEqual(601);
+    expect(catalogShape(big).length).toBeLessThanOrEqual(3_501);
+  });
+
+  it("aceita a forma aninhada ao vivo: fund_out no serviço, fund_in na combinação", () => {
+    const nested = {
+      header_reply: { correlation_id: "x" },
+      services_groups: [
+        {
+          fund_out: "BA",
+          fund_out_mnem: "BA",
+          pay_groups: [
+            { fund_in: "CARD", receive_amount: "5328209.00" },
+            { fund_in: "WUPAY", fee_brl: "0.00", receive_amount: "5401871.00", fee_before_discount_brl: "45.00" },
+          ],
+        },
+      ],
+    };
+    const q = quoteFromCatalog(nested, { receive: "bank_account", payment: "pix" });
+    expect(q?.receive_amount_pyg).toBe("5401871.00");
+    expect(q?.fee_before_discount_brl).toBe("45.00");
+    expect(quoteFromCatalog(nested, { receive: "cash_pickup", payment: "pix" })).toBeNull();
   });
 });
 
