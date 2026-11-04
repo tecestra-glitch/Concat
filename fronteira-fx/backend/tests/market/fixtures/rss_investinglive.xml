@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Investinglive RSS (fixture sanitizada)</title>
+    <link>https://investinglive.com/</link>
+    <copyright>Copyright 2026 Investinglive.com</copyright>
+    <item>
+      <title><![CDATA[Exemplo: PMI de serviços acima do esperado]]></title>
+      <pubDate>Wed, 04 Nov 2026 08:45:11 GMT</pubDate>
+      <dc:creator><![CDATA[Autor Exemplo]]></dc:creator>
+      <guid isPermaLink="true">https://investinglive.com/news/exemplo-pmi-servicos/</guid>
+      <link>https://investinglive.com/news/exemplo-pmi-servicos/</link>
+      <description><![CDATA[<ul style="margin: 0 0 20px"><li style="margin: 0">Anterior 51,7</li><li>Esperado 51,5</li></ul><p>Texto de exemplo <b>curto</b>.</p>]]></description>
+    </item>
+    <item>
+      <title><![CDATA[Exemplo: PMI de serviços acima do esperado (repetido com parâmetro de rastreio)]]></title>
+      <pubDate>Wed, 04 Nov 2026 08:45:11 GMT</pubDate>
+      <guid isPermaLink="true">https://investinglive.com/news/exemplo-pmi-servicos/</guid>
+      <link>https://investinglive.com/news/exemplo-pmi-servicos/?utm=exemplo</link>
+      <description><![CDATA[<p>Mesmo guid, outro link: deve ser descartado.</p>]]></description>
+    </item>
+    <item>
+      <title><![CDATA[Exemplo: ata com script <script>alert(1)</script> e trecho longo]]></title>
+      <pubDate>Wed, 04 Nov 2026 07:10:00 GMT</pubDate>
+      <guid isPermaLink="false">exemplo-guid-3</guid>
+      <link>https://investinglive.com/news/exemplo-ata/</link>
+      <description><![CDATA[<style>p { color: red }</style><p>Lorem ipsum texto de exemplo para testar o corte do trecho. Frase um com algumas palavras para ocupar espaço no feed de teste. Frase dois com mais palavras para estender o texto além do limite de duzentos e oitenta caracteres que o módulo aceita como trecho curto, de modo que a função precise cortar em um espaço e colocar reticências no final sem quebrar a palavra no meio.</p>]]></description>
+    </item>
+  </channel>
+</rss>

@@ -12,6 +12,10 @@ export const NewsItemSchema = z.object({
   feed: z.string(),
   title: z.string(),
   link: z.string(),
+  /** Trecho curto, só em feed que autoriza (hoje investinglive); null nos demais. Texto de terceiros: escapado. */
+  excerpt: z.string().nullable(),
+  /** Atribuição da fonte: sempre presente e exibida junto de cada item. */
+  attribution: z.string(),
   published_at: z.string().nullable(),
   captured_at: z.string(),
   data_mode: ModeSchema,
@@ -71,6 +75,7 @@ export interface NewsFilters {
 export const REFERENCE_NOTE = "Referência de mercado. Não é preço executável nem cotação de casa de câmbio.";
 
 export const MARKET_SOURCE_LABEL: Record<string, string> = {
+  investinglive: "Investinglive",
   infomoney: "InfoMoney",
   "agencia-brasil": "Agência Brasil",
   bcb: "Banco Central",
@@ -80,6 +85,7 @@ export const MARKET_SOURCE_LABEL: Record<string, string> = {
 
 export const SOURCE_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "all", label: "Todas" },
+  { value: "investinglive", label: "Investinglive" },
   { value: "infomoney", label: "InfoMoney" },
   { value: "agencia-brasil", label: "Agência Brasil" },
   { value: "bcb", label: "Banco Central" },

@@ -20,6 +20,7 @@ from .conftest import market_settings, read_fixture
 
 T0 = datetime(2026, 11, 4, 12, 0, tzinfo=UTC)
 FEED_BODY = {
+    "investinglive": "rss_investinglive.xml",
     "infomoney": "rss_infomoney.xml",
     "infomoney-economia": "rss_infomoney_economia_vazio.xml",
     "infomoney-mercados": "rss_infomoney_mercados_vazio.xml",
