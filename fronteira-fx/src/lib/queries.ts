@@ -41,6 +41,11 @@ export function useCycles(filters: CycleFilters = {}) {
   const { mode } = useSettings();
   return useQuery({ queryKey: ["cycles", mode, filters], queryFn: () => api.cycles(mode, filters), staleTime: 30_000 });
 }
+/** Cadastro de instituições: muda raramente (arquivo versionado), então o cache é longo. */
+export function useInstitutions() {
+  const { mode } = useSettings();
+  return useQuery({ queryKey: ["institutions", mode], queryFn: () => api.institutions(mode), staleTime: 60 * 60_000 });
+}
 export function useAccounts() {
   const { mode } = useSettings();
   return useQuery({ queryKey: ["accounts", mode], queryFn: () => api.accounts(mode) });

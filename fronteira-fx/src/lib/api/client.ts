@@ -41,6 +41,7 @@ import type {
   Volatility,
 } from "./types";
 import type { AlertRule, AlertRuleInput } from "./watch";
+import { InstitutionSchema, type Institution } from "./institutions";
 import type { BackendStatus } from "./backend-status";
 import { DEMO_SERVER_TIME, allDemoQuotes, demoAccounts, demoBranches, demoEvidence, demoHistory, demoJournal, demoOpportunities, demoSources } from "./demo-data";
 import { demoEdges, demoParkedBalances } from "./demo-graph";
@@ -300,6 +301,11 @@ export const api = {
     if (mode !== "demo") return http<SimulationResponse>(`/v1/simulations/routes${qs(modeQuery(mode))}`, { method: "POST", body: JSON.stringify(req) });
     const { simulateDemo } = await import("./demo-simulate");
     return simulateDemo(req);
+  },
+  /** Cadastro de instituições (`GET /v1/institutions`), validado na borda. Demonstração não toca a rede: sem cadastro. */
+  async institutions(mode: Mode): Promise<Institution[]> {
+    if (mode === "demo") return [];
+    return InstitutionSchema.array().parse(await http<unknown>("/v1/institutions"));
   },
   async accounts(mode: Mode): Promise<Account[]> {
     if (mode !== "demo") return http<Account[]>(`/v1/accounts${qs(modeQuery(mode))}`);
