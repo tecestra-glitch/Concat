@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // A tela de entrada não mostra o terminal: fica sem menu, barra nem faixa de demonstração.
+  if (pathname === "/entrar") return <>{children}</>;
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[13.5rem_1fr]">
       <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-accent focus:px-3 focus:py-2 focus:text-accent-foreground">

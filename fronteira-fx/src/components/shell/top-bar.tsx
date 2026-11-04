@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { Menu, Moon, Sun } from "lucide-react";
+import { LogOut, Menu, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { NAV } from "./nav";
@@ -38,6 +38,11 @@ export function TopBar() {
       <div className="ml-auto flex items-center gap-2">
         <ConnectionStatus />
         <ThemeToggle />
+        <form method="post" action="/sair">
+          <Button type="submit" variant="ghost" size="icon" aria-label="Sair" title="Sair">
+            <LogOut />
+          </Button>
+        </form>
       </div>
     </header>
   );
