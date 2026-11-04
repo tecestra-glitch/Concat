@@ -164,8 +164,11 @@ async def test_frankfurter_and_bcb_write_references_and_report_change(market_fac
         name = {
             "1": "bcb_sgs_1_ultimos2.json",
             "10813": "bcb_sgs_10813_ultimos2.json",
+            "11": "bcb_sgs_11_janela.json",
             "432": "bcb_sgs_432_ultimo.json",
+            "433": "bcb_sgs_433_janela.json",
         }[code]
+        assert "dataInicial" in request.url.params and "dataFinal" in request.url.params
         return httpx.Response(200, content=read_fixture(name))
 
     respx.route(url__startswith="https://api.bcb.gov.br/").mock(side_effect=bcb)
@@ -180,7 +183,18 @@ async def test_frankfurter_and_bcb_write_references_and_report_change(market_fac
         await poller.aclose()
     with market_factory() as s:
         rows = {r.instrument: r for r in s.scalars(select(MarketQuote))}
-        assert {"USD/BRL", "USD/PYG", "USD/ARS", "EUR/USD", "PTAX venda", "PTAX compra", "Selic meta"} <= set(rows)
+        assert {
+            "USD/BRL",
+            "USD/PYG",
+            "USD/ARS",
+            "EUR/USD",
+            "PTAX venda",
+            "PTAX compra",
+            "Selic meta",
+            "Selic diária (SGS 11)",
+            "IPCA mensal (SGS 433)",
+        } <= set(rows)
+        assert rows["IPCA mensal (SGS 433)"].kind == "bcb_series"
         assert rows["Selic meta"].price == Decimal("13.75")
         assert rows["USD/PYG"].kind == "fx_reference" and rows["USD/PYG"].source == "frankfurter"
 
