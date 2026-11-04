@@ -311,7 +311,10 @@ class WesternUnionAdapter:
                     source_id=self.info.id, base="BRL", quote="PYG", buy=rate, sell=None,
                     unit_note="PYG por 1 BRL (efetivo: PYG recebidos / BRL enviados; tarifa à parte em fees)",
                     modality="transfer" if receive == "bank_account" else "cash",
-                    kind="indicative", channel="digital", city=None, amount_base=amount, context=context, fees=fees,
+                    # retirada em loja: o envio é pelo app, mas o dinheiro só sai indo a uma agência WU no Paraguai
+                    # (qualquer cidade). Conta como presencial: fica fora do modo "pelo celular" e do ranking digital.
+                    kind="indicative", channel="digital" if receive == "bank_account" else "physical", city=None,
+                    amount_base=amount, context=context, fees=fees,
                     declared_updated_at=declared or (None if historical else captured_at),
                 )
             )

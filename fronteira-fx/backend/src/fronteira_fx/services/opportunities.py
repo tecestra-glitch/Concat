@@ -290,7 +290,8 @@ def saving_candidates(convs: Sequence[Conversion], capital: Decimal, opts: Build
     for path in paths:
         last = path[-1]
         if opts.objective == "purchase" and dest_loc not in (None, "digital"):
-            if last.quote.channel == "physical" and last.quote.city != dest_loc:
+            # presencial sem cidade = qualquer agência no destino (retirada WU no Paraguai): não descarta pela cidade
+            if last.quote.channel == "physical" and last.quote.city is not None and last.quote.city != dest_loc:
                 continue
         channel, _ = _path_channel_city(path)
         if channel not in opts.channels:

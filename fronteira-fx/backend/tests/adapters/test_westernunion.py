@@ -47,8 +47,10 @@ def test_parse_two_receive_methods(captured_at: datetime) -> None:
         assert q.context["bank"] is None and q.context["channel"] == "web"
         assert q.context["promo"] == "100% desconto na tarifa"
         assert q.fees and q.fees[0].amount == Decimal("0") and q.fees[0].currency == "BRL"
-        assert q.kind == "indicative" and q.channel == "digital" and q.city is None
+        assert q.kind == "indicative" and q.city is None
     assert bank.modality == "transfer" and cash.modality == "cash"
+    # retirada em loja exige ir a uma agência no Paraguai: presencial, fora do modo "pelo celular"
+    assert bank.channel == "digital" and cash.channel == "physical"
     assert res.evidence is not None and res.evidence.kind == "json" and "bank_account" in res.evidence.excerpt
 
 
@@ -189,7 +191,7 @@ def test_cotacao_de_retirada_tem_contexto_e_modalidade_proprios() -> None:
     r = wu.adapter.parse(json.dumps(doc), captured_at=datetime(2026, 11, 4, 18, 19, tzinfo=UTC), url="https://x")
     assert len(r.quotes) == 1
     q = r.quotes[0]
-    assert q.modality == "cash" and q.context["receive"] == "cash_pickup"
+    assert q.modality == "cash" and q.context["receive"] == "cash_pickup" and q.channel == "physical"
     assert q.buy == Decimal("1092.3682")
 
 
